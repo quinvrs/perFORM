@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'profile_setup_screen.dart';
 
 class WelcomeFlowScreen extends StatefulWidget {
   const WelcomeFlowScreen({super.key});
@@ -10,9 +11,9 @@ class WelcomeFlowScreen extends StatefulWidget {
 class _WelcomeFlowScreenState extends State<WelcomeFlowScreen> {
   int _i = 0;
 
-  static const double _finalIconY = -0.25;    
-  static const double _textGroupY = 0.18;      // moves WELCOME/CORErect up/down
-  static const double _coreRectTightenPx = 1;  // removes the “gap” between CORE + rect
+  static const double _finalIconY = -0.25;
+  static const double _textGroupY = 0.18; // moves WELCOME/CORErect up/down
+  static const double _coreRectTightenPx = 1; // removes the “gap” between CORE + rect
 
   static const _frames = <({
     Alignment align,
@@ -116,7 +117,6 @@ class _WelcomeFlowScreenState extends State<WelcomeFlowScreen> {
                       opacity: f.uiOpacity,
                       child: Stack(
                         children: [
-                          // ✅ Centered text group (no weird gaps)
                           Align(
                             alignment: const Alignment(0.0, _textGroupY),
                             child: Column(
@@ -130,10 +130,11 @@ class _WelcomeFlowScreenState extends State<WelcomeFlowScreen> {
                                     fontSize: 20,
                                     fontWeight: FontWeight.w500,
                                     fontFamily: 'DM Sans',
+                                    height: 1.0,
                                   ),
                                 ),
-                                
-                                // Use Row + tiny negative translate to remove the kerning “gap”
+
+                                const SizedBox(height: 0), 
                                 Row(
                                   mainAxisSize: MainAxisSize.min,
                                   children: [
@@ -144,6 +145,7 @@ class _WelcomeFlowScreenState extends State<WelcomeFlowScreen> {
                                         fontSize: 48,
                                         fontWeight: FontWeight.w700,
                                         fontFamily: 'DM Sans',
+                                        height: 1.0,
                                       ),
                                     ),
                                     Transform.translate(
@@ -155,6 +157,7 @@ class _WelcomeFlowScreenState extends State<WelcomeFlowScreen> {
                                           fontSize: 48,
                                           fontWeight: FontWeight.w700,
                                           fontFamily: 'DM Sans',
+                                          height: 1.0,
                                         ),
                                       ),
                                     ),
@@ -170,7 +173,12 @@ class _WelcomeFlowScreenState extends State<WelcomeFlowScreen> {
                             bottom: 18,
                             child: InkWell(
                               onTap: () {
-                                // TODO: Navigate to next screen
+                                Navigator.push(
+                                  context,
+                                  MaterialPageRoute(
+                                    builder: (_) => const ProfileSetUpScreen(),
+                                  ),
+                                );
                               },
                               child: Container(
                                 width: 52,
