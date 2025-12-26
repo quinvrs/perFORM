@@ -1,5 +1,4 @@
 import 'package:flutter/material.dart';
-import 'profile_setup_screen.dart';
 
 class WelcomeFlowScreen extends StatefulWidget {
   const WelcomeFlowScreen({super.key});
@@ -12,8 +11,8 @@ class _WelcomeFlowScreenState extends State<WelcomeFlowScreen> {
   int _i = 0;
 
   static const double _finalIconY = -0.25;
-  static const double _textGroupY = 0.18; // moves WELCOME/CORErect up/down
-  static const double _coreRectTightenPx = 1; // removes the “gap” between CORE + rect
+  static const double _textGroupY = 0.18;
+  static const double _coreRectTightenPx = 1;
 
   static const _frames = <({
     Alignment align,
@@ -28,9 +27,8 @@ class _WelcomeFlowScreenState extends State<WelcomeFlowScreen> {
     (align: Alignment(0.0, _finalIconY), scale: 1.0, bgOpacity: 1.0, uiOpacity: 1.0),
   ];
 
-  // timing (slower)
-  static const _bounce = Duration(milliseconds: 160);
-  static const _hold = Duration(milliseconds: 700);
+  static const _bounce = Duration(milliseconds: 180);
+  static const _hold = Duration(milliseconds: 550); 
 
   @override
   void initState() {
@@ -58,7 +56,6 @@ class _WelcomeFlowScreenState extends State<WelcomeFlowScreen> {
             final cardW = (c.maxWidth * 0.9).clamp(320.0, 420.0);
             final cardH = cardW * (812 / 375);
 
-            // Figma size: W=203, H=229 on 375x812
             final logoW = cardW * (203 / 375);
             final logoH = cardH * (229 / 812);
 
@@ -69,10 +66,8 @@ class _WelcomeFlowScreenState extends State<WelcomeFlowScreen> {
                 height: cardH,
                 child: Stack(
                   children: [
-                    // Base white
                     Container(color: Colors.white),
 
-                    // Gradient background
                     AnimatedOpacity(
                       duration: const Duration(milliseconds: 250),
                       opacity: f.bgOpacity,
@@ -91,7 +86,6 @@ class _WelcomeFlowScreenState extends State<WelcomeFlowScreen> {
                       ),
                     ),
 
-                    // Logo animation (kept centered horizontally)
                     AnimatedAlign(
                       duration: _bounce,
                       curve: Curves.bounceOut,
@@ -111,7 +105,6 @@ class _WelcomeFlowScreenState extends State<WelcomeFlowScreen> {
                       ),
                     ),
 
-                    // Final UI (text + arrow)
                     AnimatedOpacity(
                       duration: const Duration(milliseconds: 300),
                       opacity: f.uiOpacity,
@@ -130,11 +123,8 @@ class _WelcomeFlowScreenState extends State<WelcomeFlowScreen> {
                                     fontSize: 20,
                                     fontWeight: FontWeight.w500,
                                     fontFamily: 'DM Sans',
-                                    height: 1.0,
                                   ),
                                 ),
-
-                                const SizedBox(height: 0), 
                                 Row(
                                   mainAxisSize: MainAxisSize.min,
                                   children: [
@@ -145,7 +135,6 @@ class _WelcomeFlowScreenState extends State<WelcomeFlowScreen> {
                                         fontSize: 48,
                                         fontWeight: FontWeight.w700,
                                         fontFamily: 'DM Sans',
-                                        height: 1.0,
                                       ),
                                     ),
                                     Transform.translate(
@@ -157,7 +146,6 @@ class _WelcomeFlowScreenState extends State<WelcomeFlowScreen> {
                                           fontSize: 48,
                                           fontWeight: FontWeight.w700,
                                           fontFamily: 'DM Sans',
-                                          height: 1.0,
                                         ),
                                       ),
                                     ),
@@ -167,18 +155,12 @@ class _WelcomeFlowScreenState extends State<WelcomeFlowScreen> {
                             ),
                           ),
 
-                          // Arrow button
                           Positioned(
                             right: 18,
                             bottom: 18,
                             child: InkWell(
                               onTap: () {
-                                Navigator.push(
-                                  context,
-                                  MaterialPageRoute(
-                                    builder: (_) => const ProfileSetUpScreen(),
-                                  ),
-                                );
+                                Navigator.pushReplacementNamed(context, '/profile');
                               },
                               child: Container(
                                 width: 52,

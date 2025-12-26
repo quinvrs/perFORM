@@ -1,7 +1,5 @@
 import 'package:flutter/material.dart';
-import 'home_screen.dart';
-
-enum Gender { male, female }
+import '../app_state.dart';
 
 class ProfileSetUpScreen extends StatefulWidget {
   const ProfileSetUpScreen({super.key});
@@ -30,6 +28,16 @@ class _ProfileSetUpScreenState extends State<ProfileSetUpScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final state = AppStateScope.of(context);
+
+    // preload if already has values
+    if (_nameCtrl.text.isEmpty && state.name.isNotEmpty) {
+      _nameCtrl.text = state.name;
+      _gender = state.gender;
+      _heightCm = state.heightCm;
+      _weightKg = state.weightKg;
+    }
+
     return Scaffold(
       backgroundColor: _bgDark,
       body: Center(
@@ -51,7 +59,7 @@ class _ProfileSetUpScreenState extends State<ProfileSetUpScreen> {
                       child: SafeArea(
                         bottom: false,
                         child: SingleChildScrollView(
-                          padding: EdgeInsets.fromLTRB(24 * s, 18 * s, 24 * s, 90 * s),
+                          padding: EdgeInsets.fromLTRB(24 * s, 18 * s, 24 * s, 110 * s),
                           child: Column(
                             crossAxisAlignment: CrossAxisAlignment.start,
                             children: [
@@ -102,7 +110,6 @@ class _ProfileSetUpScreenState extends State<ProfileSetUpScreen> {
                                 ),
                               ),
                               SizedBox(height: 10 * s),
-
                               TextField(
                                 controller: _nameCtrl,
                                 textInputAction: TextInputAction.next,
@@ -115,7 +122,7 @@ class _ProfileSetUpScreenState extends State<ProfileSetUpScreen> {
                                 decoration: InputDecoration(
                                   hintText: 'Enter your name',
                                   hintStyle: TextStyle(
-                                    color: Colors.black.withValues(alpha: 0.35),
+                                    color: Colors.black.withAlpha(90),
                                     fontSize: 16 * s,
                                     fontFamily: 'DM Sans',
                                   ),
@@ -178,12 +185,13 @@ class _ProfileSetUpScreenState extends State<ProfileSetUpScreen> {
                       bottom: 18 * s,
                       child: InkWell(
                         onTap: () {
-                          Navigator.pushReplacement(
-                          context,
-                            MaterialPageRoute(
-                              builder: (_) => HomeScreen(userName: _nameCtrl.text.trim()),
-                            ),
-                          );   
+                          state.saveProfile(
+                            newName: _nameCtrl.text.trim(),
+                            newGender: _gender,
+                            newHeightCm: _heightCm,
+                            newWeightKg: _weightKg,
+                          );
+                          Navigator.pushReplacementNamed(context, '/home');
                         },
                         child: Container(
                           width: 56 * s,
@@ -250,11 +258,7 @@ class _GenderCard extends StatelessWidget {
         child: Stack(
           children: [
             Center(
-              child: Icon(
-                icon,
-                size: 54 * scale,
-                color: _ink,
-              ),
+              child: Icon(icon, size: 54 * scale, color: _ink),
             ),
             Positioned(
               right: 10 * scale,
@@ -269,11 +273,7 @@ class _GenderCard extends StatelessWidget {
                     color: _ink,
                     shape: OvalBorder(),
                   ),
-                  child: Icon(
-                    Icons.check,
-                    size: 16 * scale,
-                    color: Colors.white,
-                  ),
+                  child: Icon(Icons.check, size: 16 * scale, color: Colors.white),
                 ),
               ),
             ),
@@ -354,13 +354,12 @@ class _SliderBlock extends StatelessWidget {
           ],
         ),
         SizedBox(height: 8 * scale),
-
         SliderTheme(
           data: SliderTheme.of(context).copyWith(
             activeTrackColor: _ink,
             inactiveTrackColor: _mutedBorder,
             thumbColor: Colors.white,
-            overlayColor: _ink.withValues(alpha: 0.10),
+            overlayColor: _ink.withAlpha(25),
             trackHeight: 2 * scale,
             thumbShape: RoundSliderThumbShape(enabledThumbRadius: 10 * scale),
           ),
@@ -371,7 +370,6 @@ class _SliderBlock extends StatelessWidget {
             onChanged: onChanged,
           ),
         ),
-
         Padding(
           padding: EdgeInsets.symmetric(horizontal: 2 * scale),
           child: Row(
