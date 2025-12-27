@@ -1,4 +1,3 @@
-// lib/screens/home_screen.dart
 import 'package:flutter/material.dart';
 import '../app_state.dart';
 import '../widgets/app_bottom_nav.dart';
@@ -27,61 +26,58 @@ class _HomeScreenState extends State<HomeScreen> {
     // keep dependency so widgets rebuild when AppState changes
     AppStateScope.of(context);
 
+    final size = MediaQuery.sizeOf(context);
+    final s = size.width / 375.0; // design width baseline
+    final bottomInset = MediaQuery.paddingOf(context).bottom;
+    final navPad = (130 * s) + bottomInset; // scroll padding so content clears bottom nav
+
     return Scaffold(
       backgroundColor: _bgDark,
-      body: Center(
-        child: LayoutBuilder(
-          builder: (context, c) {
-            final cardW = (c.maxWidth * 0.92).clamp(320.0, 375.0);
-            final cardH = cardW * (812 / 375);
-            final s = cardW / 375;
-
-            final navPad = 170 * s;
-
-            return ClipRRect(
-              borderRadius: BorderRadius.circular(40 * s),
-              child: Container(
-                width: cardW,
-                height: cardH,
-                color: Colors.white,
-                child: Stack(
+      body: SafeArea(
+        top: true,
+        bottom: false, // bottom handled by nav SafeArea
+        child: Container(
+          color: Colors.white, // ✅ full-screen content background
+          child: Stack(
+            children: [
+              Positioned.fill(
+                child: IndexedStack(
+                  index: _tab,
                   children: [
-                    Positioned.fill(
-                      child: IndexedStack(
-                        index: _tab,
-                        children: [
-                          _HomeTab(scale: s, navPad: navPad),
-                          _StreakTab(scale: s, navPad: navPad),
-                          _HistoryTab(scale: s, navPad: navPad),
-                        ],
-                      ),
-                    ),
-                    Positioned(
-                      left: 0,
-                      right: 0,
-                      bottom: 0,
-                      child: Material(
-                        color: Colors.transparent,
-                        child: AppBottomNav(
-                          scale: s,
-                          selectedTab: _tab,
-                          onHome: () => setState(() => _tab = 0),
-                          onStreak: () => setState(() => _tab = 1),
-                          onHistory: () => setState(() => _tab = 2),
-                          onPlus: () async {
-                            final res = await Navigator.pushNamed(context, '/exercise_select');
-                            if (res == true && mounted) {
-                              setState(() => _tab = 1);
-                            }
-                          },
-                        ),
-                      ),
-                    ),
+                    _HomeTab(scale: s, navPad: navPad),
+                    _StreakTab(scale: s, navPad: navPad),
+                    _HistoryTab(scale: s, navPad: navPad),
                   ],
                 ),
               ),
-            );
-          },
+
+              Positioned(
+                left: 0,
+                right: 0,
+                bottom: 0,
+                child: SafeArea(
+                  top: false,
+                  bottom: true,
+                  child: Material(
+                    color: Colors.transparent,
+                    child: AppBottomNav(
+                      scale: s,
+                      selectedTab: _tab,
+                      onHome: () => setState(() => _tab = 0),
+                      onStreak: () => setState(() => _tab = 1),
+                      onHistory: () => setState(() => _tab = 2),
+                      onPlus: () async {
+                        final res = await Navigator.pushNamed(context, '/exercise_select');
+                        if (res == true && mounted) {
+                          setState(() => _tab = 1);
+                        }
+                      },
+                    ),
+                  ),
+                ),
+              ),
+            ],
+          ),
         ),
       ),
     );
@@ -106,7 +102,7 @@ class _HomeTab extends StatelessWidget {
     final streak = state.currentStreak == 0 ? 10 : state.currentStreak;
 
     return SingleChildScrollView(
-      padding: EdgeInsets.fromLTRB(40 * scale, 40 * scale, 40 * scale, navPad),
+      padding: EdgeInsets.fromLTRB(24 * scale, 24 * scale, 24 * scale, navPad),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
@@ -157,9 +153,9 @@ class _HomeTab extends StatelessWidget {
           ),
           SizedBox(height: 18 * scale),
 
-          // streak card
+          // streak card (use full width but keep original look)
           Container(
-            width: 292 * scale,
+            width: double.infinity,
             height: 113 * scale,
             decoration: BoxDecoration(
               color: _yellow,
@@ -270,7 +266,7 @@ class _ProgressCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Container(
-      width: 292 * scale,
+      width: double.infinity,
       height: 84 * scale,
       decoration: BoxDecoration(
         color: Colors.white,
@@ -473,7 +469,7 @@ class _StreakTab extends StatelessWidget {
   }
 }
 
-/// ✅ FIXED: This card has a SAFE fixed height so it cannot overflow
+/// overflow-safe metric card
 class _MetricCard extends StatelessWidget {
   const _MetricCard({
     required this.scale,
@@ -495,7 +491,7 @@ class _MetricCard extends StatelessWidget {
   Widget build(BuildContext context) {
     return Expanded(
       child: Container(
-        height: 120 * scale, // ✅ fixed height = no overflow
+        height: 120 * scale,
         padding: EdgeInsets.fromLTRB(14 * scale, 12 * scale, 14 * scale, 12 * scale),
         decoration: BoxDecoration(
           color: tint.withValues(alpha: 0.12),
@@ -602,12 +598,16 @@ class _HistoryTab extends StatelessWidget {
               ),
               Expanded(
                 child: Center(
-                  child: Text('Workout History', style: TextStyle(color: _ink, fontSize: 20 * scale, fontWeight: FontWeight.w700)),
+                  child: Text(
+                    'Workout History',
+                    style: TextStyle(color: _ink, fontSize: 20 * scale, fontWeight: FontWeight.w700),
+                  ),
                 ),
               ),
               SizedBox(width: 28 * scale),
             ],
           ),
+
           SizedBox(height: 18 * scale),
 
           Row(
@@ -793,10 +793,6 @@ class _WorkoutCard extends StatelessWidget {
           SizedBox(height: 4 * scale),
           Text(dateStr, style: TextStyle(color: const Color(0xFF797B7F), fontSize: 10 * scale)),
           SizedBox(height: 10 * scale),
-          Row(
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-            children: const [],
-          ),
           Row(
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [

@@ -1,4 +1,3 @@
-// lib/screens/history_screen.dart
 import 'package:flutter/material.dart';
 import '../app_state.dart';
 import '../widgets/app_bottom_nav.dart';
@@ -6,7 +5,6 @@ import '../widgets/app_bottom_nav.dart';
 class HistoryScreen extends StatelessWidget {
   const HistoryScreen({super.key});
 
-  static const _bgDark = Color.fromARGB(255, 18, 32, 47);
   static const _ink = Color(0xFF051328);
 
   static const _avgAccent = Color(0xFFECC051);
@@ -21,163 +19,162 @@ class HistoryScreen extends StatelessWidget {
     final totalReps = totalWorkouts * 45; // placeholder
     const avgFormScore = 88; // placeholder
 
+    // ✅ full-screen scale (design width = 375)
+    final size = MediaQuery.sizeOf(context);
+    final s = size.width / 375.0;
+
+    // ✅ make scroll content clear the bottom nav + safe area
+    final bottomInset = MediaQuery.paddingOf(context).bottom;
+    final navPad = (130 * s) + bottomInset;
+
     return Scaffold(
-      backgroundColor: _bgDark,
-      body: Center(
-        child: LayoutBuilder(
-          builder: (context, c) {
-            final cardW = (c.maxWidth * 0.92).clamp(320.0, 375.0);
-            final cardH = cardW * (812 / 375);
-            final s = cardW / 375;
-
-            return ClipRRect(
-              borderRadius: BorderRadius.circular(40 * s),
-              child: Container(
-                width: cardW,
-                height: cardH,
-                color: Colors.white,
-                child: Stack(
+      backgroundColor: Colors.white,
+      body: SafeArea(
+        top: true,
+        bottom: false,
+        child: Stack(
+          children: [
+            Positioned.fill(
+              child: SingleChildScrollView(
+                padding: EdgeInsets.fromLTRB(24 * s, 24 * s, 24 * s, navPad),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    Positioned.fill(
-                      child: SingleChildScrollView(
-                        padding: EdgeInsets.fromLTRB(40 * s, 40 * s, 40 * s, 170 * s),
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            SizedBox(
-                              height: 40 * s,
-                              child: Stack(
-                                children: [
-                                  Positioned(
-                                    left: 0,
-                                    top: 0,
-                                    child: InkWell(
-                                      onTap: () {
-                                        if (Navigator.canPop(context)) {
-                                          Navigator.pop(context);
-                                        } else {
-                                          Navigator.pushReplacementNamed(context, '/home');
-                                        }
-                                      },
-                                      child: Icon(
-                                        Icons.arrow_back_rounded,
-                                        color: _ink,
-                                        size: 28 * s,
-                                      ),
-                                    ),
-                                  ),
-                                  Center(
-                                    child: Text(
-                                      'Workout History',
-                                      style: TextStyle(
-                                        color: _ink,
-                                        fontSize: 24 * s,
-                                        fontFamily: 'DM Sans',
-                                        fontWeight: FontWeight.w700,
-                                      ),
-                                    ),
-                                  ),
-                                ],
+                    // Header
+                    SizedBox(
+                      height: 40 * s,
+                      child: Stack(
+                        children: [
+                          Positioned(
+                            left: 0,
+                            top: 0,
+                            child: InkWell(
+                              onTap: () {
+                                if (Navigator.canPop(context)) {
+                                  Navigator.pop(context);
+                                } else {
+                                  Navigator.pushReplacementNamed(context, '/home');
+                                }
+                              },
+                              child: Icon(
+                                Icons.arrow_back_rounded,
+                                color: _ink,
+                                size: 28 * s,
                               ),
                             ),
-                            SizedBox(height: 30 * s),
-
-                            // ✅ Use IntrinsicHeight so both cards can grow and still match height.
-                            IntrinsicHeight(
-                              child: Row(
-                                crossAxisAlignment: CrossAxisAlignment.stretch,
-                                children: [
-                                  Expanded(
-                                    child: _StatCard(
-                                      s: s,
-                                      bg: _avgAccent.withValues(alpha: 0.10),
-                                      accent: _avgAccent,
-                                      icon: Icons.favorite_border_rounded,
-                                      title: 'Avg. Form\nScore',
-                                      value: '$avgFormScore',
-                                      unit: '%',
-                                    ),
-                                  ),
-                                  SizedBox(width: 20 * s),
-                                  Expanded(
-                                    child: _StatCard(
-                                      s: s,
-                                      bg: _repsAccent.withValues(alpha: 0.10),
-                                      accent: _repsAccent,
-                                      icon: Icons.bolt_rounded,
-                                      title: 'Total Reps',
-                                      value: '$totalReps',
-                                      unit: 'reps',
-                                    ),
-                                  ),
-                                ],
+                          ),
+                          Center(
+                            child: Text(
+                              'Workout History',
+                              style: TextStyle(
+                                color: _ink,
+                                fontSize: 22 * s,
+                                fontFamily: 'DM Sans',
+                                fontWeight: FontWeight.w700,
                               ),
                             ),
+                          ),
+                        ],
+                      ),
+                    ),
 
-                            SizedBox(height: 24 * s),
+                    SizedBox(height: 20 * s),
 
-                            if (days.isEmpty)
-                              Padding(
-                                padding: EdgeInsets.only(top: 60 * s),
-                                child: Center(
-                                  child: Text(
-                                    'No workouts yet.\nTap days in Streak calendar!',
-                                    textAlign: TextAlign.center,
-                                    style: TextStyle(
-                                      color: _ink.withValues(alpha: 0.65),
-                                      fontSize: 14 * s,
-                                      fontFamily: 'DM Sans',
-                                      fontWeight: FontWeight.w400,
-                                    ),
-                                  ),
-                                ),
-                              )
-                            else
-                              Column(
-                                children: [
-                                  for (int i = 0; i < days.length; i++) ...[
-                                    _WorkoutCard(
-                                      s: s,
-                                      title: 'Squat',
-                                      dateText: _formatDate(days[i]),
-                                      reps: 45,
-                                      durationText: '12 min',
-                                      sets: 3,
-                                      formPercent: (i % 2 == 0) ? 92 : 88,
-                                      chipStyle: (i % 2 == 0)
-                                          ? _ChipStyle.green
-                                          : _ChipStyle.yellow,
-                                    ),
-                                    SizedBox(height: 16 * s),
-                                  ],
-                                ],
-                              ),
+                    // Stat cards
+                    IntrinsicHeight(
+                      child: Row(
+                        crossAxisAlignment: CrossAxisAlignment.stretch,
+                        children: [
+                          Expanded(
+                            child: _StatCard(
+                              s: s,
+                              bg: _avgAccent.withValues(alpha: 0.10),
+                              accent: _avgAccent,
+                              icon: Icons.favorite_border_rounded,
+                              title: 'Avg. Form\nScore',
+                              value: '$avgFormScore',
+                              unit: '%',
+                            ),
+                          ),
+                          SizedBox(width: 14 * s),
+                          Expanded(
+                            child: _StatCard(
+                              s: s,
+                              bg: _repsAccent.withValues(alpha: 0.10),
+                              accent: _repsAccent,
+                              icon: Icons.bolt_rounded,
+                              title: 'Total Reps',
+                              value: '$totalReps',
+                              unit: 'reps',
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+
+                    SizedBox(height: 18 * s),
+
+                    if (days.isEmpty)
+                      Padding(
+                        padding: EdgeInsets.only(top: 40 * s),
+                        child: Center(
+                          child: Text(
+                            'No workouts yet.\nTap days in Streak calendar!',
+                            textAlign: TextAlign.center,
+                            style: TextStyle(
+                              color: _ink.withValues(alpha: 0.65),
+                              fontSize: 14 * s,
+                              fontFamily: 'DM Sans',
+                              fontWeight: FontWeight.w400,
+                            ),
+                          ),
+                        ),
+                      )
+                    else
+                      Column(
+                        children: [
+                          for (int i = 0; i < days.length; i++) ...[
+                            _WorkoutCard(
+                              s: s,
+                              title: 'Squat',
+                              dateText: _formatDate(days[i]),
+                              reps: 45,
+                              durationText: '12 min',
+                              sets: 3,
+                              formPercent: (i % 2 == 0) ? 92 : 88,
+                              chipStyle: (i % 2 == 0) ? _ChipStyle.green : _ChipStyle.yellow,
+                            ),
+                            SizedBox(height: 14 * s),
                           ],
-                        ),
+                        ],
                       ),
-                    ),
-
-                    Positioned(
-                      left: 0,
-                      right: 0,
-                      bottom: 0,
-                      child: Material(
-                        color: Colors.transparent,
-                        child: AppBottomNav(
-                          scale: s,
-                          selectedTab: 2,
-                          onHome: () => Navigator.pushReplacementNamed(context, '/home'),
-                          onStreak: () => Navigator.pushReplacementNamed(context, '/streak'),
-                          onHistory: () {},
-                          onPlus: () => Navigator.pushNamed(context, '/exercise_select'),
-                        ),
-                      ),
-                    ),
                   ],
                 ),
               ),
-            );
-          },
+            ),
+
+            // Bottom nav pinned
+            Positioned(
+              left: 0,
+              right: 0,
+              bottom: 0,
+              child: SafeArea(
+                top: false,
+                bottom: true,
+                child: Material(
+                  color: Colors.transparent,
+                  child: AppBottomNav(
+                    scale: s,
+                    selectedTab: 2,
+                    onHome: () => Navigator.pushReplacementNamed(context, '/home'),
+                    onStreak: () => Navigator.pushReplacementNamed(context, '/streak'),
+                    onHistory: () {},
+                    onPlus: () => Navigator.pushNamed(context, '/exercise_select'),
+                  ),
+                ),
+              ),
+            ),
+          ],
         ),
       ),
     );
@@ -215,7 +212,6 @@ class _StatCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Container(
-      // ✅ This is the key: NO fixed height; give it a minimum only.
       constraints: BoxConstraints(minHeight: 128 * s),
       decoration: BoxDecoration(
         color: bg,
@@ -239,17 +235,14 @@ class _StatCard extends StatelessWidget {
                     color: accent,
                     fontSize: 14 * s,
                     fontFamily: 'DM Sans',
-                    fontWeight: FontWeight.w500,
+                    fontWeight: FontWeight.w600,
                     height: 1.08,
                   ),
                 ),
               ),
             ],
           ),
-
           const Spacer(),
-
-          // ✅ Makes sure big numbers never overflow
           FittedBox(
             fit: BoxFit.scaleDown,
             alignment: Alignment.bottomLeft,
@@ -262,7 +255,7 @@ class _StatCard extends StatelessWidget {
                     color: accent,
                     fontSize: 40 * s,
                     fontFamily: 'DM Sans',
-                    fontWeight: FontWeight.w700,
+                    fontWeight: FontWeight.w800,
                     height: 1.0,
                   ),
                 ),
@@ -330,12 +323,11 @@ class _WorkoutCard extends StatelessWidget {
       decoration: BoxDecoration(
         color: Colors.white,
         borderRadius: BorderRadius.circular(10 * s),
-        boxShadow: const [
+        boxShadow: [
           BoxShadow(
-            color: Color(0x26000000),
-            blurRadius: 1,
-            offset: Offset(0, 1),
-            spreadRadius: 1,
+            color: const Color(0xFF000000).withValues(alpha: 0.10),
+            blurRadius: 8,
+            offset: const Offset(0, 2),
           ),
         ],
       ),

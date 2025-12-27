@@ -42,122 +42,124 @@ class _ExerciseSelectionScreenState extends State<ExerciseSelectionScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final size = MediaQuery.sizeOf(context);
+    final s = size.width / 375.0; // design baseline width
+    final bottomInset = MediaQuery.paddingOf(context).bottom;
+
+    // space so scroll content won’t hide behind the bottom button
+    final bottomButtonH = 71 * s;
+    final scrollBottomPad = (38 * s) + bottomButtonH + (18 * s) + bottomInset;
+
     return Scaffold(
       backgroundColor: _bgDark,
-      body: Center(
-        child: LayoutBuilder(
-          builder: (context, c) {
-            final cardW = (c.maxWidth * 0.92).clamp(320.0, 375.0);
-            final cardH = cardW * (812 / 375);
-            final s = cardW / 375;
-
-            return ClipRRect(
-              borderRadius: BorderRadius.circular(40 * s),
-              child: Container(
-                width: cardW,
-                height: cardH,
-                color: Colors.white,
-                child: Stack(
-                  children: [
-                    Positioned.fill(
-                      child: SingleChildScrollView(
-                        padding: EdgeInsets.fromLTRB(24 * s, 36 * s, 24 * s, 140 * s),
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
+      body: SafeArea(
+        top: true,
+        bottom: false,
+        child: Container(
+          color: Colors.white, // ✅ full-screen white like your other screens
+          child: Stack(
+            children: [
+              Positioned.fill(
+                child: SingleChildScrollView(
+                  padding: EdgeInsets.fromLTRB(24 * s, 24 * s, 24 * s, scrollBottomPad),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      SizedBox(
+                        height: 56 * s,
+                        child: Stack(
                           children: [
-                            SizedBox(
-                              height: 56 * s,
-                              child: Stack(
-                                children: [
-                                  Align(
-                                    alignment: Alignment.centerLeft,
-                                    child: InkWell(
-                                      onTap: () => Navigator.pop(context),
-                                      child: Icon(
-                                        Icons.arrow_back_rounded,
-                                        color: _ink,
-                                        size: 28 * s,
-                                      ),
-                                    ),
-                                  ),
-                                  Align(
-                                    alignment: Alignment.topCenter,
-                                    child: Text(
-                                      'Select Your\nWorkout',
-                                      textAlign: TextAlign.center,
-                                      style: TextStyle(
-                                        color: _ink,
-                                        fontSize: 24 * s,
-                                        fontFamily: 'DM Sans',
-                                        fontWeight: FontWeight.w700,
-                                        height: 1.05,
-                                      ),
-                                    ),
-                                  ),
-                                ],
+                            Align(
+                              alignment: Alignment.centerLeft,
+                              child: InkWell(
+                                onTap: () => Navigator.pop(context),
+                                child: Icon(
+                                  Icons.arrow_back_rounded,
+                                  color: _ink,
+                                  size: 28 * s,
+                                ),
                               ),
                             ),
-                            SizedBox(height: 26 * s),
-
-                            _WorkoutCard(
-                              s: s,
-                              workout: workouts[0],
-                              selected: selectedIndex == 0,
-                              showBenefits: true,
-                              onTap: () => setState(() => selectedIndex = 0),
-                              muted: _muted,
-                              green: _green,
-                            ),
-                            SizedBox(height: 22 * s),
-                            _WorkoutCard(
-                              s: s,
-                              workout: workouts[1],
-                              selected: selectedIndex == 1,
-                              showBenefits: false,
-                              onTap: () => setState(() => selectedIndex = 1),
-                              muted: _muted,
-                              green: _green,
+                            Align(
+                              alignment: Alignment.topCenter,
+                              child: Text(
+                                'Select Your\nWorkout',
+                                textAlign: TextAlign.center,
+                                style: TextStyle(
+                                  color: _ink,
+                                  fontSize: 24 * s,
+                                  fontFamily: 'DM Sans',
+                                  fontWeight: FontWeight.w700,
+                                  height: 1.05,
+                                ),
+                              ),
                             ),
                           ],
                         ),
                       ),
-                    ),
+                      SizedBox(height: 22 * s),
 
-                    Positioned(
-                      left: 24 * s,
-                      right: 24 * s,
-                      bottom: 38 * s,
-                      child: GestureDetector(
-                        onTap: () {
-                          Navigator.push(
-                            context,
-                            MaterialPageRoute(builder: (_) => const SetupModeScreen()),
-                            );
-                        },
-                        child: Container(
-                          height: 71 * s,
-                          decoration: BoxDecoration(
-                            color: _ink,
-                            borderRadius: BorderRadius.circular(15 * s),
-                          ),
-                          alignment: Alignment.center,
-                          child: Text(
-                            'Start Exercise',
-                            style: TextStyle(
-                              color: Colors.white,
-                              fontSize: 24 * s,
-                              fontFamily: 'DM Sans',
-                              fontWeight: FontWeight.w700,
-                            ),
-                          ),
+                      _WorkoutCard(
+                        s: s,
+                        workout: workouts[0],
+                        selected: selectedIndex == 0,
+                        showBenefits: true,
+                        onTap: () => setState(() => selectedIndex = 0),
+                        muted: _muted,
+                        green: _green,
+                      ),
+                      SizedBox(height: 16 * s),
+                      _WorkoutCard(
+                        s: s,
+                        workout: workouts[1],
+                        selected: selectedIndex == 1,
+                        showBenefits: false,
+                        onTap: () => setState(() => selectedIndex = 1),
+                        muted: _muted,
+                        green: _green,
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+
+              // ✅ Bottom button pinned
+              Positioned(
+                left: 24 * s,
+                right: 24 * s,
+                bottom: 18 * s,
+                child: SafeArea(
+                  top: false,
+                  bottom: true,
+                  child: GestureDetector(
+                    onTap: () {
+                      Navigator.push(
+                        context,
+                        MaterialPageRoute(builder: (_) => const SetupModeScreen()),
+                      );
+                    },
+                    child: Container(
+                      height: 71 * s,
+                      decoration: BoxDecoration(
+                        color: _ink,
+                        borderRadius: BorderRadius.circular(15 * s),
+                      ),
+                      alignment: Alignment.center,
+                      child: Text(
+                        'Start Exercise',
+                        style: TextStyle(
+                          color: Colors.white,
+                          fontSize: 24 * s,
+                          fontFamily: 'DM Sans',
+                          fontWeight: FontWeight.w700,
                         ),
                       ),
                     ),
-                  ],
+                  ),
                 ),
               ),
-            );
-          },
+            ],
+          ),
         ),
       ),
     );
@@ -193,7 +195,7 @@ class _WorkoutCard extends StatelessWidget {
       behavior: HitTestBehavior.opaque,
       onTap: onTap,
       child: Container(
-        width: 317 * s,
+        width: double.infinity, // ✅ full width
         padding: EdgeInsets.all(14 * s),
         decoration: BoxDecoration(
           color: bg,

@@ -15,7 +15,6 @@ class _ProfileSetUpScreenState extends State<ProfileSetUpScreen> {
   double _heightCm = 180;
   double _weightKg = 80;
 
-  static const _bgDark = Color.fromARGB(255, 18, 32, 47);
   static const _ink = Color(0xFF051328);
   static const _mutedBorder = Color(0x26051328);
   static const _yellow = Color(0xFFFEF9C2);
@@ -30,6 +29,13 @@ class _ProfileSetUpScreenState extends State<ProfileSetUpScreen> {
   Widget build(BuildContext context) {
     final state = AppStateScope.of(context);
 
+    // Full-screen scale (design width = 375)
+    final size = MediaQuery.sizeOf(context);
+    final s = size.width / 375.0;
+
+    // keyboard inset
+    final kb = MediaQuery.viewInsetsOf(context).bottom;
+
     // preload if already has values
     if (_nameCtrl.text.isEmpty && state.name.isNotEmpty) {
       _nameCtrl.text = state.name;
@@ -39,180 +45,167 @@ class _ProfileSetUpScreenState extends State<ProfileSetUpScreen> {
     }
 
     return Scaffold(
-      backgroundColor: _bgDark,
-      body: Center(
-        child: LayoutBuilder(
-          builder: (context, c) {
-            final cardW = (c.maxWidth * 0.92).clamp(320.0, 375.0);
-            final cardH = cardW * (812 / 375);
-            final s = cardW / 375;
-
-            return ClipRRect(
-              borderRadius: BorderRadius.circular(40 * s),
-              child: Container(
-                width: cardW,
-                height: cardH,
-                color: Colors.white,
-                child: Stack(
+      backgroundColor: Colors.white,
+      body: SafeArea(
+        child: Stack(
+          children: [
+            Positioned.fill(
+              child: SingleChildScrollView(
+                padding: EdgeInsets.fromLTRB(
+                  24 * s,
+                  18 * s,
+                  24 * s,
+                  (110 * s) + kb, // ✅ keep space for button + keyboard
+                ),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    Positioned.fill(
-                      child: SafeArea(
-                        bottom: false,
-                        child: SingleChildScrollView(
-                          padding: EdgeInsets.fromLTRB(24 * s, 18 * s, 24 * s, 110 * s),
-                          child: Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              Text(
-                                'Give us some basic information',
-                                style: TextStyle(
-                                  color: _ink,
-                                  fontSize: 32 * s,
-                                  fontFamily: 'DM Sans',
-                                  fontWeight: FontWeight.w500,
-                                ),
-                              ),
-                              SizedBox(height: 18 * s),
+                    Text(
+                      'Give us some basic information',
+                      style: TextStyle(
+                        color: _ink,
+                        fontSize: 32 * s,
+                        fontFamily: 'DM Sans',
+                        fontWeight: FontWeight.w500,
+                      ),
+                    ),
+                    SizedBox(height: 18 * s),
 
-                              Row(
-                                children: [
-                                  Expanded(
-                                    child: _GenderCard(
-                                      label: 'Male',
-                                      icon: Icons.male,
-                                      selected: _gender == Gender.male,
-                                      scale: s,
-                                      onTap: () => setState(() => _gender = Gender.male),
-                                    ),
-                                  ),
-                                  SizedBox(width: 14 * s),
-                                  Expanded(
-                                    child: _GenderCard(
-                                      label: 'Female',
-                                      icon: Icons.female,
-                                      selected: _gender == Gender.female,
-                                      scale: s,
-                                      onTap: () => setState(() => _gender = Gender.female),
-                                    ),
-                                  ),
-                                ],
-                              ),
-
-                              SizedBox(height: 22 * s),
-
-                              Text(
-                                'What shall we call you?',
-                                style: TextStyle(
-                                  color: _ink,
-                                  fontSize: 18 * s,
-                                  fontFamily: 'DM Sans',
-                                  fontWeight: FontWeight.w700,
-                                ),
-                              ),
-                              SizedBox(height: 10 * s),
-                              TextField(
-                                controller: _nameCtrl,
-                                textInputAction: TextInputAction.next,
-                                style: TextStyle(
-                                  color: _ink,
-                                  fontSize: 16 * s,
-                                  fontFamily: 'DM Sans',
-                                  fontWeight: FontWeight.w500,
-                                ),
-                                decoration: InputDecoration(
-                                  hintText: 'Enter your name',
-                                  hintStyle: TextStyle(
-                                    color: Colors.black.withAlpha(90),
-                                    fontSize: 16 * s,
-                                    fontFamily: 'DM Sans',
-                                  ),
-                                  filled: true,
-                                  fillColor: Colors.white,
-                                  contentPadding: EdgeInsets.symmetric(
-                                    horizontal: 14 * s,
-                                    vertical: 14 * s,
-                                  ),
-                                  border: OutlineInputBorder(
-                                    borderRadius: BorderRadius.circular(16 * s),
-                                    borderSide: const BorderSide(color: _mutedBorder),
-                                  ),
-                                  enabledBorder: OutlineInputBorder(
-                                    borderRadius: BorderRadius.circular(16 * s),
-                                    borderSide: const BorderSide(color: _mutedBorder),
-                                  ),
-                                  focusedBorder: OutlineInputBorder(
-                                    borderRadius: BorderRadius.circular(16 * s),
-                                    borderSide: const BorderSide(color: _ink, width: 1.5),
-                                  ),
-                                ),
-                              ),
-
-                              SizedBox(height: 22 * s),
-
-                              _SliderBlock(
-                                title: 'Height',
-                                valueText: '${_heightCm.round()}cm',
-                                minText: '50cm',
-                                maxText: '500cm',
-                                min: 50,
-                                max: 500,
-                                value: _heightCm,
-                                scale: s,
-                                onChanged: (v) => setState(() => _heightCm = v),
-                              ),
-
-                              SizedBox(height: 18 * s),
-
-                              _SliderBlock(
-                                title: 'Weight',
-                                valueText: '${_weightKg.round()}kg',
-                                minText: '20kg',
-                                maxText: '200kg',
-                                min: 20,
-                                max: 200,
-                                value: _weightKg,
-                                scale: s,
-                                onChanged: (v) => setState(() => _weightKg = v),
-                              ),
-                            ],
+                    Row(
+                      children: [
+                        Expanded(
+                          child: _GenderCard(
+                            label: 'Male',
+                            icon: Icons.male,
+                            selected: _gender == Gender.male,
+                            scale: s,
+                            onTap: () => setState(() => _gender = Gender.male),
                           ),
+                        ),
+                        SizedBox(width: 14 * s),
+                        Expanded(
+                          child: _GenderCard(
+                            label: 'Female',
+                            icon: Icons.female,
+                            selected: _gender == Gender.female,
+                            scale: s,
+                            onTap: () => setState(() => _gender = Gender.female),
+                          ),
+                        ),
+                      ],
+                    ),
+
+                    SizedBox(height: 22 * s),
+
+                    Text(
+                      'What shall we call you?',
+                      style: TextStyle(
+                        color: _ink,
+                        fontSize: 18 * s,
+                        fontFamily: 'DM Sans',
+                        fontWeight: FontWeight.w700,
+                      ),
+                    ),
+                    SizedBox(height: 10 * s),
+                    TextField(
+                      controller: _nameCtrl,
+                      textInputAction: TextInputAction.next,
+                      style: TextStyle(
+                        color: _ink,
+                        fontSize: 16 * s,
+                        fontFamily: 'DM Sans',
+                        fontWeight: FontWeight.w500,
+                      ),
+                      decoration: InputDecoration(
+                        hintText: 'Enter your name',
+                        hintStyle: TextStyle(
+                          color: Colors.black.withAlpha(90),
+                          fontSize: 16 * s,
+                          fontFamily: 'DM Sans',
+                        ),
+                        filled: true,
+                        fillColor: Colors.white,
+                        contentPadding: EdgeInsets.symmetric(
+                          horizontal: 14 * s,
+                          vertical: 14 * s,
+                        ),
+                        border: OutlineInputBorder(
+                          borderRadius: BorderRadius.circular(16 * s),
+                          borderSide: const BorderSide(color: _mutedBorder),
+                        ),
+                        enabledBorder: OutlineInputBorder(
+                          borderRadius: BorderRadius.circular(16 * s),
+                          borderSide: const BorderSide(color: _mutedBorder),
+                        ),
+                        focusedBorder: OutlineInputBorder(
+                          borderRadius: BorderRadius.circular(16 * s),
+                          borderSide: const BorderSide(color: _ink, width: 1.5),
                         ),
                       ),
                     ),
 
-                    Positioned(
-                      right: 18 * s,
-                      bottom: 18 * s,
-                      child: InkWell(
-                        onTap: () {
-                          state.saveProfile(
-                            newName: _nameCtrl.text.trim(),
-                            newGender: _gender,
-                            newHeightCm: _heightCm,
-                            newWeightKg: _weightKg,
-                          );
-                          Navigator.pushReplacementNamed(context, '/home');
-                        },
-                        child: Container(
-                          width: 56 * s,
-                          height: 56 * s,
-                          decoration: const ShapeDecoration(
-                            color: _yellow,
-                            shape: OvalBorder(),
-                          ),
-                          child: Icon(
-                            Icons.arrow_forward,
-                            color: _ink,
-                            size: 22 * s,
-                          ),
-                        ),
-                      ),
+                    SizedBox(height: 22 * s),
+
+                    _SliderBlock(
+                      title: 'Height',
+                      valueText: '${_heightCm.round()}cm',
+                      minText: '50cm',
+                      maxText: '500cm',
+                      min: 50,
+                      max: 500,
+                      value: _heightCm,
+                      scale: s,
+                      onChanged: (v) => setState(() => _heightCm = v),
+                    ),
+
+                    SizedBox(height: 18 * s),
+
+                    _SliderBlock(
+                      title: 'Weight',
+                      valueText: '${_weightKg.round()}kg',
+                      minText: '20kg',
+                      maxText: '200kg',
+                      min: 20,
+                      max: 200,
+                      value: _weightKg,
+                      scale: s,
+                      onChanged: (v) => setState(() => _weightKg = v),
                     ),
                   ],
                 ),
               ),
-            );
-          },
+            ),
+
+            // bottom-right next button (pinned)
+            Positioned(
+              right: 18 * s,
+              bottom: 18 * s,
+              child: InkWell(
+                onTap: () {
+                  state.saveProfile(
+                    newName: _nameCtrl.text.trim(),
+                    newGender: _gender,
+                    newHeightCm: _heightCm,
+                    newWeightKg: _weightKg,
+                  );
+                  Navigator.pushReplacementNamed(context, '/home');
+                },
+                child: Container(
+                  width: 56 * s,
+                  height: 56 * s,
+                  decoration: const ShapeDecoration(
+                    color: _yellow,
+                    shape: OvalBorder(),
+                  ),
+                  child: Icon(
+                    Icons.arrow_forward,
+                    color: _ink,
+                    size: 22 * s,
+                  ),
+                ),
+              ),
+            ),
+          ],
         ),
       ),
     );

@@ -28,13 +28,15 @@ class _SetupModeScreenState extends State<SetupModeScreen> {
     try {
       final perm = await Permission.camera.request();
       if (!perm.isGranted) {
-        setState(() => _error = 'Camera permission denied.');
+        if (mounted) setState(() => _error = 'Camera permission denied.');
         return;
       }
 
       final cams = await availableCameras();
       if (cams.isEmpty) {
-        setState(() => _error = 'No cameras found on this device/emulator.');
+        if (mounted) {
+          setState(() => _error = 'No cameras found on this device/emulator.');
+        }
         return;
       }
 
@@ -69,156 +71,169 @@ class _SetupModeScreenState extends State<SetupModeScreen> {
   Widget build(BuildContext context) {
     final state = AppStateScope.of(context);
 
+    // ✅ full-screen scale (design width = 375)
+    final size = MediaQuery.sizeOf(context);
+    final s = size.width / 375.0;
+
     return Scaffold(
       backgroundColor: _bgDark,
-      body: Center(
-        child: LayoutBuilder(
-          builder: (context, c) {
-            final cardW = (c.maxWidth * 0.92).clamp(320.0, 375.0);
-            final cardH = cardW * (812 / 375);
-            final s = cardW / 375;
+      body: SafeArea(
+        top: true,
+        bottom: false,
+        child: Stack(
+          children: [
+            // ✅ FULL SCREEN CAMERA PREVIEW (no centered phone card)
+            Positioned.fill(
+              child: _error != null
+                  ? Container(
+                      color: const Color(0xFF0F1A28),
+                      alignment: Alignment.center,
+                      padding: EdgeInsets.all(18 * s),
+                      child: Text(
+                        _error!,
+                        textAlign: TextAlign.center,
+                        style: TextStyle(color: Colors.white.withValues(alpha: 0.92)),
+                      ),
+                    )
+                  : (_initFuture == null || _controller == null)
+                      ? Container(
+                          color: const Color(0xFF0F1A28),
+                          alignment: Alignment.center,
+                          child: const CircularProgressIndicator(),
+                        )
+                      : FittedBox(
+                          fit: BoxFit.cover,
+                          child: SizedBox(
+                            width: _controller!.value.previewSize!.height,
+                            height: _controller!.value.previewSize!.width,
+                            child: CameraPreview(_controller!),
+                          ),
+                        ),
+            ),
 
-            return ClipRRect(
-              borderRadius: BorderRadius.circular(40 * s),
+            // top bar
+            Positioned(
+              left: 16 * s,
+              top: 12 * s,
+              child: SafeArea(
+                child: InkWell(
+                  onTap: () => Navigator.pop(context),
+                  child: const Icon(Icons.arrow_back_rounded, color: Colors.white),
+                ),
+              ),
+            ),
+            Positioned(
+              left: 56 * s,
+              top: 14 * s,
+              right: 16 * s,
+              child: SafeArea(
+                child: Text(
+                  'Setup Mode',
+                  style: TextStyle(
+                    color: Colors.white.withValues(alpha: 0.92),
+                    fontSize: 14 * s,
+                    fontWeight: FontWeight.w600,
+                  ),
+                ),
+              ),
+            ),
+
+            // instruction card
+            Positioned(
+              left: 18 * s,
+              right: 18 * s,
+              top: 86 * s,
               child: Container(
-                width: cardW,
-                height: cardH,
-                color: Colors.black,
-                child: Stack(
+                padding: EdgeInsets.all(14 * s),
+                decoration: BoxDecoration(
+                  color: Colors.white,
+                  borderRadius: BorderRadius.circular(10 * s),
+                  boxShadow: [
+                    BoxShadow(
+                      color: const Color(0xFF000000).withValues(alpha: 0.35),
+                      blurRadius: 10,
+                      offset: const Offset(0, 4),
+                    ),
+                  ],
+                ),
+                child: Row(
+                  crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    // camera preview
-                    Positioned.fill(
-                      child: _error != null
-                          ? Container(
-                              color: const Color(0xFF0F1A28),
-                              alignment: Alignment.center,
-                              padding: EdgeInsets.all(18 * s),
-                              child: Text(
-                                _error!,
-                                textAlign: TextAlign.center,
-                                style: TextStyle(color: Colors.white.withAlpha(220)),
-                              ),
-                            )
-                          : (_initFuture == null || _controller == null)
-                              ? Container(
-                                    color: const Color(0xFF0F1A28),
-                                    alignment: Alignment.center,
-                                    child: const CircularProgressIndicator(),
-                                  )
-                              : FittedBox(
-                                      fit: BoxFit.cover,
-                                      child: SizedBox(
-                                        width: _controller!.value.previewSize!.height,
-                                        height: _controller!.value.previewSize!.width,
-                                        child: CameraPreview(_controller!),
-                                      ),
-                                    ),
-                    ),
-
-                    // top bar
-                    Positioned(
-                      left: 16 * s,
-                      top: 16 * s,
-                      child: SafeArea(
-                        child: InkWell(
-                          onTap: () => Navigator.pop(context),
-                          child: const Icon(Icons.arrow_back_rounded, color: Colors.white),
-                        ),
+                    Container(
+                      width: 34 * s,
+                      height: 34 * s,
+                      decoration: const BoxDecoration(
+                        color: Color(0xFF00C951),
+                        shape: BoxShape.circle,
                       ),
                     ),
-
-                    Positioned(
-                      left: 20 * s,
-                      top: 18 * s,
-                      right: 20 * s,
-                      child: SafeArea(
-                        child: Align(
-                          alignment: Alignment.centerLeft,
-                          child: Text(
-                            'Setup Mode',
-                            style: TextStyle(color: Colors.white.withAlpha(220), fontSize: 14 * s),
-                          ),
-                        ),
-                      ),
-                    ),
-
-                    // instruction card
-                    Positioned(
-                      left: 22 * s,
-                      right: 22 * s,
-                      top: 96 * s,
-                      child: Container(
-                        padding: EdgeInsets.all(14 * s),
-                        decoration: BoxDecoration(
-                          color: Colors.white,
-                          borderRadius: BorderRadius.circular(10 * s),
-                          boxShadow: [
-                            BoxShadow(color: const Color(0xFF000000).withAlpha(60), blurRadius: 10, offset: const Offset(0, 4)),
-                          ],
-                        ),
-                        child: Row(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            Container(
-                              width: 34 * s,
-                              height: 34 * s,
-                              decoration: const BoxDecoration(color: Color(0xFF00C951), shape: BoxShape.circle),
-                            ),
-                            SizedBox(width: 12 * s),
-                            Expanded(
-                              child: Column(
-                                crossAxisAlignment: CrossAxisAlignment.start,
-                                children: [
-                                  Text('Camera Setup', style: TextStyle(color: Colors.black, fontSize: 16 * s, fontWeight: FontWeight.w600)),
-                                  SizedBox(height: 6 * s),
-                                  Text(
-                                    'Position yourself within the frame\n'
-                                    '• Stand 6–8 feet from camera\n'
-                                    '• Ensure full body is visible\n'
-                                    '• Face the camera directly\n'
-                                    '• Good lighting recommended',
-                                    style: TextStyle(color: const Color(0xFF797B7F), fontSize: 10 * s, height: 1.35),
-                                  ),
-                                ],
-                              ),
-                            ),
-                          ],
-                        ),
-                      ),
-                    ),
-
-                    // "Done" button (records workout today)
-                    Positioned(
-                      left: 22 * s,
-                      right: 22 * s,
-                      bottom: 30 * s,
-                      child: SafeArea(
-                        top: false,
-                        child: InkWell(
-                          onTap: () {
-                            state.setWorkoutDay(DateTime.now(), true);
-                            Navigator.pop(context, true);
-                          },
-                          child: Container(
-                            height: 56 * s,
-                            alignment: Alignment.center,
-                            decoration: BoxDecoration(
-                              color: const Color(0xFF051328),
-                              borderRadius: BorderRadius.circular(14 * s),
-                            ),
-                            child: Text(
-                              'Mark Workout Done',
-                              style: TextStyle(color: Colors.white, fontSize: 16 * s, fontWeight: FontWeight.w800),
+                    SizedBox(width: 12 * s),
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            'Camera Setup',
+                            style: TextStyle(
+                              color: Colors.black,
+                              fontSize: 16 * s,
+                              fontWeight: FontWeight.w700,
                             ),
                           ),
-                        ),
+                          SizedBox(height: 6 * s),
+                          Text(
+                            'Position yourself within the frame\n'
+                            '• Stand 6–8 feet from camera\n'
+                            '• Ensure full body is visible\n'
+                            '• Face the camera directly\n'
+                            '• Good lighting recommended',
+                            style: TextStyle(
+                              color: const Color(0xFF797B7F),
+                              fontSize: 11 * s,
+                              height: 1.35,
+                            ),
+                          ),
+                        ],
                       ),
                     ),
                   ],
                 ),
               ),
-            );
-          },
+            ),
+
+            // Done button
+            Positioned(
+              left: 18 * s,
+              right: 18 * s,
+              bottom: 14 * s,
+              child: SafeArea(
+                top: false,
+                bottom: true,
+                child: InkWell(
+                  onTap: () {
+                    state.setWorkoutDay(DateTime.now(), true);
+                    Navigator.pop(context, true);
+                  },
+                  child: Container(
+                    height: 56 * s,
+                    alignment: Alignment.center,
+                    decoration: BoxDecoration(
+                      color: const Color(0xFF051328),
+                      borderRadius: BorderRadius.circular(14 * s),
+                    ),
+                    child: Text(
+                      'Mark Workout Done',
+                      style: TextStyle(
+                        color: Colors.white,
+                        fontSize: 16 * s,
+                        fontWeight: FontWeight.w800,
+                      ),
+                    ),
+                  ),
+                ),
+              ),
+            ),
+          ],
         ),
       ),
     );

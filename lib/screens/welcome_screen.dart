@@ -11,8 +11,8 @@ class _WelcomeFlowScreenState extends State<WelcomeFlowScreen> {
   int _i = 0;
 
   static const double _finalIconY = -0.25;
-  static const double _textGroupY = 0.18;
-  static const double _coreRectTightenPx = 1;
+  static const double _textGroupY = 0.22;
+  static const double _coreRectTightenPx = 0;
 
   static const _frames = <({
     Alignment align,
@@ -28,7 +28,7 @@ class _WelcomeFlowScreenState extends State<WelcomeFlowScreen> {
   ];
 
   static const _bounce = Duration(milliseconds: 180);
-  static const _hold = Duration(milliseconds: 550); 
+  static const _hold = Duration(milliseconds: 550);
 
   @override
   void initState() {
@@ -48,142 +48,142 @@ class _WelcomeFlowScreenState extends State<WelcomeFlowScreen> {
   Widget build(BuildContext context) {
     final f = _frames[_i];
 
+    // Full screen size
+    final size = MediaQuery.sizeOf(context);
+
+    // Scale based on width (your original design target ~375 wide)
+    final s = size.width / 375.0;
+
+    // Logo size relative to screen (keeps similar proportions)
+    final logoW = 203 * s;
+    final logoH = 229 * s;
+
     return Scaffold(
       backgroundColor: const Color.fromARGB(255, 18, 32, 47),
-      body: Center(
-        child: LayoutBuilder(
-          builder: (context, c) {
-            final cardW = (c.maxWidth * 0.9).clamp(320.0, 420.0);
-            final cardH = cardW * (812 / 375);
+      body: SafeArea(
+        child: SizedBox.expand(
+          child: Stack(
+            children: [
+              // Base white
+              Container(color: Colors.white),
 
-            final logoW = cardW * (203 / 375);
-            final logoH = cardH * (229 / 812);
+              // Animated gradient background
+              AnimatedOpacity(
+                duration: const Duration(milliseconds: 250),
+                opacity: f.bgOpacity,
+                child: Container(
+                  decoration: const BoxDecoration(
+                    gradient: LinearGradient(
+                      begin: Alignment.topRight,
+                      end: Alignment.bottomLeft,
+                      colors: [
+                        Color(0xFFFFF5B8),
+                        Color(0xFFBFD1E6),
+                        Color(0xFF6E7C8A),
+                      ],
+                    ),
+                  ),
+                ),
+              ),
 
-            return ClipRRect(
-              borderRadius: BorderRadius.circular(40),
-              child: SizedBox(
-                width: cardW,
-                height: cardH,
+              // Animated logo
+              AnimatedAlign(
+                duration: _bounce,
+                curve: Curves.bounceOut,
+                alignment: f.align,
+                child: AnimatedScale(
+                  duration: _bounce,
+                  curve: Curves.bounceOut,
+                  scale: f.scale,
+                  child: SizedBox(
+                    width: logoW,
+                    height: logoH,
+                    child: Image.asset(
+                      'assets/corerect-transparent-1.png',
+                      fit: BoxFit.contain,
+                    ),
+                  ),
+                ),
+              ),
+
+              // UI text + button
+              AnimatedOpacity(
+                duration: const Duration(milliseconds: 300),
+                opacity: f.uiOpacity,
                 child: Stack(
                   children: [
-                    Container(color: Colors.white),
-
-                    AnimatedOpacity(
-                      duration: const Duration(milliseconds: 250),
-                      opacity: f.bgOpacity,
-                      child: Container(
-                        decoration: const BoxDecoration(
-                          gradient: LinearGradient(
-                            begin: Alignment.topRight,
-                            end: Alignment.bottomLeft,
-                            colors: [
-                              Color(0xFFFFF5B8),
-                              Color(0xFFBFD1E6),
-                              Color(0xFF6E7C8A),
-                            ],
-                          ),
-                        ),
-                      ),
-                    ),
-
-                    AnimatedAlign(
-                      duration: _bounce,
-                      curve: Curves.bounceOut,
-                      alignment: f.align,
-                      child: AnimatedScale(
-                        duration: _bounce,
-                        curve: Curves.bounceOut,
-                        scale: f.scale,
-                        child: SizedBox(
-                          width: logoW,
-                          height: logoH,
-                          child: Image.asset(
-                            'assets/corerect-transparent-1.png',
-                            fit: BoxFit.contain,
-                          ),
-                        ),
-                      ),
-                    ),
-
-                    AnimatedOpacity(
-                      duration: const Duration(milliseconds: 300),
-                      opacity: f.uiOpacity,
-                      child: Stack(
+                    Align(
+                      alignment: const Alignment(0.0, _textGroupY),
+                      child: Column(
+                        mainAxisSize: MainAxisSize.min,
                         children: [
-                          Align(
-                            alignment: const Alignment(0.0, _textGroupY),
-                            child: Column(
-                              mainAxisSize: MainAxisSize.min,
-                              children: [
-                                const Text(
-                                  'WELCOME TO',
-                                  textAlign: TextAlign.center,
+                          Text(
+                            'WELCOME TO',
+                            textAlign: TextAlign.center,
+                            style: TextStyle(
+                              color: const Color(0xFF1F3447),
+                              fontSize: 20 * s,
+                              fontWeight: FontWeight.w500,
+                              fontFamily: 'DM Sans',
+                            ),
+                          ),
+                          Row(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              Text(
+                                'CORE',
+                                style: TextStyle(
+                                  color: const Color(0xFF537892),
+                                  fontSize: 48 * s,
+                                  fontWeight: FontWeight.w700,
+                                  fontFamily: 'DM Sans',
+                                ),
+                              ),
+                              Transform.translate(
+                                offset: const Offset(-_coreRectTightenPx, 0),
+                                child: Text(
+                                  'rect',
                                   style: TextStyle(
-                                    color: Color(0xFF1F3447),
-                                    fontSize: 20,
-                                    fontWeight: FontWeight.w500,
+                                    color: const Color(0xFF051328),
+                                    fontSize: 48 * s,
+                                    fontWeight: FontWeight.w700,
                                     fontFamily: 'DM Sans',
                                   ),
                                 ),
-                                Row(
-                                  mainAxisSize: MainAxisSize.min,
-                                  children: [
-                                    const Text(
-                                      'CORE',
-                                      style: TextStyle(
-                                        color: Color(0xFF537892),
-                                        fontSize: 48,
-                                        fontWeight: FontWeight.w700,
-                                        fontFamily: 'DM Sans',
-                                      ),
-                                    ),
-                                    Transform.translate(
-                                      offset: const Offset(-_coreRectTightenPx, 0),
-                                      child: const Text(
-                                        'rect',
-                                        style: TextStyle(
-                                          color: Color(0xFF051328),
-                                          fontSize: 48,
-                                          fontWeight: FontWeight.w700,
-                                          fontFamily: 'DM Sans',
-                                        ),
-                                      ),
-                                    ),
-                                  ],
-                                ),
-                              ],
-                            ),
-                          ),
-
-                          Positioned(
-                            right: 18,
-                            bottom: 18,
-                            child: InkWell(
-                              onTap: () {
-                                Navigator.pushReplacementNamed(context, '/profile');
-                              },
-                              child: Container(
-                                width: 52,
-                                height: 52,
-                                decoration: const ShapeDecoration(
-                                  color: Color(0xFFFEF9C2),
-                                  shape: OvalBorder(),
-                                ),
-                                child: const Icon(
-                                  Icons.arrow_forward,
-                                  color: Color(0xFF1F3447),
-                                ),
                               ),
-                            ),
+                            ],
                           ),
                         ],
+                      ),
+                    ),
+
+                    Positioned(
+                      right: 18 * s,
+                      bottom: 18 * s,
+                      child: InkWell(
+                        onTap: () {
+                          Navigator.pushReplacementNamed(context, '/profile');
+                        },
+                        child: Container(
+                          width: 52 * s,
+                          height: 52 * s,
+                          decoration: const ShapeDecoration(
+                            color: Color(0xFFFEF9C2),
+                            shape: OvalBorder(),
+                          ),
+                          child: Icon(
+                            Icons.arrow_forward,
+                            color: const Color(0xFF1F3447),
+                            size: 24 * s,
+                          ),
+                        ),
                       ),
                     ),
                   ],
                 ),
               ),
-            );
-          },
+            ],
+          ),
         ),
       ),
     );
