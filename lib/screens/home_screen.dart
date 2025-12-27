@@ -1,3 +1,4 @@
+// lib/screens/home_screen.dart
 import 'package:flutter/material.dart';
 import '../app_state.dart';
 import '../widgets/app_bottom_nav.dart';
@@ -23,6 +24,7 @@ class _HomeScreenState extends State<HomeScreen> {
 
   @override
   Widget build(BuildContext context) {
+    // keep dependency so widgets rebuild when AppState changes
     AppStateScope.of(context);
 
     return Scaffold(
@@ -54,7 +56,6 @@ class _HomeScreenState extends State<HomeScreen> {
                         ],
                       ),
                     ),
-
                     Positioned(
                       left: 0,
                       right: 0,
@@ -70,7 +71,7 @@ class _HomeScreenState extends State<HomeScreen> {
                           onPlus: () async {
                             final res = await Navigator.pushNamed(context, '/exercise_select');
                             if (res == true && mounted) {
-                              setState(() => _tab = 1); // jump to streak after finishing
+                              setState(() => _tab = 1);
                             }
                           },
                         ),
@@ -129,7 +130,6 @@ class _HomeTab extends StatelessWidget {
             ),
           ),
           SizedBox(height: 18 * scale),
-
           Row(
             children: [
               Container(
@@ -137,7 +137,10 @@ class _HomeTab extends StatelessWidget {
                 height: 18 * scale,
                 decoration: const ShapeDecoration(color: _yellow, shape: OvalBorder()),
                 child: Center(
-                  child: Text('!', style: TextStyle(color: _ink, fontSize: 12 * scale, fontWeight: FontWeight.w700)),
+                  child: Text(
+                    '!',
+                    style: TextStyle(color: _ink, fontSize: 12 * scale, fontWeight: FontWeight.w700),
+                  ),
                 ),
               ),
               SizedBox(width: 10 * scale),
@@ -152,7 +155,6 @@ class _HomeTab extends StatelessWidget {
               ),
             ],
           ),
-
           SizedBox(height: 18 * scale),
 
           // streak card
@@ -191,7 +193,10 @@ class _HomeTab extends StatelessWidget {
                       SizedBox(width: 2 * scale),
                       Padding(
                         padding: EdgeInsets.only(bottom: 6 * scale),
-                        child: Text('days', style: TextStyle(color: _streakAccent, fontSize: 16 * scale, fontWeight: FontWeight.w700)),
+                        child: Text(
+                          'days',
+                          style: TextStyle(color: _streakAccent, fontSize: 16 * scale, fontWeight: FontWeight.w700),
+                        ),
                       ),
                     ],
                   ),
@@ -319,7 +324,6 @@ class _StreakTab extends StatelessWidget {
     final first = DateTime(year, month, 1);
     final daysInMonth = DateTime(year, month + 1, 0).day;
 
-    // Sunday-first offset: Sunday=0, Monday=1 ... Saturday=6
     final offset = first.weekday % 7;
     final totalCells = ((offset + daysInMonth + 6) ~/ 7) * 7;
 
@@ -331,18 +335,11 @@ class _StreakTab extends StatelessWidget {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          // header
           Row(
             children: [
               InkWell(
-                onTap: () => DefaultTabController.of(context),
-                child: InkWell(
-                  onTap: () {
-                    // go back to Home tab inside shell
-                    Navigator.pushReplacementNamed(context, '/home');
-                  },
-                  child: Icon(Icons.arrow_back_rounded, color: _ink, size: 28 * scale),
-                ),
+                onTap: () => Navigator.pushReplacementNamed(context, '/home'),
+                child: Icon(Icons.arrow_back_rounded, color: _ink, size: 28 * scale),
               ),
               Expanded(
                 child: Center(
@@ -399,7 +396,6 @@ class _StreakTab extends StatelessWidget {
                 SizedBox(height: 12 * scale),
 
                 Row(
-                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
                   children: const ['S', 'M', 'T', 'W', 'T', 'F', 'S']
                       .map((t) => Expanded(child: Center(child: Text(t, style: TextStyle(color: Color(0xFF797B7F), fontSize: 12)))))
                       .toList(),
@@ -468,7 +464,7 @@ class _StreakTab extends StatelessWidget {
     );
   }
 
-  String _monthName(int m) {
+  static String _monthName(int m) {
     const names = [
       'January','February','March','April','May','June',
       'July','August','September','October','November','December'
@@ -477,6 +473,7 @@ class _StreakTab extends StatelessWidget {
   }
 }
 
+/// ✅ FIXED: This card has a SAFE fixed height so it cannot overflow
 class _MetricCard extends StatelessWidget {
   const _MetricCard({
     required this.scale,
@@ -492,16 +489,16 @@ class _MetricCard extends StatelessWidget {
   final String? suffix;
   final Color tint;
 
+  static const _ink = Color(0xFF051328);
+
   @override
   Widget build(BuildContext context) {
     return Expanded(
       child: Container(
-        // ✅ slightly taller to avoid overflow
-        height: 104 * scale,
+        height: 120 * scale, // ✅ fixed height = no overflow
         padding: EdgeInsets.fromLTRB(14 * scale, 12 * scale, 14 * scale, 12 * scale),
         decoration: BoxDecoration(
-          // ignore: deprecated_member_use
-          color: tint.withOpacity(0.12), // ✅ use withOpacity for compatibility
+          color: tint.withValues(alpha: 0.12),
           borderRadius: BorderRadius.circular(16 * scale),
         ),
         child: Column(
@@ -515,12 +512,10 @@ class _MetricCard extends StatelessWidget {
                 color: tint,
                 fontSize: 12 * scale,
                 fontWeight: FontWeight.w700,
-                height: 1.1,
+                height: 1.10,
               ),
             ),
             const Spacer(),
-
-            // ✅ prevents bottom overflow on different font metrics
             FittedBox(
               fit: BoxFit.scaleDown,
               alignment: Alignment.bottomLeft,
@@ -531,18 +526,24 @@ class _MetricCard extends StatelessWidget {
                     value,
                     style: TextStyle(
                       color: tint,
-                      fontSize: 34 * scale,
+                      fontSize: 36 * scale,
                       fontWeight: FontWeight.w800,
                       height: 1.0,
+                      fontFamily: 'DM Sans',
                     ),
                   ),
                   if (suffix != null) ...[
                     SizedBox(width: 6 * scale),
                     Padding(
-                      padding: EdgeInsets.only(bottom: 5 * scale),
+                      padding: EdgeInsets.only(bottom: 8 * scale),
                       child: Text(
                         suffix!,
-                        style: TextStyle(color: tint, fontSize: 10 * scale, height: 1.0),
+                        style: TextStyle(
+                          color: _ink.withValues(alpha: 0.65),
+                          fontSize: 12 * scale,
+                          height: 1.0,
+                          fontFamily: 'DM Sans',
+                        ),
                       ),
                     ),
                   ],
@@ -551,6 +552,26 @@ class _MetricCard extends StatelessWidget {
             ),
           ],
         ),
+      ),
+    );
+  }
+}
+
+class _LegendDot extends StatelessWidget {
+  const _LegendDot({required this.color, required this.scale, this.border = false});
+  final Color color;
+  final double scale;
+  final bool border;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      width: 12 * scale,
+      height: 12 * scale,
+      decoration: BoxDecoration(
+        color: color,
+        borderRadius: BorderRadius.circular(3 * scale),
+        border: border ? Border.all(color: const Color(0xFFBFC4CC)) : null,
       ),
     );
   }
@@ -587,76 +608,29 @@ class _HistoryTab extends StatelessWidget {
               SizedBox(width: 28 * scale),
             ],
           ),
-
           SizedBox(height: 18 * scale),
 
           Row(
             children: [
               Expanded(
-                child: Container(
-                  height: 110 * scale,
-                  padding: EdgeInsets.all(14 * scale),
-                  decoration: BoxDecoration(
-                    color: const Color(0xFFECC051).withValues(alpha: 0.12),
-                    borderRadius: BorderRadius.circular(20 * scale),
-                  ),
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Row(
-                        children: [
-                          Icon(Icons.favorite_border, color: const Color(0xFFECC051), size: 18 * scale),
-                          SizedBox(width: 8 * scale),
-                          Text('Avg. Form\nScore', style: TextStyle(color: const Color(0xFFECC051), fontSize: 14 * scale, fontWeight: FontWeight.w600)),
-                        ],
-                      ),
-                      const Spacer(),
-                      Row(
-                        crossAxisAlignment: CrossAxisAlignment.end,
-                        children: [
-                          Text('88', style: TextStyle(color: const Color(0xFFECC051), fontSize: 40 * scale, fontWeight: FontWeight.w800)),
-                          Padding(
-                            padding: EdgeInsets.only(bottom: 8 * scale, left: 6 * scale),
-                            child: Text('%', style: TextStyle(color: const Color(0xFFECC051), fontSize: 14 * scale)),
-                          ),
-                        ],
-                      ),
-                    ],
-                  ),
+                child: _HistoryStatCard(
+                  scale: scale,
+                  accent: const Color(0xFFECC051),
+                  icon: Icons.favorite_border,
+                  title: 'Avg. Form\nScore',
+                  value: '88',
+                  unit: '%',
                 ),
               ),
               SizedBox(width: 14 * scale),
               Expanded(
-                child: Container(
-                  height: 110 * scale,
-                  padding: EdgeInsets.all(14 * scale),
-                  decoration: BoxDecoration(
-                    color: const Color(0xFF537892).withValues(alpha: 0.12),
-                    borderRadius: BorderRadius.circular(20 * scale),
-                  ),
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Row(
-                        children: [
-                          Icon(Icons.bolt, color: const Color(0xFF537892), size: 18 * scale),
-                          SizedBox(width: 8 * scale),
-                          Text('Total Reps', style: TextStyle(color: const Color(0xFF537892), fontSize: 14 * scale, fontWeight: FontWeight.w600)),
-                        ],
-                      ),
-                      const Spacer(),
-                      Row(
-                        crossAxisAlignment: CrossAxisAlignment.end,
-                        children: [
-                          Text('150', style: TextStyle(color: const Color(0xFF537892), fontSize: 40 * scale, fontWeight: FontWeight.w800)),
-                          Padding(
-                            padding: EdgeInsets.only(bottom: 8 * scale, left: 6 * scale),
-                            child: Text('reps', style: TextStyle(color: const Color(0xFF537892), fontSize: 14 * scale)),
-                          ),
-                        ],
-                      ),
-                    ],
-                  ),
+                child: _HistoryStatCard(
+                  scale: scale,
+                  accent: const Color(0xFF537892),
+                  icon: Icons.bolt,
+                  title: 'Total Reps',
+                  value: '150',
+                  unit: 'reps',
                 ),
               ),
             ],
@@ -690,11 +664,100 @@ class _HistoryTab extends StatelessWidget {
   }
 }
 
+class _HistoryStatCard extends StatelessWidget {
+  const _HistoryStatCard({
+    required this.scale,
+    required this.accent,
+    required this.icon,
+    required this.title,
+    required this.value,
+    required this.unit,
+  });
+
+  final double scale;
+  final Color accent;
+  final IconData icon;
+  final String title;
+  final String value;
+  final String unit;
+
+  static const _ink = Color(0xFF051328);
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      height: 132 * scale,
+      padding: EdgeInsets.fromLTRB(14 * scale, 12 * scale, 14 * scale, 12 * scale),
+      decoration: BoxDecoration(
+        color: accent.withValues(alpha: 0.12),
+        borderRadius: BorderRadius.circular(20 * scale),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Icon(icon, color: accent, size: 18 * scale),
+              SizedBox(width: 8 * scale),
+              Expanded(
+                child: Text(
+                  title,
+                  maxLines: 2,
+                  overflow: TextOverflow.ellipsis,
+                  style: TextStyle(
+                    color: accent,
+                    fontSize: 13 * scale,
+                    fontWeight: FontWeight.w600,
+                    height: 1.10,
+                  ),
+                ),
+              ),
+            ],
+          ),
+          const Spacer(),
+          FittedBox(
+            fit: BoxFit.scaleDown,
+            alignment: Alignment.bottomLeft,
+            child: Row(
+              crossAxisAlignment: CrossAxisAlignment.end,
+              children: [
+                Text(
+                  value,
+                  style: TextStyle(
+                    color: accent,
+                    fontSize: 40 * scale,
+                    fontWeight: FontWeight.w800,
+                    height: 1.0,
+                    fontFamily: 'DM Sans',
+                  ),
+                ),
+                SizedBox(width: 6 * scale),
+                Padding(
+                  padding: EdgeInsets.only(bottom: 8 * scale),
+                  child: Text(
+                    unit,
+                    style: TextStyle(
+                      color: unit == '%' ? accent : _ink.withValues(alpha: 0.55),
+                      fontSize: 14 * scale,
+                      height: 1.0,
+                      fontFamily: 'DM Sans',
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
 class _WorkoutCard extends StatelessWidget {
   const _WorkoutCard({required this.scale, required this.date});
   final double scale;
   final DateTime date;
-
 
   @override
   Widget build(BuildContext context) {
@@ -732,6 +795,10 @@ class _WorkoutCard extends StatelessWidget {
           SizedBox(height: 10 * scale),
           Row(
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: const [],
+          ),
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
               _MiniStat(scale: scale, value: '45', label: 'Reps'),
               _MiniStat(scale: scale, value: '12 min', label: 'Duration'),
@@ -744,9 +811,7 @@ class _WorkoutCard extends StatelessWidget {
   }
 
   String _month(int m) {
-    const names = [
-      'Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'
-    ];
+    const names = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
     return names[m - 1];
   }
 }
@@ -767,31 +832,6 @@ class _MiniStat extends StatelessWidget {
         SizedBox(height: 4 * scale),
         Text(label, style: TextStyle(color: const Color(0xFF797B7F), fontSize: 10 * scale)),
       ],
-    );
-  }
-}
-
-class _LegendDot extends StatelessWidget {
-  const _LegendDot({
-    required this.color,
-    required this.scale,
-    this.border = false,
-  });
-
-  final Color color;
-  final double scale;
-  final bool border;
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      width: 12 * scale,
-      height: 12 * scale,
-      decoration: BoxDecoration(
-        color: color,
-        borderRadius: BorderRadius.circular(3 * scale),
-        border: border ? Border.all(color: const Color(0xFFBFC4CC)) : null,
-      ),
     );
   }
 }
