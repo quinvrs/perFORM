@@ -7,7 +7,6 @@ import '../app_state.dart';
 
 //import for pose detection
 import 'dart:io';
-import 'dart:typed_data';
 import 'package:google_mlkit_pose_detection/google_mlkit_pose_detection.dart';
 
 class SetupModeScreen extends StatefulWidget {
@@ -73,7 +72,7 @@ class _SetupModeScreenState extends State<SetupModeScreen> {
 
       final ctrl = CameraController(
         chosen,
-        ResolutionPreset.high,
+        ResolutionPreset.medium,
         enableAudio: false,
         imageFormatGroup: Platform.isAndroid
         ? ImageFormatGroup.nv21
@@ -178,6 +177,63 @@ InputImage? _cameraImageToInputImage(CameraImage image, CameraDescription camera
   );
 }
 
+//camera fix 
+Widget _buildCameraWithOverlay() {
+  final controller = _controller;
+  if (controller == null || !controller.value.isInitialized) {
+    return const Center(child: CircularProgressIndicator());
+  }
+
+  return LayoutBuilder(
+    builder: (context, constraints) {
+      final previewSize = controller.value.previewSize!;
+      final screenW = constraints.maxWidth;
+      final screenH = constraints.maxHeight;
+
+      // previewSize is landscape; in portrait we treat it as rotated
+      final previewW = previewSize.height;
+      final previewH = previewSize.width;
+
+      final scaleW = screenW / previewW;
+      final scaleH = screenH / previewH;
+      final scale = scaleW > scaleH ? scaleW : scaleH;
+
+      return ClipRect(
+        child: Center(
+          child: Transform.scale(
+            scale: scale,
+            alignment: Alignment.center,
+            child: SizedBox(
+              width: previewW,
+              height: previewH,
+              child: Stack(
+                fit: StackFit.expand,
+                children: [
+                  CameraPreview(controller),
+
+                  if (_imgSize != null && _imgRotation != null && _selectedCamera != null)
+                    IgnorePointer(
+                      child: RepaintBoundary(
+                        child: CustomPaint(
+                          painter: _PosePainter(
+                            poses: _poses,
+                            imageSize: _imgSize!,
+                            rotation: _imgRotation!,
+                            isFrontCamera:
+                                _selectedCamera!.lensDirection == CameraLensDirection.front,
+                          ),
+                        ),
+                      ),
+                    ),
+                ],
+              ),
+            ),
+          ),
+        ),
+      );
+    },
+  );
+}
 
   @override
   Widget build(BuildContext context) {
@@ -213,29 +269,7 @@ InputImage? _cameraImageToInputImage(CameraImage image, CameraDescription camera
                           alignment: Alignment.center,
                           child: const CircularProgressIndicator(),
                         )
-                      : FittedBox(
-                          fit: BoxFit.contain,
-                          alignment: Alignment.center,
-                          child: SizedBox(
-                            width: _controller!.value.previewSize!.height,
-                            height: _controller!.value.previewSize!.width,
-                            child: Stack(
-                              fit: StackFit.expand,
-                              children: [
-                                CameraPreview(_controller!),
-                                if (_imgSize != null && _imgRotation != null && _selectedCamera != null)
-                                  CustomPaint(
-                                    painter: _PosePainter(
-                                      poses: _poses,
-                                      imageSize: _imgSize!,
-                                      rotation: _imgRotation!,
-                                      isFrontCamera: _selectedCamera!.lensDirection == CameraLensDirection.front,
-                                    ),
-                                  ),
-                              ],
-                            ),
-                          ),
-                        ),
+                      : _buildCameraWithOverlay(),
             ),
 
             // top bar
@@ -361,7 +395,7 @@ InputImage? _cameraImageToInputImage(CameraImage image, CameraDescription camera
               ),
             ),
             
-            //just to check if the pose detection is working
+            //just to check if the pose detection is working [pose counter]
             Positioned(
               left: 16 * s,
               bottom: 90 * s, // above your button
