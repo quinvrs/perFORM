@@ -1,8 +1,14 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:camera/camera.dart';
 import 'package:permission_handler/permission_handler.dart';
 
 import '../app_state.dart';
+
+//import for pose detection
+import 'dart:io';
+import 'dart:typed_data';
+import 'package:google_mlkit_pose_detection/google_mlkit_pose_detection.dart';
 
 class SetupModeScreen extends StatefulWidget {
   const SetupModeScreen({super.key});
@@ -18,9 +24,26 @@ class _SetupModeScreenState extends State<SetupModeScreen> {
   Future<void>? _initFuture;
   String? _error;
 
+  //Add pose detector
+  PoseDetector? _poseDetector;
+  bool _isDetecting = false;
+
+  List<Pose> _poses = const [];
+  Size? _lastImageSize; // used for overlay scaling
+  CameraDescription? _selectedCamera;
+
   @override
   void initState() {
     super.initState();
+
+    //Initialize pose detector
+    _poseDetector = PoseDetector(
+    options: PoseDetectorOptions(
+    mode: PoseDetectionMode.stream,
+    model: PoseDetectionModel.base,
+      ),
+    );
+
     _initCamera();
   }
 
@@ -49,11 +72,39 @@ class _SetupModeScreenState extends State<SetupModeScreen> {
         chosen,
         ResolutionPreset.high,
         enableAudio: false,
+        imageFormatGroup: Platform.isAndroid
+        ? ImageFormatGroup.nv21
+        : ImageFormatGroup.bgra8888,
       );
 
       _controller = ctrl;
       _initFuture = ctrl.initialize();
       await _initFuture;
+
+      _selectedCamera = chosen;
+
+      await ctrl.startImageStream((CameraImage image) async {
+        if (_isDetecting) return;
+        _isDetecting = true;
+
+        try {
+          _lastImageSize = Size(image.width.toDouble(), image.height.toDouble());
+
+          final inputImage = _cameraImageToInputImage(image, _selectedCamera!);
+          if (inputImage == null) {
+            _isDetecting = false;
+            return;
+          }
+          final poses = await _poseDetector!.processImage(inputImage);
+
+          if (mounted) setState(() => _poses = poses);
+        } catch (e,st) {
+          debugPrint('Pose error. $e');
+          debugPrint('Pose error. $st'); //try if di maidentify
+        } finally {
+          _isDetecting = false;
+        }
+      });
 
       if (mounted) setState(() {});
     } catch (e) {
@@ -63,9 +114,65 @@ class _SetupModeScreenState extends State<SetupModeScreen> {
 
   @override
   void dispose() {
+    _controller?.stopImageStream();
     _controller?.dispose();
+    _poseDetector?.close();
     super.dispose();
   }
+
+static const _orientations = <DeviceOrientation, int>{
+  DeviceOrientation.portraitUp: 0,
+  DeviceOrientation.landscapeLeft: 90,
+  DeviceOrientation.portraitDown: 180,
+  DeviceOrientation.landscapeRight: 270,
+};
+
+InputImage? _cameraImageToInputImage(CameraImage image, CameraDescription camera) {
+  // rotation
+  final sensorOrientation = camera.sensorOrientation;
+  InputImageRotation? rotation;
+
+  if (Platform.isIOS) {
+    rotation = InputImageRotationValue.fromRawValue(sensorOrientation);
+  } else if (Platform.isAndroid) {
+    final rotationCompensation = _orientations[_controller!.value.deviceOrientation];
+    if (rotationCompensation == null) return null;
+
+    int rot;
+    if (camera.lensDirection == CameraLensDirection.front) {
+      rot = (sensorOrientation + rotationCompensation) % 360;
+    } else {
+      rot = (sensorOrientation - rotationCompensation + 360) % 360;
+    }
+    rotation = InputImageRotationValue.fromRawValue(rot);
+  }
+
+  if (rotation == null) return null;
+
+  // format
+  final format = InputImageFormatValue.fromRawValue(image.format.raw);
+  if (format == null) return null;
+
+  // only supported formats for this pipeline:
+  // Android: nv21 (1 plane)
+  // iOS: bgra8888 (1 plane)
+  if (Platform.isAndroid && format != InputImageFormat.nv21) return null;
+  if (Platform.isIOS && format != InputImageFormat.bgra8888) return null;
+
+  if (image.planes.length != 1) return null;
+
+  final plane = image.planes.first;
+
+  return InputImage.fromBytes(
+    bytes: plane.bytes,
+    metadata: InputImageMetadata(
+      size: Size(image.width.toDouble(), image.height.toDouble()),
+      rotation: rotation,
+      format: format,
+      bytesPerRow: plane.bytesPerRow,
+    ),
+  );
+}
 
   @override
   Widget build(BuildContext context) {
@@ -233,9 +340,27 @@ class _SetupModeScreenState extends State<SetupModeScreen> {
                 ),
               ),
             ),
+            
+            //just to check if the pose detection is working
+            Positioned(
+              left: 16 * s,
+              bottom: 90 * s, // above your button
+              child: Container(
+                padding: EdgeInsets.symmetric(horizontal: 10 * s, vertical: 6 * s),
+                decoration: BoxDecoration(
+                  color: Colors.black.withValues(alpha: 0.6),
+                  borderRadius: BorderRadius.circular(8 * s),
+                ),
+                child: Text(
+                  'poses: ${_poses.length}',
+                  style: TextStyle(color: Colors.white, fontSize: 12 * s),
+                ),
+              ),
+            ),
           ],
         ),
       ),
     );
   }
 }
+
