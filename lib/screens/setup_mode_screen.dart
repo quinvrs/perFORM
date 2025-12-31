@@ -330,72 +330,73 @@ Widget _buildCameraWithOverlay() {
             ),
 
             // instruction card
-            Positioned(
-              left: 18 * s,
-              right: 18 * s,
-              top: 40 * s,
-              child: Container(
-                padding: EdgeInsets.all(14 * s),
-                decoration: BoxDecoration(
-                  color: Colors.white,
-                  borderRadius: BorderRadius.circular(10 * s),
-                  boxShadow: [
-                    BoxShadow(
-                      color: const Color(0xFF000000).withValues(alpha: 0.35),
-                      blurRadius: 10,
-                      offset: const Offset(0, 4),
-                    ),
-                  ],
-                ),
-                child: Row(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Container(
-                      width: 34 * s,
-                      height: 34 * s,
-                      decoration: const BoxDecoration(
-                        color: Color(0xFF00C951),
-                        shape: BoxShape.circle,
+            if (!_setupReady)
+                Positioned(
+                left: 18 * s,
+                right: 18 * s,
+                top: 40 * s,
+                child: Container(
+                  padding: EdgeInsets.all(14 * s),
+                  decoration: BoxDecoration(
+                    color: Colors.white,
+                    borderRadius: BorderRadius.circular(10 * s),
+                    boxShadow: [
+                      BoxShadow(
+                        color: const Color(0xFF000000).withValues(alpha: 0.35),
+                        blurRadius: 10,
+                        offset: const Offset(0, 4),
                       ),
-                      child: Icon(
-                        Icons.camera_alt_rounded,
-                        color: Colors.white,
-                        size: 20 * s,
+                    ],
+                  ),
+                  child: Row(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Container(
+                        width: 34 * s,
+                        height: 34 * s,
+                        decoration: const BoxDecoration(
+                          color: Color(0xFF00C951),
+                          shape: BoxShape.circle,
+                        ),
+                        child: Icon(
+                          Icons.camera_alt_rounded,
+                          color: Colors.white,
+                          size: 20 * s,
+                        ),
                       ),
-                    ),
-                    SizedBox(width: 12 * s),
-                    Expanded(
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Text(
-                            'Camera Setup',
-                            style: TextStyle(
-                              color: Colors.black,
-                              fontSize: 16 * s,
-                              fontWeight: FontWeight.w700,
+                      SizedBox(width: 12 * s),
+                      Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text(
+                              'Camera Setup',
+                              style: TextStyle(
+                                color: Colors.black,
+                                fontSize: 16 * s,
+                                fontWeight: FontWeight.w700,
+                              ),
                             ),
-                          ),
-                          SizedBox(height: 6 * s),
-                          Text(
-                            'Position yourself within the frame\n'
-                            '• Stand 6–8 feet from camera\n'
-                            '• Ensure full body is visible\n'
-                            '• Face the camera directly\n'
-                            '• Good lighting recommended',
-                            style: TextStyle(
-                              color: const Color(0xFF797B7F),
-                              fontSize: 11 * s,
-                              height: 1.35,
+                            SizedBox(height: 6 * s),
+                            Text(
+                              'Position yourself within the frame\n'
+                              '• Stand 6–8 feet from camera\n'
+                              '• Ensure full body is visible\n'
+                              '• Face the camera directly\n'
+                              '• Good lighting recommended',
+                              style: TextStyle(
+                                color: const Color(0xFF797B7F),
+                                fontSize: 11 * s,
+                                height: 1.35,
+                              ),
                             ),
-                          ),
-                        ],
+                          ],
+                        ),
                       ),
-                    ),
-                  ],
+                    ],
+                  ),
                 ),
               ),
-            ),
 
             // Done button
             Positioned(
