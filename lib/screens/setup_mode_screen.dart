@@ -32,6 +32,9 @@ class _SetupModeScreenState extends State<SetupModeScreen> {
   Size? _lastImageSize; // used for overlay scaling
   CameraDescription? _selectedCamera;
 
+  InputImageRotation? _imgRotation;
+  Size? _imgSize;
+
   @override
   void initState() {
     super.initState();
@@ -138,12 +141,10 @@ InputImage? _cameraImageToInputImage(CameraImage image, CameraDescription camera
     final rotationCompensation = _orientations[_controller!.value.deviceOrientation];
     if (rotationCompensation == null) return null;
 
-    int rot;
-    if (camera.lensDirection == CameraLensDirection.front) {
-      rot = (sensorOrientation + rotationCompensation) % 360;
-    } else {
-      rot = (sensorOrientation - rotationCompensation + 360) % 360;
-    }
+    final rot = camera.lensDirection == CameraLensDirection.front
+        ? (sensorOrientation + rotationCompensation) % 360
+        : (sensorOrientation - rotationCompensation + 360) % 360;
+
     rotation = InputImageRotationValue.fromRawValue(rot);
   }
 
@@ -153,9 +154,6 @@ InputImage? _cameraImageToInputImage(CameraImage image, CameraDescription camera
   final format = InputImageFormatValue.fromRawValue(image.format.raw);
   if (format == null) return null;
 
-  // only supported formats for this pipeline:
-  // Android: nv21 (1 plane)
-  // iOS: bgra8888 (1 plane)
   if (Platform.isAndroid && format != InputImageFormat.nv21) return null;
   if (Platform.isIOS && format != InputImageFormat.bgra8888) return null;
 
@@ -163,16 +161,23 @@ InputImage? _cameraImageToInputImage(CameraImage image, CameraDescription camera
 
   final plane = image.planes.first;
 
+  final imgSize = Size(image.width.toDouble(), image.height.toDouble());
+
+  // Save these for your painter overlay
+  _imgRotation = rotation;
+  _imgSize = imgSize;
+
   return InputImage.fromBytes(
     bytes: plane.bytes,
     metadata: InputImageMetadata(
-      size: Size(image.width.toDouble(), image.height.toDouble()),
+      size: imgSize,
       rotation: rotation,
       format: format,
       bytesPerRow: plane.bytesPerRow,
     ),
   );
 }
+
 
   @override
   Widget build(BuildContext context) {
@@ -209,11 +214,26 @@ InputImage? _cameraImageToInputImage(CameraImage image, CameraDescription camera
                           child: const CircularProgressIndicator(),
                         )
                       : FittedBox(
-                          fit: BoxFit.cover,
+                          fit: BoxFit.contain,
+                          alignment: Alignment.center,
                           child: SizedBox(
                             width: _controller!.value.previewSize!.height,
                             height: _controller!.value.previewSize!.width,
-                            child: CameraPreview(_controller!),
+                            child: Stack(
+                              fit: StackFit.expand,
+                              children: [
+                                CameraPreview(_controller!),
+                                if (_imgSize != null && _imgRotation != null && _selectedCamera != null)
+                                  CustomPaint(
+                                    painter: _PosePainter(
+                                      poses: _poses,
+                                      imageSize: _imgSize!,
+                                      rotation: _imgRotation!,
+                                      isFrontCamera: _selectedCamera!.lensDirection == CameraLensDirection.front,
+                                    ),
+                                  ),
+                              ],
+                            ),
                           ),
                         ),
             ),
@@ -362,5 +382,65 @@ InputImage? _cameraImageToInputImage(CameraImage image, CameraDescription camera
       ),
     );
   }
+}
+
+//White node pose detection in the camera
+class _PosePainter extends CustomPainter {
+  _PosePainter({
+    required this.poses,
+    required this.imageSize,
+    required this.rotation,
+    required this.isFrontCamera,
+  });
+
+  final List<Pose> poses;
+  final Size imageSize;
+  final InputImageRotation rotation;
+  final bool isFrontCamera;
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    final p = Paint()
+      ..style = PaintingStyle.fill
+      ..color = Colors.white;
+
+    double tx(double x) {
+      double mapped;
+      switch (rotation) {
+        case InputImageRotation.rotation90deg:
+          mapped = x * size.width / imageSize.height;
+          break;
+        case InputImageRotation.rotation270deg:
+          mapped = size.width - (x * size.width / imageSize.height);
+          break;
+        default:
+          mapped = x * size.width / imageSize.width;
+      }
+      return isFrontCamera ? size.width - mapped : mapped;
+    }
+
+    double ty(double y) {
+      switch (rotation) {
+        case InputImageRotation.rotation90deg:
+        case InputImageRotation.rotation270deg:
+          return y * size.height / imageSize.width;
+        default:
+          return y * size.height / imageSize.height;
+      }
+    }
+
+    for (final pose in poses) {
+      for (final lm in pose.landmarks.values) {
+        canvas.drawCircle(Offset(tx(lm.x), ty(lm.y)), 4, p);
+      }
+    }
+  }
+  
+  @override
+  bool shouldRepaint(covariant _PosePainter old) =>
+      old.poses != poses ||
+      old.imageSize != imageSize ||
+      old.rotation != rotation ||
+      old.isFrontCamera != isFrontCamera;
 }
 
