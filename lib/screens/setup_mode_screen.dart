@@ -220,6 +220,7 @@ Widget _buildCameraWithOverlay() {
       final scaleW = screenW / previewW;
       final scaleH = screenH / previewH;
       final scale = scaleW > scaleH ? scaleW : scaleH;
+      
 
       return ClipRect(
         child: Center(
@@ -266,6 +267,10 @@ Widget _buildCameraWithOverlay() {
     final size = MediaQuery.sizeOf(context);
     final s = size.width / 375.0;
 
+    final topInset = MediaQuery.of(context).padding.top;
+    final appBarH = 44 * s; // tweak if you want taller top fade
+
+
     return Scaffold(
       backgroundColor: _bgDark,
       body: SafeArea(
@@ -298,6 +303,26 @@ Widget _buildCameraWithOverlay() {
               left: 0,
               right: 0,
               top: 0,
+              child: IgnorePointer(
+                child: Container(
+                height: topInset + appBarH,
+                decoration: BoxDecoration(
+                  gradient: LinearGradient(
+                  begin: Alignment.topCenter,
+                  end: Alignment.bottomCenter,
+                  colors: [
+                  Colors.black.withValues(alpha: 0.65),
+                  Colors.black.withValues(alpha: 0.0),
+                  ],
+                ),
+              ),
+            ),
+          ),
+        ),
+            Positioned(
+              left: 0,
+              right: 0,
+              top: 0,
               child: SafeArea(
                 bottom: false,
                 child: Padding(
@@ -316,9 +341,12 @@ Widget _buildCameraWithOverlay() {
                           Text(
                             'Setup Mode',
                             style: TextStyle(
-                              color: Colors.white.withValues(alpha: 0.92),
-                              fontSize: 14 * s,
-                              fontWeight: FontWeight.w600,
+                            color: Colors.white.withValues(alpha: 0.95),
+                            fontSize: 14 * s,
+                            fontWeight: FontWeight.w600,
+                              shadows: const [
+                              Shadow(blurRadius: 8, color: Colors.black),
+                              ],
                             ),
                           ),
                         ],
