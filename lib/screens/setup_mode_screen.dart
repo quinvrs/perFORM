@@ -3,6 +3,7 @@ import 'package:flutter/services.dart';
 import 'package:camera/camera.dart';
 import 'package:permission_handler/permission_handler.dart';
 
+import '../services/camera_setup_checker.dart';
 import '../app_state.dart';
 
 //import for pose detection
@@ -30,9 +31,11 @@ class _SetupModeScreenState extends State<SetupModeScreen> {
   List<Pose> _poses = const [];
   Size? _lastImageSize; // used for overlay scaling
   CameraDescription? _selectedCamera;
-
   InputImageRotation? _imgRotation;
   Size? _imgSize;
+
+  final _checker = CameraSetupChecker();
+  bool _setupReady = false;
 
   @override
   void initState() {
@@ -90,8 +93,6 @@ class _SetupModeScreenState extends State<SetupModeScreen> {
         _isDetecting = true;
 
         try {
-          _lastImageSize = Size(image.width.toDouble(), image.height.toDouble());
-
           final inputImage = _cameraImageToInputImage(image, _selectedCamera!);
           if (inputImage == null) {
             _isDetecting = false;
@@ -99,7 +100,29 @@ class _SetupModeScreenState extends State<SetupModeScreen> {
           }
           final poses = await _poseDetector!.processImage(inputImage);
 
-          if (mounted) setState(() => _poses = poses);
+            bool readyNow = _setupReady;
+
+            if (_imgSize != null && _imgRotation != null && _selectedCamera != null) {
+              final pSize = _controller!.value.previewSize!;
+              final canvas = Size(pSize.height, pSize.width); // portrait canvas
+
+              readyNow = _checker.update(
+                poses: poses,
+                canvasSize: canvas,
+                imageSize: _imgSize!,
+                rotation: _imgRotation!,
+                lensDirection: _selectedCamera!.lensDirection,
+              );
+            }
+
+          if (mounted) {
+            final changedReady = readyNow != _setupReady;
+
+            setState(() {
+              _poses = poses;
+              if (changedReady) _setupReady = readyNow;
+            });
+          }
         } catch (e,st) {
           debugPrint('Pose error. $e');
           debugPrint('Pose error. $st'); //try if di maidentify
@@ -300,67 +323,68 @@ Widget _buildCameraWithOverlay() {
             ),
 
             // instruction card
-            Positioned(
-              left: 18 * s,
-              right: 18 * s,
-              top: 86 * s,
-              child: Container(
-                padding: EdgeInsets.all(14 * s),
-                decoration: BoxDecoration(
-                  color: Colors.white,
-                  borderRadius: BorderRadius.circular(10 * s),
-                  boxShadow: [
-                    BoxShadow(
-                      color: const Color(0xFF000000).withValues(alpha: 0.35),
-                      blurRadius: 10,
-                      offset: const Offset(0, 4),
-                    ),
-                  ],
-                ),
-                child: Row(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Container(
-                      width: 34 * s,
-                      height: 34 * s,
-                      decoration: const BoxDecoration(
-                        color: Color(0xFF00C951),
-                        shape: BoxShape.circle,
+            if (!_setupReady) 
+              Positioned(
+                left: 18 * s,
+                right: 18 * s,
+                top: 86 * s,
+                child: Container(
+                  padding: EdgeInsets.all(14 * s),
+                  decoration: BoxDecoration(
+                    color: Colors.white,
+                    borderRadius: BorderRadius.circular(10 * s),
+                    boxShadow: [
+                      BoxShadow(
+                        color: const Color(0xFF000000).withValues(alpha: 0.35),
+                        blurRadius: 10,
+                        offset: const Offset(0, 4),
                       ),
-                    ),
-                    SizedBox(width: 12 * s),
-                    Expanded(
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Text(
-                            'Camera Setup',
-                            style: TextStyle(
-                              color: Colors.black,
-                              fontSize: 16 * s,
-                              fontWeight: FontWeight.w700,
-                            ),
-                          ),
-                          SizedBox(height: 6 * s),
-                          Text(
-                            'Position yourself within the frame\n'
-                            '• Stand 6–8 feet from camera\n'
-                            '• Ensure full body is visible\n'
-                            '• Face the camera directly\n'
-                            '• Good lighting recommended',
-                            style: TextStyle(
-                              color: const Color(0xFF797B7F),
-                              fontSize: 11 * s,
-                              height: 1.35,
-                            ),
-                          ),
-                        ],
+                    ],
+                  ),
+                  child: Row(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Container(
+                        width: 34 * s,
+                        height: 34 * s,
+                        decoration: const BoxDecoration(
+                          color: Color(0xFF00C951),
+                          shape: BoxShape.circle,
+                        ),
                       ),
-                    ),
-                  ],
+                      SizedBox(width: 12 * s),
+                      Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text(
+                              'Camera Setup',
+                              style: TextStyle(
+                                color: Colors.black,
+                                fontSize: 16 * s,
+                                fontWeight: FontWeight.w700,
+                              ),
+                            ),
+                            SizedBox(height: 6 * s),
+                            Text(
+                              'Position yourself within the frame\n'
+                              '• Stand 6–8 feet from camera\n'
+                              '• Ensure full body is visible\n'
+                              '• Face the camera directly\n'
+                              '• Good lighting recommended',
+                              style: TextStyle(
+                                color: const Color(0xFF797B7F),
+                                fontSize: 11 * s,
+                                height: 1.35,
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ],
+                  ),
                 ),
               ),
-            ),
 
             // Done button
             Positioned(
@@ -405,10 +429,10 @@ Widget _buildCameraWithOverlay() {
                   color: Colors.black.withValues(alpha: 0.6),
                   borderRadius: BorderRadius.circular(8 * s),
                 ),
-                child: Text(
-                  'poses: ${_poses.length}',
-                  style: TextStyle(color: Colors.white, fontSize: 12 * s),
-                ),
+                  child: Text(
+                    'poses: ${_poses.length} | ready: $_setupReady | ${_checker.lastReason}',
+                    style: TextStyle(color: Colors.white, fontSize: 12 * s),
+                  ),
               ),
             ),
           ],
