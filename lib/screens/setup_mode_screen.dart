@@ -400,11 +400,17 @@ class _PosePainter extends CustomPainter {
 
   @override
   void paint(Canvas canvas, Size size) {
-    final p = Paint()
+    final dot = Paint()
       ..style = PaintingStyle.fill
       ..color = Colors.white;
 
-    double tx(double x) {
+    final line = Paint()
+        ..style = PaintingStyle.stroke
+        ..strokeWidth = 3
+        ..strokeCap = StrokeCap.round
+        ..color = Colors.white.withValues(alpha: 0.9);
+
+   double tx(double x) {
       double mapped;
       switch (rotation) {
         case InputImageRotation.rotation90deg:
@@ -429,18 +435,58 @@ class _PosePainter extends CustomPainter {
       }
     }
 
-    for (final pose in poses) {
-      for (final lm in pose.landmarks.values) {
-        canvas.drawCircle(Offset(tx(lm.x), ty(lm.y)), 4, p);
+      Offset t(double x, double y) => Offset(tx(x), ty(y));
+
+      for (final pose in poses) {
+        final lm = pose.landmarks;
+
+        // Helper to safely draw a line between 2 landmarks
+        void connect(PoseLandmarkType a, PoseLandmarkType b) {
+          final pa = lm[a];
+          final pb = lm[b];
+          if (pa == null || pb == null) return;
+
+          canvas.drawLine(t(pa.x, pa.y), t(pb.x, pb.y), line);
+        }
+
+        // ---- Skeleton connections ----
+
+        // Face / head (simple)
+        connect(PoseLandmarkType.leftShoulder, PoseLandmarkType.rightShoulder);
+
+        // Left arm
+        connect(PoseLandmarkType.leftShoulder, PoseLandmarkType.leftElbow);
+        connect(PoseLandmarkType.leftElbow, PoseLandmarkType.leftWrist);
+
+        // Right arm
+        connect(PoseLandmarkType.rightShoulder, PoseLandmarkType.rightElbow);
+        connect(PoseLandmarkType.rightElbow, PoseLandmarkType.rightWrist);
+
+        // Torso
+        connect(PoseLandmarkType.leftShoulder, PoseLandmarkType.leftHip);
+        connect(PoseLandmarkType.rightShoulder, PoseLandmarkType.rightHip);
+        connect(PoseLandmarkType.leftHip, PoseLandmarkType.rightHip);
+
+        // Left leg
+        connect(PoseLandmarkType.leftHip, PoseLandmarkType.leftKnee);
+        connect(PoseLandmarkType.leftKnee, PoseLandmarkType.leftAnkle);
+
+        // Right leg
+        connect(PoseLandmarkType.rightHip, PoseLandmarkType.rightKnee);
+        connect(PoseLandmarkType.rightKnee, PoseLandmarkType.rightAnkle);
+
+        // ---- Dots on top ----
+        for (final landmark in lm.values) {
+          canvas.drawCircle(t(landmark.x, landmark.y), 4, dot);
+        }
       }
     }
-  }
-  
+
   @override
   bool shouldRepaint(covariant _PosePainter old) =>
       old.poses != poses ||
       old.imageSize != imageSize ||
       old.rotation != rotation ||
       old.isFrontCamera != isFrontCamera;
-}
+  }
 
