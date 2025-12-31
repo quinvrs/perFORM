@@ -10,8 +10,8 @@ class WelcomeFlowScreen extends StatefulWidget {
 class _WelcomeFlowScreenState extends State<WelcomeFlowScreen> {
   int _i = 0;
 
-  static const double _finalIconY = -0.25;
-  static const double _textGroupY = 0.22;
+  static const double _finalIconY = -0.27;
+  static const double _textGroupY = 0.26;
   static const double _coreRectTightenPx = 0;
 
   static const _frames = <({
@@ -55,8 +55,8 @@ class _WelcomeFlowScreenState extends State<WelcomeFlowScreen> {
     final s = size.width / 375.0;
 
     // Logo size relative to screen (keeps similar proportions)
-    final logoW = 203 * s;
-    final logoH = 229 * s;
+    final logoW = 175 * s;
+    final logoH = 201 * s;
 
     return Scaffold(
       backgroundColor: const Color.fromARGB(255, 18, 32, 47),
@@ -121,12 +121,14 @@ class _WelcomeFlowScreenState extends State<WelcomeFlowScreen> {
                             'WELCOME TO',
                             textAlign: TextAlign.center,
                             style: TextStyle(
+                              height: 0.6,
                               color: const Color(0xFF1F3447),
                               fontSize: 20 * s,
                               fontWeight: FontWeight.w500,
                               fontFamily: 'DM Sans',
                             ),
                           ),
+                          const SizedBox(height: 0),
                           Row(
                             mainAxisSize: MainAxisSize.min,
                             children: [
