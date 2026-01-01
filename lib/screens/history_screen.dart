@@ -6,7 +6,6 @@ class HistoryScreen extends StatelessWidget {
   const HistoryScreen({super.key});
 
   static const _ink = Color(0xFF051328);
-
   static const _avgAccent = Color(0xFFECC051);
   static const _repsAccent = Color(0xFF537892);
 
@@ -16,165 +15,157 @@ class HistoryScreen extends StatelessWidget {
     final days = state.workoutDaysSorted;
 
     final totalWorkouts = days.length;
-    final totalReps = totalWorkouts * 45; // placeholder
-    const avgFormScore = 88; // placeholder
+    final totalReps = totalWorkouts * 45;
+    const avgFormScore = 88;
 
-    // ✅ full-screen scale (design width = 375)
     final size = MediaQuery.sizeOf(context);
     final s = size.width / 375.0;
 
-    // ✅ make scroll content clear the bottom nav + safe area
     final bottomInset = MediaQuery.paddingOf(context).bottom;
     final navPad = (130 * s) + bottomInset;
 
     return Scaffold(
       backgroundColor: Colors.white,
-      body: SafeArea(
-        top: true,
-        bottom: false,
-        child: Stack(
-          children: [
-            Positioned.fill(
-              child: SingleChildScrollView(
-                padding: EdgeInsets.fromLTRB(24 * s, 24 * s, 24 * s, navPad),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    // Header
-                    SizedBox(
-                      height: 40 * s,
-                      child: Stack(
-                        children: [
-                          Positioned(
-                            left: 0,
-                            top: 0,
-                            child: InkWell(
-                              onTap: () {
-                                if (Navigator.canPop(context)) {
-                                  Navigator.pop(context);
-                                } else {
-                                  Navigator.pushReplacementNamed(context, '/home');
-                                }
-                              },
-                              child: Icon(
-                                Icons.arrow_back_rounded,
-                                color: _ink,
-                                size: 28 * s,
+
+      appBar: PreferredSize(
+        preferredSize: Size.zero,
+        child: AppBar(
+          elevation: 0,
+          backgroundColor: Colors.transparent,
+          automaticallyImplyLeading: false,
+          toolbarHeight: 0,
+        ),
+      ),
+
+      body: Container(
+        color: Colors.white, 
+        child: SafeArea(
+          top: true,
+          bottom: false,
+          child: Stack(
+            children: [
+              Positioned.fill(
+                child: SingleChildScrollView(
+                  padding: EdgeInsets.fromLTRB(24 * s, 18 * s, 24 * s, navPad),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      SizedBox(
+                        height: 44 * s,
+                        child: Stack(
+                          children: [
+                            Align(
+                              alignment: Alignment.center,
+                              child: Text(
+                                'Workout History',
+                                style: TextStyle(
+                                  color: _ink,
+                                  fontSize: 22 * s,
+                                  fontFamily: 'DM Sans',
+                                  fontWeight: FontWeight.w700,
+                                ),
                               ),
                             ),
-                          ),
-                          Center(
-                            child: Text(
-                              'Workout History',
-                              style: TextStyle(
-                                color: _ink,
-                                fontSize: 22 * s,
-                                fontFamily: 'DM Sans',
-                                fontWeight: FontWeight.w700,
-                              ),
-                            ),
-                          ),
-                        ],
-                      ),
-                    ),
-
-                    SizedBox(height: 20 * s),
-
-                    // Stat cards
-                    IntrinsicHeight(
-                      child: Row(
-                        crossAxisAlignment: CrossAxisAlignment.stretch,
-                        children: [
-                          Expanded(
-                            child: _StatCard(
-                              s: s,
-                              bg: _avgAccent.withValues(alpha: 0.10),
-                              accent: _avgAccent,
-                              icon: Icons.favorite_border_rounded,
-                              title: 'Avg. Form\nScore',
-                              value: '$avgFormScore',
-                              unit: '%',
-                            ),
-                          ),
-                          SizedBox(width: 14 * s),
-                          Expanded(
-                            child: _StatCard(
-                              s: s,
-                              bg: _repsAccent.withValues(alpha: 0.10),
-                              accent: _repsAccent,
-                              icon: Icons.bolt_rounded,
-                              title: 'Total Reps',
-                              value: '$totalReps',
-                              unit: 'reps',
-                            ),
-                          ),
-                        ],
-                      ),
-                    ),
-
-                    SizedBox(height: 18 * s),
-
-                    if (days.isEmpty)
-                      Padding(
-                        padding: EdgeInsets.only(top: 40 * s),
-                        child: Center(
-                          child: Text(
-                            'No workouts yet.\nTap days in Streak calendar!',
-                            textAlign: TextAlign.center,
-                            style: TextStyle(
-                              color: _ink.withValues(alpha: 0.65),
-                              fontSize: 14 * s,
-                              fontFamily: 'DM Sans',
-                              fontWeight: FontWeight.w400,
-                            ),
-                          ),
-                        ),
-                      )
-                    else
-                      Column(
-                        children: [
-                          for (int i = 0; i < days.length; i++) ...[
-                            _WorkoutCard(
-                              s: s,
-                              title: 'Squat',
-                              dateText: _formatDate(days[i]),
-                              reps: 45,
-                              durationText: '12 min',
-                              sets: 3,
-                              formPercent: (i % 2 == 0) ? 92 : 88,
-                              chipStyle: (i % 2 == 0) ? _ChipStyle.green : _ChipStyle.yellow,
-                            ),
-                            SizedBox(height: 14 * s),
                           ],
-                        ],
+                        ),
                       ),
-                  ],
-                ),
-              ),
-            ),
 
-            // Bottom nav pinned
-            Positioned(
-              left: 0,
-              right: 0,
-              bottom: 0,
-              child: SafeArea(
-                top: false,
-                bottom: true,
-                child: Material(
-                  color: Colors.transparent,
-                  child: AppBottomNav(
-                    scale: s,
-                    selectedTab: 2,
-                    onHome: () => Navigator.pushReplacementNamed(context, '/home'),
-                    onStreak: () => Navigator.pushReplacementNamed(context, '/streak'),
-                    onHistory: () {},
-                    onPlus: () => Navigator.pushNamed(context, '/exercise_select'),
+                      SizedBox(height: 20 * s),
+
+                      IntrinsicHeight(
+                        child: Row(
+                          crossAxisAlignment: CrossAxisAlignment.stretch,
+                          children: [
+                            Expanded(
+                              child: _StatCard(
+                                s: s,
+                                bg: _avgAccent.withValues(alpha: 0.10),
+                                accent: _avgAccent,
+                                icon: Icons.favorite_border_rounded,
+                                title: 'Avg. Form\nScore',
+                                value: '$avgFormScore',
+                                unit: '%',
+                              ),
+                            ),
+                            SizedBox(width: 14 * s),
+                            Expanded(
+                              child: _StatCard(
+                                s: s,
+                                bg: _repsAccent.withValues(alpha: 0.10),
+                                accent: _repsAccent,
+                                icon: Icons.bolt_rounded,
+                                title: 'Total Reps',
+                                value: '$totalReps',
+                                unit: 'reps',
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+
+                      SizedBox(height: 18 * s),
+
+                      if (days.isEmpty)
+                        Padding(
+                          padding: EdgeInsets.only(top: 40 * s),
+                          child: Center(
+                            child: Text(
+                              'No workouts yet.\nTap days in Streak calendar!',
+                              textAlign: TextAlign.center,
+                              style: TextStyle(
+                                color: _ink.withValues(alpha: 0.65),
+                                fontSize: 14 * s,
+                                fontFamily: 'DM Sans',
+                                fontWeight: FontWeight.w400,
+                              ),
+                            ),
+                          ),
+                        )
+                      else
+                        Column(
+                          children: [
+                            for (int i = 0; i < days.length; i++) ...[
+                              _WorkoutCard(
+                                s: s,
+                                title: 'Squat',
+                                dateText: _formatDate(days[i]),
+                                reps: 45,
+                                durationText: '12 min',
+                                sets: 3,
+                                formPercent: (i % 2 == 0) ? 92 : 88,
+                                chipStyle: (i % 2 == 0) ? _ChipStyle.green : _ChipStyle.yellow,
+                              ),
+                              SizedBox(height: 14 * s),
+                            ],
+                          ],
+                        ),
+                    ],
                   ),
                 ),
               ),
-            ),
-          ],
+
+              Positioned(
+                left: 0,
+                right: 0,
+                bottom: 0,
+                child: SafeArea(
+                  top: false,
+                  bottom: true,
+                  child: Material(
+                    color: Colors.transparent,
+                    child: AppBottomNav(
+                      scale: s,
+                      selectedTab: 2,
+                      onHome: () => Navigator.pushReplacementNamed(context, '/home'),
+                      onStreak: () => Navigator.pushReplacementNamed(context, '/streak'),
+                      onHistory: () {},
+                      onPlus: () => Navigator.pushNamed(context, '/exercise_select'),
+                    ),
+                  ),
+                ),
+              ),
+            ],
+          ),
         ),
       ),
     );

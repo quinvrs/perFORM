@@ -11,6 +11,7 @@ dependencies:
   flutter:
     sdk: flutter
   camera: ^0.11.3
+  youtube_player_iframe: ^5.1.3
 
   cupertino_icons: ^1.0.8
   permission_handler: ^12.0.1
@@ -27,3 +28,8 @@ flutter:
 
   assets:
     - assets/corerect-transparent-1.png
+    - assets/male-avatar.png
+    - assets/female-avatar.png
+    - assets/squat-avatar.png
+    - assets/jumping-jack-avatar.png
+

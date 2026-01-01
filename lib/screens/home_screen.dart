@@ -11,8 +11,6 @@ class HomeScreen extends StatefulWidget {
 }
 
 class _HomeScreenState extends State<HomeScreen> {
-  static const _bgDark = Color.fromARGB(255, 18, 32, 47);
-
   int _tab = 0;
 
   @override
@@ -27,17 +25,18 @@ class _HomeScreenState extends State<HomeScreen> {
     AppStateScope.of(context);
 
     final size = MediaQuery.sizeOf(context);
-    final s = size.width / 375.0; // design width baseline
+    final s = size.width / 375.0;
     final bottomInset = MediaQuery.paddingOf(context).bottom;
-    final navPad = (130 * s) + bottomInset; // scroll padding so content clears bottom nav
+
+    // padding so scroll content clears bottom nav
+    final navPad = (130 * s) + bottomInset;
 
     return Scaffold(
-      backgroundColor: _bgDark,
+      backgroundColor: Colors.white, 
       body: SafeArea(
         top: true,
         bottom: false, // bottom handled by nav SafeArea
-        child: Container(
-          color: Colors.white, // ✅ full-screen content background
+        child: SizedBox.expand(
           child: Stack(
             children: [
               Positioned.fill(
@@ -51,6 +50,7 @@ class _HomeScreenState extends State<HomeScreen> {
                 ),
               ),
 
+              // bottom nav pinned
               Positioned(
                 left: 0,
                 right: 0,
@@ -126,6 +126,7 @@ class _HomeTab extends StatelessWidget {
             ),
           ),
           SizedBox(height: 18 * scale),
+
           Row(
             children: [
               Container(
@@ -151,9 +152,10 @@ class _HomeTab extends StatelessWidget {
               ),
             ],
           ),
+
           SizedBox(height: 18 * scale),
 
-          // streak card (use full width but keep original look)
+          // streak card
           Container(
             width: double.infinity,
             height: 113 * scale,
@@ -161,7 +163,11 @@ class _HomeTab extends StatelessWidget {
               color: _yellow,
               borderRadius: BorderRadius.circular(10 * scale),
               boxShadow: [
-                BoxShadow(color: const Color(0xFF000000).withAlpha(35), blurRadius: 6, offset: const Offset(0, 2)),
+                BoxShadow(
+                  color: const Color(0xFF000000).withAlpha(35),
+                  blurRadius: 6,
+                  offset: const Offset(0, 2),
+                ),
               ],
             ),
             child: Stack(
@@ -191,7 +197,11 @@ class _HomeTab extends StatelessWidget {
                         padding: EdgeInsets.only(bottom: 6 * scale),
                         child: Text(
                           'days',
-                          style: TextStyle(color: _streakAccent, fontSize: 16 * scale, fontWeight: FontWeight.w700),
+                          style: TextStyle(
+                            color: _streakAccent,
+                            fontSize: 16 * scale,
+                            fontWeight: FontWeight.w700,
+                          ),
                         ),
                       ),
                     ],
@@ -217,7 +227,11 @@ class _HomeTab extends StatelessWidget {
                           color: _yellow,
                           shape: BoxShape.circle,
                           boxShadow: [
-                            BoxShadow(color: const Color(0xFF000000).withAlpha(35), blurRadius: 6, offset: const Offset(0, 2)),
+                            BoxShadow(
+                              color: const Color(0xFF000000).withAlpha(35),
+                              blurRadius: 6,
+                              offset: const Offset(0, 2),
+                            ),
                           ],
                         ),
                         child: Icon(Icons.local_fire_department_rounded, color: _streakAccent, size: 37 * scale),
@@ -285,7 +299,15 @@ class _ProgressCard extends StatelessWidget {
             Row(
               crossAxisAlignment: CrossAxisAlignment.end,
               children: [
-                Text(mainValue, style: TextStyle(color: _ink, fontSize: 32 * scale, fontWeight: FontWeight.w700, height: 1.0)),
+                Text(
+                  mainValue,
+                  style: TextStyle(
+                    color: _ink,
+                    fontSize: 32 * scale,
+                    fontWeight: FontWeight.w700,
+                    height: 1.0,
+                  ),
+                ),
                 SizedBox(width: 8 * scale),
                 Padding(
                   padding: EdgeInsets.only(bottom: 6 * scale),
@@ -331,22 +353,18 @@ class _StreakTab extends StatelessWidget {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Row(
-            children: [
-              InkWell(
-                onTap: () => Navigator.pushReplacementNamed(context, '/home'),
-                child: Icon(Icons.arrow_back_rounded, color: _ink, size: 28 * scale),
-              ),
-              Expanded(
-                child: Center(
+          SizedBox(
+            height: 40 * scale,
+            child: Stack(
+              children: [
+                Center(
                   child: Text(
                     'Activity Calendar',
                     style: TextStyle(color: _ink, fontSize: 20 * scale, fontWeight: FontWeight.w700),
                   ),
                 ),
-              ),
-              SizedBox(width: 28 * scale),
-            ],
+              ],
+            ),
           ),
 
           SizedBox(height: 18 * scale),
@@ -393,7 +411,14 @@ class _StreakTab extends StatelessWidget {
 
                 Row(
                   children: const ['S', 'M', 'T', 'W', 'T', 'F', 'S']
-                      .map((t) => Expanded(child: Center(child: Text(t, style: TextStyle(color: Color(0xFF797B7F), fontSize: 12)))))
+                      .map((t) => Expanded(
+                            child: Center(
+                              child: Text(
+                                t,
+                                style: TextStyle(color: Color(0xFF797B7F), fontSize: 12),
+                              ),
+                            ),
+                          ))
                       .toList(),
                 ),
 
@@ -409,9 +434,8 @@ class _StreakTab extends StatelessWidget {
                     crossAxisSpacing: 8,
                   ),
                   itemBuilder: (context, i) {
-                    if (i < offset || (i - offset + 1) > daysInMonth) {
-                      return const SizedBox.shrink();
-                    }
+                    if (i < offset || (i - offset + 1) > daysInMonth) return const SizedBox.shrink();
+
                     final day = i - offset + 1;
                     final date = DateTime(year, month, day);
                     final done = state.isWorkoutDay(date);
@@ -469,7 +493,6 @@ class _StreakTab extends StatelessWidget {
   }
 }
 
-/// overflow-safe metric card
 class _MetricCard extends StatelessWidget {
   const _MetricCard({
     required this.scale,
@@ -590,22 +613,18 @@ class _HistoryTab extends StatelessWidget {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Row(
-            children: [
-              InkWell(
-                onTap: () => Navigator.pushReplacementNamed(context, '/home'),
-                child: Icon(Icons.arrow_back_rounded, color: _ink, size: 28 * scale),
-              ),
-              Expanded(
-                child: Center(
+          SizedBox(
+            height: 40 * scale,
+            child: Stack(
+              children: [
+                Center(
                   child: Text(
                     'Workout History',
                     style: TextStyle(color: _ink, fontSize: 20 * scale, fontWeight: FontWeight.w700),
                   ),
                 ),
-              ),
-              SizedBox(width: 28 * scale),
-            ],
+              ],
+            ),
           ),
 
           SizedBox(height: 18 * scale),

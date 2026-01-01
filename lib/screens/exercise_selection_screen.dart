@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 import '../models/workout.dart';
-import 'setup_mode_screen.dart';
+import '../widgets/exercise_details_sheet.dart';
 
 class ExerciseSelectionScreen extends StatefulWidget {
   const ExerciseSelectionScreen({super.key});
@@ -10,155 +10,117 @@ class ExerciseSelectionScreen extends StatefulWidget {
 }
 
 class _ExerciseSelectionScreenState extends State<ExerciseSelectionScreen> {
-  static const _bgDark = Color.fromARGB(255, 18, 32, 47);
   static const _ink = Color(0xFF051328);
   static const _muted = Color(0xFF797B7F);
   static const _green = Color(0xFF00C951);
 
-  final workouts = const <Workout>[
-    Workout(
-      title: 'Squats',
-      subtitle: 'Lower Body Strength',
-      benefits: [
-        'Builds lower body strength and muscle mass',
-        'Improves core stability and balance',
-        'Enhances athletic performance',
-        'Burns calories and boosts metabolism',
-      ],
+
+  final _items = const <_WorkoutItem>[
+    _WorkoutItem(
+      workout: Workout(
+        title: 'Squats',
+        subtitle: 'Lower Body Strength',
+        benefits: [
+          'Builds lower body strength and muscle mass',
+          'Improves core stability and balance',
+          'Enhances athletic performance',
+          'Burns calories and boosts metabolism',
+        ],
+      ),
+      asset: 'assets/squat-avatar.png',
     ),
-    Workout(
-      title: 'Jumping Jacks',
-      subtitle: 'Lower Body Strength',
-      benefits: [
-        'Improves cardiovascular endurance',
-        'Warms up full body quickly',
-        'Boosts coordination and rhythm',
-        'Burns calories efficiently',
-      ],
+    _WorkoutItem(
+      workout: Workout(
+        title: 'Jumping Jacks',
+        subtitle: 'Full Body Cardio',
+        benefits: [
+          'Improves cardiovascular endurance',
+          'Warms up the whole body quickly',
+          'Boosts coordination and rhythm',
+          'Burns calories efficiently',
+          'Strengthens shoulders, hips, and legs',
+          'Great for HIIT and warm-ups',
+        ],
+      ),
+      asset: 'assets/jumping-jack-avatar.png',
     ),
   ];
 
   int selectedIndex = 0;
 
+  void _openDetails(Workout w) {
+    showExerciseDetailsSheet(
+      context,
+      workout: w,
+    onStartExercise: () {
+      Navigator.of(context).pop();
+      // go to Setup Mode screen
+      Navigator.pushNamed(context, '/setup_mode'); 
+      },
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     final size = MediaQuery.sizeOf(context);
-    final s = size.width / 375.0; // design baseline width
-    final bottomInset = MediaQuery.paddingOf(context).bottom;
-
-    // space so scroll content won’t hide behind the bottom button
-    final bottomButtonH = 71 * s;
-    final scrollBottomPad = (38 * s) + bottomButtonH + (18 * s) + bottomInset;
+    final s = size.width / 375.0;
 
     return Scaffold(
-      backgroundColor: _bgDark,
+      backgroundColor: Colors.white, 
       body: SafeArea(
-        top: true,
-        bottom: false,
-        child: Container(
-          color: Colors.white, // ✅ full-screen white like your other screens
-          child: Stack(
-            children: [
-              Positioned.fill(
-                child: SingleChildScrollView(
-                  padding: EdgeInsets.fromLTRB(24 * s, 24 * s, 24 * s, scrollBottomPad),
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
+        child: SizedBox.expand(
+          child: SingleChildScrollView(
+            padding: EdgeInsets.fromLTRB(24 * s, 18 * s, 24 * s, 24 * s),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                // header
+                SizedBox(
+                  height: 56 * s,
+                  child: Stack(
                     children: [
-                      SizedBox(
-                        height: 56 * s,
-                        child: Stack(
-                          children: [
-                            Align(
-                              alignment: Alignment.centerLeft,
-                              child: InkWell(
-                                onTap: () => Navigator.pop(context),
-                                child: Icon(
-                                  Icons.arrow_back_rounded,
-                                  color: _ink,
-                                  size: 28 * s,
-                                ),
-                              ),
-                            ),
-                            Align(
-                              alignment: Alignment.topCenter,
-                              child: Text(
-                                'Select Your\nWorkout',
-                                textAlign: TextAlign.center,
-                                style: TextStyle(
-                                  color: _ink,
-                                  fontSize: 24 * s,
-                                  fontFamily: 'DM Sans',
-                                  fontWeight: FontWeight.w700,
-                                  height: 1.05,
-                                ),
-                              ),
-                            ),
-                          ],
+                      Align(
+                        alignment: Alignment.centerLeft,
+                        child: InkWell(
+                          onTap: () => Navigator.pop(context),
+                          child: Icon(Icons.arrow_back_rounded, color: _ink, size: 28 * s),
                         ),
                       ),
-                      SizedBox(height: 22 * s),
-
-                      _WorkoutCard(
-                        s: s,
-                        workout: workouts[0],
-                        selected: selectedIndex == 0,
-                        showBenefits: true,
-                        onTap: () => setState(() => selectedIndex = 0),
-                        muted: _muted,
-                        green: _green,
-                      ),
-                      SizedBox(height: 16 * s),
-                      _WorkoutCard(
-                        s: s,
-                        workout: workouts[1],
-                        selected: selectedIndex == 1,
-                        showBenefits: false,
-                        onTap: () => setState(() => selectedIndex = 1),
-                        muted: _muted,
-                        green: _green,
+                      Align(
+                        alignment: Alignment.topCenter,
+                        child: Text(
+                          'Select Your\nWorkout',
+                          textAlign: TextAlign.center,
+                          style: TextStyle(
+                            color: _ink,
+                            fontSize: 24 * s,
+                            fontFamily: 'DM Sans',
+                            fontWeight: FontWeight.w700,
+                            height: 1.05,
+                          ),
+                        ),
                       ),
                     ],
                   ),
                 ),
-              ),
+                SizedBox(height: 22 * s),
 
-              // ✅ Bottom button pinned
-              Positioned(
-                left: 24 * s,
-                right: 24 * s,
-                bottom: 18 * s,
-                child: SafeArea(
-                  top: false,
-                  bottom: true,
-                  child: GestureDetector(
+                for (int i = 0; i < _items.length; i++) ...[
+                  _WorkoutCard(
+                    s: s,
+                    item: _items[i],
+                    selected: selectedIndex == i,
+                    muted: _muted,
+                    green: _green,
                     onTap: () {
-                      Navigator.push(
-                        context,
-                        MaterialPageRoute(builder: (_) => const SetupModeScreen()),
-                      );
+                      setState(() => selectedIndex = i);
+                      _openDetails(_items[i].workout); 
                     },
-                    child: Container(
-                      height: 71 * s,
-                      decoration: BoxDecoration(
-                        color: _ink,
-                        borderRadius: BorderRadius.circular(15 * s),
-                      ),
-                      alignment: Alignment.center,
-                      child: Text(
-                        'Start Exercise',
-                        style: TextStyle(
-                          color: Colors.white,
-                          fontSize: 24 * s,
-                          fontFamily: 'DM Sans',
-                          fontWeight: FontWeight.w700,
-                        ),
-                      ),
-                    ),
                   ),
-                ),
-              ),
-            ],
+                  SizedBox(height: 16 * s),
+                ],
+              ],
+            ),
           ),
         ),
       ),
@@ -166,22 +128,26 @@ class _ExerciseSelectionScreenState extends State<ExerciseSelectionScreen> {
   }
 }
 
+class _WorkoutItem {
+  const _WorkoutItem({required this.workout, required this.asset});
+  final Workout workout;
+  final String asset;
+}
+
 class _WorkoutCard extends StatelessWidget {
   const _WorkoutCard({
     required this.s,
-    required this.workout,
+    required this.item,
     required this.selected,
     required this.onTap,
-    required this.showBenefits,
     required this.muted,
     required this.green,
   });
 
   final double s;
-  final Workout workout;
+  final _WorkoutItem item;
   final bool selected;
   final VoidCallback onTap;
-  final bool showBenefits;
   final Color muted;
   final Color green;
 
@@ -189,61 +155,105 @@ class _WorkoutCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final bg = selected ? _yellow.withValues(alpha: 0.50) : Colors.white;
+    final bg = selected ? _yellow.withValues(alpha: 0.55) : Colors.white;
+
+    // bigger image box when selected
+    final avatarBox = selected ? 92 * s : 78 * s;
+    final starSize = selected ? 90 * s : 76 * s;
 
     return GestureDetector(
       behavior: HitTestBehavior.opaque,
       onTap: onTap,
       child: Container(
-        width: double.infinity, // ✅ full width
+        width: double.infinity,
         padding: EdgeInsets.all(14 * s),
         decoration: BoxDecoration(
           color: bg,
-          borderRadius: BorderRadius.circular(10 * s),
+          borderRadius: BorderRadius.circular(12 * s),
+          border: Border.all(color: Colors.black.withAlpha(selected ? 25 : 18)),
           boxShadow: const [
             BoxShadow(
-              color: Color(0x3F000000),
-              blurRadius: 1,
-              offset: Offset(0, 1),
+              color: Color(0x22000000),
+              blurRadius: 8,
+              offset: Offset(0, 2),
             ),
           ],
-          border: selected ? Border.all(color: const Color(0x33051328)) : null,
         ),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Text(
-              workout.title,
-              style: TextStyle(
-                color: Colors.black,
-                fontSize: 24 * s,
-                fontFamily: 'DM Sans',
-                fontWeight: FontWeight.w700,
-              ),
+            // top row: text + big avatar
+            Row(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Expanded(
+                  child: Padding(
+                    padding: EdgeInsets.only(right: 10 * s),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          item.workout.title,
+                          style: TextStyle(
+                            color: Colors.black,
+                            fontSize: 24 * s,
+                            fontFamily: 'DM Sans',
+                            fontWeight: FontWeight.w700,
+                          ),
+                        ),
+                        SizedBox(height: 2 * s),
+                        Text(
+                          item.workout.subtitle,
+                          style: TextStyle(
+                            color: muted,
+                            fontSize: 14 * s,
+                            fontFamily: 'DM Sans',
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
+
+                SizedBox(
+                  width: avatarBox,
+                  height: avatarBox,
+                  child: Stack(
+                    alignment: Alignment.center,
+                    children: [
+                      Icon(
+                        Icons.star_rounded,
+                        size: starSize,
+                        color: _yellow.withValues(alpha: 0.9),
+                      ),
+                      Image.asset(
+                        item.asset,
+                        fit: BoxFit.contain,
+                        errorBuilder: (_, _, _) => Icon(
+                          Icons.image_not_supported_rounded,
+                          size: 24 * s,
+                          color: Colors.black.withAlpha(80),
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ],
             ),
-            SizedBox(height: 2 * s),
-            Text(
-              workout.subtitle,
-              style: TextStyle(
-                color: muted,
-                fontSize: 14 * s,
-                fontFamily: 'DM Sans',
-                fontWeight: FontWeight.w400,
-              ),
-            ),
-            if (showBenefits) ...[
-              SizedBox(height: 14 * s),
+
+            // benefits show only when selected (like your screenshot)
+            if (selected) ...[
+              SizedBox(height: 12 * s),
               Text(
                 'Benefits',
                 style: TextStyle(
                   color: muted,
                   fontSize: 11 * s,
                   fontFamily: 'DM Sans',
-                  fontWeight: FontWeight.w400,
                 ),
               ),
               SizedBox(height: 6 * s),
-              for (final b in workout.benefits)
+              for (final b in item.workout.benefits)
                 Padding(
                   padding: EdgeInsets.only(bottom: 4 * s),
                   child: Row(
@@ -254,8 +264,8 @@ class _WorkoutCard extends StatelessWidget {
                         style: TextStyle(
                           color: green,
                           fontSize: 11 * s,
+                          fontWeight: FontWeight.w700,
                           fontFamily: 'DM Sans',
-                          fontWeight: FontWeight.w600,
                         ),
                       ),
                       SizedBox(width: 8 * s),
@@ -265,9 +275,8 @@ class _WorkoutCard extends StatelessWidget {
                           style: TextStyle(
                             color: muted,
                             fontSize: 11 * s,
-                            fontFamily: 'DM Sans',
-                            fontWeight: FontWeight.w400,
                             height: 1.25,
+                            fontFamily: 'DM Sans',
                           ),
                         ),
                       ),

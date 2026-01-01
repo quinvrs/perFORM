@@ -263,7 +263,6 @@ Widget _buildCameraWithOverlay() {
   Widget build(BuildContext context) {
     final state = AppStateScope.of(context);
 
-    // ✅ full-screen scale (design width = 375)
     final size = MediaQuery.sizeOf(context);
     final s = size.width / 375.0;
 
@@ -278,7 +277,6 @@ Widget _buildCameraWithOverlay() {
         bottom: false,
         child: Stack(
           children: [
-            // ✅ FULL SCREEN CAMERA PREVIEW (no centered phone card)
             Positioned.fill(
               child: _error != null
                   ? Container(

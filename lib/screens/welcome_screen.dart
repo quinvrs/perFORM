@@ -11,7 +11,7 @@ class _WelcomeFlowScreenState extends State<WelcomeFlowScreen> {
   int _i = 0;
 
   static const double _finalIconY = -0.27;
-  static const double _textGroupY = 0.26;
+  static const double _textGroupY = 0.20;
   static const double _coreRectTightenPx = 0;
 
   static const _frames = <({
@@ -30,6 +30,8 @@ class _WelcomeFlowScreenState extends State<WelcomeFlowScreen> {
   static const _bounce = Duration(milliseconds: 180);
   static const _hold = Duration(milliseconds: 550);
 
+  bool _navigated = false;
+
   @override
   void initState() {
     super.initState();
@@ -42,6 +44,15 @@ class _WelcomeFlowScreenState extends State<WelcomeFlowScreen> {
       setState(() => _i = k);
       await Future.delayed(_hold);
     }
+
+    if (!mounted || _navigated) return;
+    _navigated = true;
+
+    // small delay so last frame settles
+    await Future.delayed(const Duration(milliseconds: 120));
+    if (!mounted) return;
+
+    Navigator.pushReplacementNamed(context, '/gender');
   }
 
   @override
@@ -50,25 +61,22 @@ class _WelcomeFlowScreenState extends State<WelcomeFlowScreen> {
 
     // Full screen size
     final size = MediaQuery.sizeOf(context);
-
-    // Scale based on width (your original design target ~375 wide)
     final s = size.width / 375.0;
 
-    // Logo size relative to screen (keeps similar proportions)
     final logoW = 175 * s;
     final logoH = 201 * s;
 
     return Scaffold(
-      backgroundColor: const Color.fromARGB(255, 18, 32, 47),
-      body: SafeArea(
-        child: SizedBox.expand(
-          child: Stack(
-            children: [
-              // Base white
-              Container(color: Colors.white),
+      backgroundColor: Colors.white, 
+      body: SizedBox.expand( 
+        child: Stack(
+          children: [
+            // Base white
+            Positioned.fill(child: Container(color: Colors.white)),
 
-              // Animated gradient background
-              AnimatedOpacity(
+            // Animated gradient background
+            Positioned.fill(
+              child: AnimatedOpacity(
                 duration: const Duration(milliseconds: 250),
                 opacity: f.bgOpacity,
                 child: Container(
@@ -85,107 +93,82 @@ class _WelcomeFlowScreenState extends State<WelcomeFlowScreen> {
                   ),
                 ),
               ),
+            ),
 
-              // Animated logo
-              AnimatedAlign(
+            // Animated logo
+            AnimatedAlign(
+              duration: _bounce,
+              curve: Curves.bounceOut,
+              alignment: f.align,
+              child: AnimatedScale(
                 duration: _bounce,
                 curve: Curves.bounceOut,
-                alignment: f.align,
-                child: AnimatedScale(
-                  duration: _bounce,
-                  curve: Curves.bounceOut,
-                  scale: f.scale,
-                  child: SizedBox(
-                    width: logoW,
-                    height: logoH,
-                    child: Image.asset(
-                      'assets/corerect-transparent-1.png',
-                      fit: BoxFit.contain,
-                    ),
+                scale: f.scale,
+                child: SizedBox(
+                  width: logoW,
+                  height: logoH,
+                  child: Image.asset(
+                    'assets/corerect-transparent-1.png',
+                    fit: BoxFit.contain,
                   ),
                 ),
               ),
+            ),
 
-              // UI text + button
-              AnimatedOpacity(
+            // UI text (button removed)
+            Positioned.fill(
+              child: AnimatedOpacity(
                 duration: const Duration(milliseconds: 300),
                 opacity: f.uiOpacity,
-                child: Stack(
-                  children: [
-                    Align(
-                      alignment: const Alignment(0.0, _textGroupY),
-                      child: Column(
+                child: Align(
+                  alignment: const Alignment(0.0, _textGroupY),
+                  child: Column(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Text(
+                        'WELCOME TO',
+                        textAlign: TextAlign.center,
+                        style: TextStyle(
+                          height: 0.6,
+                          color: const Color(0xFF1F3447),
+                          fontSize: 20 * s,
+                          fontWeight: FontWeight.w500,
+                          fontFamily: 'DM Sans',
+                        ),
+                      ),
+                      const SizedBox(height: 0),
+                      Row(
                         mainAxisSize: MainAxisSize.min,
                         children: [
                           Text(
-                            'WELCOME TO',
-                            textAlign: TextAlign.center,
+                            'CORE',
                             style: TextStyle(
-                              height: 0.6,
-                              color: const Color(0xFF1F3447),
-                              fontSize: 20 * s,
-                              fontWeight: FontWeight.w500,
+                              color: const Color(0xFF537892),
+                              fontSize: 48 * s,
+                              fontWeight: FontWeight.w700,
                               fontFamily: 'DM Sans',
                             ),
                           ),
-                          const SizedBox(height: 0),
-                          Row(
-                            mainAxisSize: MainAxisSize.min,
-                            children: [
-                              Text(
-                                'CORE',
-                                style: TextStyle(
-                                  color: const Color(0xFF537892),
-                                  fontSize: 48 * s,
-                                  fontWeight: FontWeight.w700,
-                                  fontFamily: 'DM Sans',
-                                ),
+                          Transform.translate(
+                            offset: const Offset(-_coreRectTightenPx, 0),
+                            child: Text(
+                              'rect',
+                              style: TextStyle(
+                                color: const Color(0xFF051328),
+                                fontSize: 48 * s,
+                                fontWeight: FontWeight.w700,
+                                fontFamily: 'DM Sans',
                               ),
-                              Transform.translate(
-                                offset: const Offset(-_coreRectTightenPx, 0),
-                                child: Text(
-                                  'rect',
-                                  style: TextStyle(
-                                    color: const Color(0xFF051328),
-                                    fontSize: 48 * s,
-                                    fontWeight: FontWeight.w700,
-                                    fontFamily: 'DM Sans',
-                                  ),
-                                ),
-                              ),
-                            ],
+                            ),
                           ),
                         ],
                       ),
-                    ),
-
-                    Positioned(
-                      right: 18 * s,
-                      bottom: 18 * s,
-                      child: InkWell(
-                        onTap: () {
-                          Navigator.pushReplacementNamed(context, '/profile');
-                        },
-                        child: Container(
-                          width: 52 * s,
-                          height: 52 * s,
-                          decoration: const ShapeDecoration(
-                            color: Color(0xFFFEF9C2),
-                            shape: OvalBorder(),
-                          ),
-                          child: Icon(
-                            Icons.arrow_forward,
-                            color: const Color(0xFF1F3447),
-                            size: 24 * s,
-                          ),
-                        ),
-                      ),
-                    ),
-                  ],
+                    ],
+                  ),
                 ),
               ),
-            ],
-          ),
+            ),
+          ],
         ),
       ),
     );

@@ -10,7 +10,6 @@ class StreakScreen extends StatefulWidget {
 }
 
 class _StreakScreenState extends State<StreakScreen> {
-  // Fixed current month
   final DateTime _month = DateTime(DateTime.now().year, DateTime.now().month);
 
   static const _bgDark = Color.fromARGB(255, 18, 32, 47);
@@ -23,51 +22,61 @@ class _StreakScreenState extends State<StreakScreen> {
   Widget build(BuildContext context) {
     final state = AppStateScope.of(context);
 
-    // Full screen sizing (design width = 375)
     final size = MediaQuery.sizeOf(context);
     final s = size.width / 375.0;
 
-    // bottom nav height allowance (same idea as before)
-    final navPad = 130 * s;
+    final bottomInset = MediaQuery.paddingOf(context).bottom;
+    final navPad = (130 * s) + bottomInset;
 
     final streak = state.currentStreak == 0 ? 10 : state.currentStreak;
     final weekly = state.weeklySessions();
 
     return Scaffold(
       backgroundColor: _bgDark,
+
+      appBar: PreferredSize(
+        preferredSize: Size.zero,
+        child: AppBar(
+          elevation: 0,
+          backgroundColor: Colors.transparent,
+          automaticallyImplyLeading: false,
+          toolbarHeight: 0,
+        ),
+      ),
+
       body: SafeArea(
+        top: true,
+        bottom: false,
         child: Stack(
           children: [
             Positioned.fill(
               child: SingleChildScrollView(
-                padding: EdgeInsets.fromLTRB(24 * s, 24 * s, 24 * s, navPad),
+                padding: EdgeInsets.fromLTRB(24 * s, 18 * s, 24 * s, navPad),
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    // Top bar
-                    Row(
-                      children: [
-                        InkWell(
-                          onTap: () => Navigator.pushReplacementNamed(context, '/home'),
-                          child: Icon(Icons.arrow_back_rounded, color: Colors.white, size: 28 * s),
-                        ),
-                        const Spacer(),
-                        Text(
-                          'Activity Calendar',
-                          style: TextStyle(
-                            color: Colors.white,
-                            fontSize: 22 * s,
-                            fontWeight: FontWeight.w700,
+                    SizedBox(
+                      height: 44 * s,
+                      child: Stack(
+                        children: [
+                          Align(
+                            alignment: Alignment.center,
+                            child: Text(
+                              'Activity Calendar',
+                              style: TextStyle(
+                                color: Colors.white,
+                                fontSize: 22 * s,
+                                fontWeight: FontWeight.w700,
+                                fontFamily: 'DM Sans',
+                              ),
+                            ),
                           ),
-                        ),
-                        const Spacer(),
-                        SizedBox(width: 28 * s),
-                      ],
+                        ],
+                      ),
                     ),
-
+      
                     SizedBox(height: 18 * s),
-
-                    // Metric cards row (NO OVERFLOW)
+      
                     Row(
                       children: [
                         Expanded(
@@ -99,10 +108,9 @@ class _StreakScreenState extends State<StreakScreen> {
                         ),
                       ],
                     ),
-
+      
                     SizedBox(height: 18 * s),
-
-                    // Calendar card (white)
+      
                     Container(
                       width: double.infinity,
                       decoration: BoxDecoration(
@@ -126,22 +134,22 @@ class _StreakScreenState extends State<StreakScreen> {
                               color: Colors.black,
                               fontSize: 20 * s,
                               fontWeight: FontWeight.w700,
+                              fontFamily: 'DM Sans',
                             ),
                           ),
                           SizedBox(height: 10 * s),
                           _DowHeader(s: s),
                           SizedBox(height: 10 * s),
-
+      
                           _CalendarGrid(
                             s: s,
                             month: _month,
                             isDone: (d) => state.isWorkoutDay(d),
                             onToggle: (d) => state.toggleWorkoutDay(d),
                           ),
-
+      
                           SizedBox(height: 14 * s),
-
-                          // Legend
+      
                           Row(
                             children: [
                               Container(
@@ -163,7 +171,9 @@ class _StreakScreenState extends State<StreakScreen> {
                                 height: 13 * s,
                                 decoration: BoxDecoration(
                                   color: const Color(0xFFF3F4F6),
-                                  border: Border.all(color: Colors.black.withValues(alpha: 0.15)),
+                                  border: Border.all(
+                                    color: Colors.black.withValues(alpha: 0.15),
+                                  ),
                                   borderRadius: BorderRadius.circular(2 * s),
                                 ),
                               ),
@@ -181,21 +191,24 @@ class _StreakScreenState extends State<StreakScreen> {
                 ),
               ),
             ),
-
-            // Bottom nav pinned
+      
             Positioned(
               left: 0,
               right: 0,
               bottom: 0,
-              child: Material(
-                color: Colors.transparent,
-                child: AppBottomNav(
-                  scale: s,
-                  selectedTab: 1,
-                  onHome: () => Navigator.pushReplacementNamed(context, '/home'),
-                  onStreak: () {},
-                  onHistory: () => Navigator.pushReplacementNamed(context, '/history'),
-                  onPlus: () => Navigator.pushNamed(context, '/exercise_select'),
+              child: SafeArea(
+                top: false,
+                bottom: true,
+                child: Material(
+                  color: Colors.transparent,
+                  child: AppBottomNav(
+                    scale: s,
+                    selectedTab: 1,
+                    onHome: () => Navigator.pushReplacementNamed(context, '/home'),
+                    onStreak: () {},
+                    onHistory: () => Navigator.pushReplacementNamed(context, '/history'),
+                    onPlus: () => Navigator.pushNamed(context, '/exercise_select'),
+                  ),
                 ),
               ),
             ),
@@ -266,6 +279,7 @@ class _MetricCard extends StatelessWidget {
                     fontSize: 14 * s,
                     fontWeight: FontWeight.w600,
                     height: 1.10,
+                    fontFamily: 'DM Sans',
                   ),
                 ),
               ),
@@ -329,6 +343,7 @@ class _DowHeader extends StatelessWidget {
                 color: const Color(0xFF797B7F),
                 fontSize: 13 * s,
                 fontWeight: FontWeight.w400,
+                fontFamily: 'DM Sans',
               ),
             ),
           ),
@@ -355,11 +370,9 @@ class _CalendarGrid extends StatelessWidget {
   Widget build(BuildContext context) {
     final first = DateTime(month.year, month.month, 1);
     final daysInMonth = DateUtils.getDaysInMonth(month.year, month.month);
-
-    // Sunday=0 ... Saturday=6
     final firstWeekday = first.weekday % 7;
 
-    const totalCells = 42; // 6 weeks
+    const totalCells = 42;
     final cells = List<DateTime?>.generate(totalCells, (i) {
       final dayNum = i - firstWeekday + 1;
       if (dayNum < 1 || dayNum > daysInMonth) return null;
@@ -399,6 +412,7 @@ class _CalendarGrid extends StatelessWidget {
                   color: fg,
                   fontSize: 13 * s,
                   fontWeight: FontWeight.w400,
+                  fontFamily: 'DM Sans',
                 ),
               ),
             ),

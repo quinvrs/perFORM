@@ -12,7 +12,6 @@ class ExerciseDetailsScreen extends StatelessWidget {
     final arg = ModalRoute.of(context)?.settings.arguments;
     final Workout? workout = (arg is Workout) ? arg : null;
 
-    // ✅ full-screen scale (design width = 375)
     final size = MediaQuery.sizeOf(context);
     final s = size.width / 375.0;
 
@@ -22,7 +21,7 @@ class ExerciseDetailsScreen extends StatelessWidget {
         top: true,
         bottom: false,
         child: Container(
-          color: Colors.white, // ✅ full-screen white (no centered phone card)
+          color: Colors.white,
           padding: EdgeInsets.fromLTRB(24 * s, 24 * s, 24 * s, 24 * s),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,

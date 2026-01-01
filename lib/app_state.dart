@@ -89,7 +89,6 @@ class AppState extends ChangeNotifier {
     return count;
   }
 
-  /// ✅ GETTER (do NOT call like currentStreak())
   int get currentStreak {
     var streak = 0;
     var d = DateTime.now();
