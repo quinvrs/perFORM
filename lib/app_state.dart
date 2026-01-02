@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'services/database_helper.dart'; // <--- IDAGDAG ITO
 
 enum Gender { male, female }
 
@@ -12,6 +13,31 @@ class AppState extends ChangeNotifier {
   /// Store workout days as "YYYY-MM-DD" strings (timezone-safe)
   final Set<String> _workoutDayKeys = {};
 
+  // --- IDAGDAG ITO ---
+  AppState() {
+    _loadData(); // Load DB data pagkabukas ng app
+  }
+
+  Future<void> _loadData() async {
+    // 1. Load Profile
+    final profileData = await DatabaseHelper.instance.getProfile();
+    if (profileData != null) {
+      _name = profileData['name'] ?? '';
+      final gString = profileData['gender'];
+      if (gString == 'male') _gender = Gender.male;
+      if (gString == 'female') _gender = Gender.female;
+      _heightCm = profileData['height'] ?? 180.0;
+      _weightKg = profileData['weight'] ?? 80.0;
+    }
+
+    // 2. Load History
+    final dates = await DatabaseHelper.instance.getAllWorkoutDates();
+    _workoutDayKeys.addAll(dates);
+
+    notifyListeners();
+  }
+  // -------------------
+
   // ----------------------------
   // Profile
   // ----------------------------
@@ -20,17 +46,26 @@ class AppState extends ChangeNotifier {
   double get heightCm => _heightCm;
   double get weightKg => _weightKg;
 
-  void saveProfile({
+  // --- PALITAN ANG saveProfile NITO ---
+  Future<void> saveProfile({
     required String newName,
     required Gender? newGender,
     required double newHeightCm,
     required double newWeightKg,
-  }) {
+  }) async {
     _name = newName;
     _gender = newGender;
     _heightCm = newHeightCm;
     _weightKg = newWeightKg;
     notifyListeners();
+
+    // Save to DB
+    await DatabaseHelper.instance.saveProfile({
+      'name': newName,
+      'gender': newGender == Gender.male ? 'male' : 'female',
+      'height': newHeightCm,
+      'weight': newWeightKg,
+    });
   }
 
   // ----------------------------
@@ -45,27 +80,37 @@ class AppState extends ChangeNotifier {
 
   DateTime _dateFromKey(String k) {
     final parts = k.split('-');
-    return DateTime(int.parse(parts[0]), int.parse(parts[1]), int.parse(parts[2]));
+    return DateTime(
+      int.parse(parts[0]),
+      int.parse(parts[1]),
+      int.parse(parts[2]),
+    );
   }
 
   bool isWorkoutDay(DateTime d) => _workoutDayKeys.contains(_keyOf(d));
 
-  void toggleWorkoutDay(DateTime d) {
+  // --- PALITAN ANG toggleWorkoutDay NITO ---
+  Future<void> toggleWorkoutDay(DateTime d) async {
     final k = _keyOf(d);
     if (_workoutDayKeys.contains(k)) {
       _workoutDayKeys.remove(k);
+      await DatabaseHelper.instance.deleteWorkoutDate(k); // Delete from DB
     } else {
       _workoutDayKeys.add(k);
+      await DatabaseHelper.instance.insertWorkoutDate(k); // Add to DB
     }
     notifyListeners();
   }
 
-  void setWorkoutDay(DateTime d, bool done) {
+  // --- PALITAN ANG setWorkoutDay NITO ---
+  Future<void> setWorkoutDay(DateTime d, bool done) async {
     final k = _keyOf(d);
     if (done) {
       _workoutDayKeys.add(k);
+      await DatabaseHelper.instance.insertWorkoutDate(k); // Add to DB
     } else {
       _workoutDayKeys.remove(k);
+      await DatabaseHelper.instance.deleteWorkoutDate(k); // Delete from DB
     }
     notifyListeners();
   }
@@ -111,7 +156,10 @@ class AppStateScope extends InheritedNotifier<AppState> {
 
   static AppState of(BuildContext context) {
     final scope = context.dependOnInheritedWidgetOfExactType<AppStateScope>();
-    assert(scope != null, 'AppStateScope not found. Wrap MaterialApp with AppStateScope.');
+    assert(
+      scope != null,
+      'AppStateScope not found. Wrap MaterialApp with AppStateScope.',
+    );
     return scope!.notifier!;
   }
 }
