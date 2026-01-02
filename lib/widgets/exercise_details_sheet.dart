@@ -1,12 +1,22 @@
 import 'package:flutter/material.dart';
-import 'package:youtube_player_iframe/youtube_player_iframe.dart';
+import 'package:url_launcher/url_launcher.dart';
+
 import '../models/workout.dart';
+import '../app_state.dart';
+import '../models/workout_plan.dart';
 
 Future<void> showExerciseDetailsSheet(
   BuildContext context, {
   required Workout workout,
   required VoidCallback onStartExercise,
 }) async {
+  final state = AppStateScope.of(context);
+
+  final plan = WorkoutPlan.forWorkout(
+    title: workout.title,
+    activityLevel: state.activityLevel,
+  );
+
   await showModalBottomSheet(
     context: context,
     isScrollControlled: true,
@@ -15,9 +25,10 @@ Future<void> showExerciseDetailsSheet(
     builder: (sheetCtx) {
       return _ExerciseDetailsSheet(
         workout: workout,
+        plan: plan,
         onStartExercise: () {
-          Navigator.pop(sheetCtx); // close sheet first
-          onStartExercise(); // then navigate
+          Navigator.pop(sheetCtx);
+          onStartExercise();
         },
       );
     },
@@ -27,10 +38,12 @@ Future<void> showExerciseDetailsSheet(
 class _ExerciseDetailsSheet extends StatefulWidget {
   const _ExerciseDetailsSheet({
     required this.workout,
+    required this.plan,
     required this.onStartExercise,
   });
 
   final Workout workout;
+  final WorkoutPlan plan;
   final VoidCallback onStartExercise;
 
   @override
@@ -42,40 +55,15 @@ class _ExerciseDetailsSheetState extends State<_ExerciseDetailsSheet> {
 
   int _tab = 0; // 0=Animation, 1=Muscle, 2=How to do
 
-  YoutubePlayerController? _ytCtrl;
-
-  @override
-  void initState() {
-    super.initState();
-
-    final url = _youtubeFor(widget.workout.title);
-    final id = (url == null) ? null : _extractYoutubeId(url);
-
-    if (id != null) {
-      _ytCtrl = YoutubePlayerController.fromVideoId(
-        videoId: id,
-        autoPlay: false,
-        params: const YoutubePlayerParams(
-          showFullscreenButton: true,
-          strictRelatedVideos: true,
-          enableJavaScript: true,
-        ),
-      );
-    }
-  }
-
-  @override
-  void dispose() {
-    _ytCtrl?.close();
-    super.dispose();
-  }
-
   @override
   Widget build(BuildContext context) {
     final s = MediaQuery.sizeOf(context).width / 375.0;
 
     final title = widget.workout.title;
-    final duration = _durationFor(title);
+    final plan = widget.plan;
+
+    final ytId = _youtubeIdFor(title);
+    final ytUrl = ytId == null ? null : Uri.parse('https://www.youtube.com/watch?v=$ytId');
 
     return SafeArea(
       top: false,
@@ -124,35 +112,105 @@ class _ExerciseDetailsSheetState extends State<_ExerciseDetailsSheet> {
                   ),
                 ),
 
-                // ✅ embedded preview/player
+                // ✅ Thumbnail (no embed)
                 Padding(
                   padding: EdgeInsets.symmetric(horizontal: 18 * s),
                   child: AspectRatio(
                     aspectRatio: 16 / 9,
                     child: ClipRRect(
                       borderRadius: BorderRadius.circular(16 * s),
-                      child: Container(
-                        color: Colors.black.withValues(alpha: 0.06),
-                        child: _ytCtrl != null
-                            ? YoutubePlayer(
-                                controller: _ytCtrl!,
-                                aspectRatio: 16 / 9,
-                              )
-                            : Image.asset(
+                      child: Stack(
+                        fit: StackFit.expand,
+                        children: [
+                          // Use YouTube thumbnail if we have ID, else fallback asset
+                          if (ytId != null)
+                            Image.network(
+                              'https://img.youtube.com/vi/$ytId/hqdefault.jpg',
+                              fit: BoxFit.cover,
+                              errorBuilder: (_, _, _) => Image.asset(
                                 _imageFor(title),
                                 fit: BoxFit.cover,
-                                errorBuilder: (_, _, _) => Center(
-                                  child: Icon(
-                                    Icons.fitness_center_rounded,
-                                    size: 44 * s,
-                                    color: Colors.black.withValues(alpha: 0.25),
-                                  ),
-                                ),
                               ),
+                            )
+                          else
+                            Image.asset(
+                              _imageFor(title),
+                              fit: BoxFit.cover,
+                            ),
+
+                          // dark overlay
+                          Container(color: Colors.black.withValues(alpha: 0.15)),
+
+                          // play icon
+                          Center(
+                            child: Container(
+                              width: 64 * s,
+                              height: 64 * s,
+                              decoration: BoxDecoration(
+                                color: Colors.black.withValues(alpha: 0.45),
+                                shape: BoxShape.circle,
+                              ),
+                              child: Icon(
+                                Icons.play_arrow_rounded,
+                                color: Colors.white,
+                                size: 40 * s,
+                              ),
+                            ),
+                          ),
+
+                          // tap to open YouTube
+                          Material(
+                            color: Colors.transparent,
+                            child: InkWell(
+                              onTap: ytUrl == null ? null : () => _openYoutube(ytUrl),
+                            ),
+                          ),
+                        ],
                       ),
                     ),
                   ),
                 ),
+
+                if (ytUrl != null) ...[
+                  SizedBox(height: 10 * s),
+                  Padding(
+                    padding: EdgeInsets.symmetric(horizontal: 18 * s),
+                    child: InkWell(
+                      onTap: () => _openYoutube(ytUrl),
+                      borderRadius: BorderRadius.circular(999),
+                      child: Container(
+                        height: 46 * s,
+                        decoration: BoxDecoration(
+                          color: _BottomStartButton._ink, 
+                          borderRadius: BorderRadius.circular(999),
+                        ),
+                        alignment: Alignment.center,
+                        child: Row(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            // ✅ YouTube icon (red play look using icon + color)
+                            Icon(
+                              Icons.play_circle_fill_rounded,
+                              size: 22 * s,
+                              color: _BottomStartButton._yellow, 
+                            ),
+                            SizedBox(width: 8 * s),
+                            Text(
+                              'YOUTUBE',
+                              style: TextStyle(
+                                color: _BottomStartButton._yellow, 
+                                fontSize: 12 * s,
+                                fontWeight: FontWeight.w900,
+                                letterSpacing: 0.8,
+                                fontFamily: 'DM Sans',
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ),
+                  ),
+                ],
 
                 SizedBox(height: 12 * s),
 
@@ -169,7 +227,7 @@ class _ExerciseDetailsSheetState extends State<_ExerciseDetailsSheet> {
                       children: [
                         _SegBtn(
                           s: s,
-                          label: 'Animation',
+                          label: 'Preview',
                           selected: _tab == 0,
                           onTap: () => setState(() => _tab = 0),
                         ),
@@ -197,10 +255,10 @@ class _ExerciseDetailsSheetState extends State<_ExerciseDetailsSheet> {
                   child: SingleChildScrollView(
                     padding: EdgeInsets.fromLTRB(18 * s, 6 * s, 18 * s, 24 * s),
                     child: _tab == 0
-                        ? _TabAnimation(s: s, duration: duration, hasVideo: _ytCtrl != null)
+                        ? _TabAnimation(s: s, plan: plan, hasLink: ytUrl != null)
                         : _tab == 1
-                            ? _TabMuscle(s: s, title: title)
-                            : _TabHowTo(s: s, title: title),
+                            ? _TabMuscle(s: s, title: title, plan: plan)
+                            : _TabHowTo(s: s, title: title, plan: plan),
                   ),
                 ),
 
@@ -216,6 +274,11 @@ class _ExerciseDetailsSheetState extends State<_ExerciseDetailsSheet> {
       ),
     );
   }
+}
+
+Future<void> _openYoutube(Uri url) async {
+  // Prefer external app (YouTube), fallback browser
+  await launchUrl(url, mode: LaunchMode.externalApplication);
 }
 
 class _BottomStartButton extends StatelessWidget {
@@ -311,13 +374,13 @@ class _SegBtn extends StatelessWidget {
 class _TabAnimation extends StatelessWidget {
   const _TabAnimation({
     required this.s,
-    required this.duration,
-    required this.hasVideo,
+    required this.plan,
+    required this.hasLink,
   });
 
   final double s;
-  final String duration;
-  final bool hasVideo;
+  final WorkoutPlan plan;
+  final bool hasLink;
 
   static const _blue = Color(0xFF537892);
 
@@ -326,10 +389,15 @@ class _TabAnimation extends StatelessWidget {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        _SectionRow(s: s, left: 'DURATION', right: duration, leftColor: _blue),
+        _SectionRow(s: s, left: 'SETS', right: '${plan.sets}', leftColor: _blue),
+        SizedBox(height: 8 * s),
+        if (plan.isTimed)
+          _SectionRow(s: s, left: 'TIMER / SET', right: plan.timerLabel, leftColor: _blue)
+        else
+          _SectionRow(s: s, left: 'REPS / SET', right: '${plan.reps}', leftColor: _blue),
         SizedBox(height: 12 * s),
         Text(
-          'Preview / Animation',
+          'Preview',
           style: TextStyle(
             color: Colors.black,
             fontSize: 14 * s,
@@ -339,8 +407,8 @@ class _TabAnimation extends StatelessWidget {
         ),
         SizedBox(height: 8 * s),
         Text(
-          hasVideo
-              ? 'Watch the demo video above.'
+          hasLink
+              ? 'Tap the preview or the button to watch on YouTube.'
               : 'No video demo available for this exercise.',
           style: TextStyle(
             color: Colors.black.withValues(alpha: 0.65),
@@ -355,9 +423,15 @@ class _TabAnimation extends StatelessWidget {
 }
 
 class _TabMuscle extends StatelessWidget {
-  const _TabMuscle({required this.s, required this.title});
+  const _TabMuscle({
+    required this.s,
+    required this.title,
+    required this.plan,
+  });
+
   final double s;
   final String title;
+  final WorkoutPlan plan;
 
   static const _blue = Color(0xFF537892);
   static const _yellow = Color(0xFFFEF9C2);
@@ -370,7 +444,13 @@ class _TabMuscle extends StatelessWidget {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        _SectionRow(s: s, left: 'DURATION', right: _durationFor(title), leftColor: _blue),
+        _SectionRow(s: s, left: 'SETS', right: '${plan.sets}', leftColor: _blue),
+        SizedBox(height: 8 * s),
+        if (plan.isTimed)
+          _SectionRow(s: s, left: 'TIMER / SET', right: plan.timerLabel, leftColor: _blue)
+        else
+          _SectionRow(s: s, left: 'REPS / SET', right: '${plan.reps}', leftColor: _blue),
+
         SizedBox(height: 14 * s),
         Text(
           'FOCUS AREA',
@@ -446,9 +526,15 @@ class _TabMuscle extends StatelessWidget {
 }
 
 class _TabHowTo extends StatelessWidget {
-  const _TabHowTo({required this.s, required this.title});
+  const _TabHowTo({
+    required this.s,
+    required this.title,
+    required this.plan,
+  });
+
   final double s;
   final String title;
+  final WorkoutPlan plan;
 
   static const _blue = Color(0xFF537892);
 
@@ -461,9 +547,14 @@ class _TabHowTo extends StatelessWidget {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        _SectionRow(s: s, left: 'DURATION', right: _durationFor(title), leftColor: _blue),
-        SizedBox(height: 14 * s),
+        _SectionRow(s: s, left: 'SETS', right: '${plan.sets}', leftColor: _blue),
+        SizedBox(height: 8 * s),
+        if (plan.isTimed)
+          _SectionRow(s: s, left: 'TIMER / SET', right: plan.timerLabel, leftColor: _blue)
+        else
+          _SectionRow(s: s, left: 'REPS / SET', right: '${plan.reps}', leftColor: _blue),
 
+        SizedBox(height: 14 * s),
         Text(
           'INSTRUCTIONS',
           style: TextStyle(
@@ -483,7 +574,6 @@ class _TabHowTo extends StatelessWidget {
             fontFamily: 'DM Sans',
           ),
         ),
-
         SizedBox(height: 18 * s),
         Text(
           'COMMON MISTAKES',
@@ -525,7 +615,6 @@ class _TabHowTo extends StatelessWidget {
               ],
             ),
           ),
-
         SizedBox(height: 8 * s),
         Text(
           'BREATHING TIPS',
@@ -598,13 +687,6 @@ class _SectionRow extends StatelessWidget {
 
 /// ---- helpers ----
 
-String _durationFor(String title) {
-  final t = title.toLowerCase();
-  if (t.contains('jump')) return '20s';
-  if (t.contains('squat')) return '30s';
-  return '20s';
-}
-
 String _imageFor(String title) {
   final t = title.toLowerCase();
   if (t.contains('jump')) return 'assets/jumping-jacks.png';
@@ -612,40 +694,11 @@ String _imageFor(String title) {
   return 'assets/workout.png';
 }
 
-String? _youtubeFor(String title) {
+String? _youtubeIdFor(String title) {
   final t = title.toLowerCase();
-  if (t.contains('jump')) return 'https://youtu.be/iSSAk4XCsRA?si=I_i40DhOEHEFP53r';
-  if (t.contains('squat')) return 'https://youtu.be/xqvCmoLULNY?si=zgBwBR6t_RWOKkVx';
+  if (t.contains('jump')) return 'iSSAk4XCsRA';
+  if (t.contains('squat')) return 'xqvCmoLULNY';
   return null;
-}
-
-// ✅ robust enough for youtu.be, watch?v=, embed/
-String? _extractYoutubeId(String url) {
-  try {
-    final uri = Uri.parse(url);
-
-    // youtu.be/<id>
-    if (uri.host.contains('youtu.be')) {
-      if (uri.pathSegments.isEmpty) return null;
-      return uri.pathSegments.first;
-    }
-
-    // youtube.com/watch?v=<id>
-    final v = uri.queryParameters['v'];
-    if (v != null && v.isNotEmpty) return v;
-
-    // youtube.com/embed/<id>
-    if (uri.pathSegments.contains('embed')) {
-      final idx = uri.pathSegments.indexOf('embed');
-      if (idx >= 0 && uri.pathSegments.length > idx + 1) {
-        return uri.pathSegments[idx + 1];
-      }
-    }
-
-    return null;
-  } catch (_) {
-    return null;
-  }
 }
 
 List<String> _benefitsFor(String title) {
