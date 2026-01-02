@@ -49,8 +49,7 @@ class RepCounter {
     }
   }
 
-  // ---------------- Squat logic ----------------
-
+  //Squat logic
   bool _updateSquat(Pose pose) {
     final side = _bestSide(pose);
 
@@ -113,7 +112,7 @@ class RepCounter {
     return false;
   }
 
-  // ---------------- Helpers ----------------
+  // Helpers
 
   double _angleDeg(PoseLandmark a, PoseLandmark b, PoseLandmark c) {
     // Angle at point b formed by a-b-c

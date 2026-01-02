@@ -4,7 +4,7 @@ import 'package:camera/camera.dart';
 import 'package:permission_handler/permission_handler.dart';
 
 import '../services/camera_setup_checker.dart';
-import '../services/rep_counter.dart';
+import '../services/rep_counter_squats.dart';
 import '../app_state.dart';
 
 //import for pose detection
@@ -37,6 +37,10 @@ class _SetupModeScreenState extends State<SetupModeScreen> {
 
   final _checker = CameraSetupChecker();
   bool _setupReady = false;
+
+  //add rep counter 
+  late final RepCounter _repCounter = RepCounter.squat();
+  int _reps = 0;
 
   @override
   void initState() {
@@ -124,6 +128,16 @@ class _SetupModeScreenState extends State<SetupModeScreen> {
               if (changedReady) _setupReady = readyNow;
             });
           }
+        if (/*_setupReady && */_poses.isNotEmpty) {
+          final hadRep = _repCounter.update(_poses.first);
+
+          if (hadRep) {
+            setState(() {
+              _reps = _repCounter.reps;
+            });
+          }
+        }
+
         } catch (e,st) {
           debugPrint('Pose error. $e');
           debugPrint('Pose error. $st'); //try if di maidentify
@@ -470,7 +484,7 @@ Widget _buildCameraWithOverlay() {
                   borderRadius: BorderRadius.circular(8 * s),
                 ),
                   child: Text(
-                    'counter: | ready: $_setupReady | ${_checker.lastReason}',
+                    'counter: $_reps | ready: $_setupReady | ${_checker.lastReason}',
                     style: TextStyle(color: Colors.white, fontSize: 12 * s),
                   ),
               ),
