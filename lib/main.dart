@@ -1,5 +1,9 @@
 import 'package:flutter/material.dart';
+
 import 'app_state.dart';
+
+import 'models/workout.dart';
+import 'models/workout_plan.dart';
 
 import 'screens/welcome_screen.dart';
 import 'screens/gender_screen.dart';
@@ -8,11 +12,13 @@ import 'screens/home_screen.dart';
 import 'screens/profile_section_screen.dart';
 import 'screens/exercise_selection_screen.dart';
 import 'screens/setup_mode_screen.dart';
+import 'screens/exercise_screen.dart';
 import 'screens/streak_screen.dart';
 import 'screens/history_screen.dart';
 
 void main() {
   WidgetsFlutterBinding.ensureInitialized();
+
   ErrorWidget.builder = (details) {
     return Material(
       color: Colors.black,
@@ -51,7 +57,31 @@ class _MyAppState extends State<MyApp> {
       notifier: _state,
       child: MaterialApp(
         debugShowCheckedModeBanner: false,
-        initialRoute: '/',
+
+        // ✅ handle routes that REQUIRE arguments
+        onGenerateRoute: (settings) {
+          // /setup_mode expects Workout
+          if (settings.name == '/setup_mode') {
+            final workout = settings.arguments as Workout;
+            return MaterialPageRoute(
+              builder: (_) => SetupModeScreen(workout: workout),
+            );
+          }
+
+          // /exercise expects ExerciseArgs(workout, plan)
+          if (settings.name == '/exercise') {
+            final args = settings.arguments as ExerciseArgs;
+            return MaterialPageRoute(
+              builder: (_) => ExerciseScreen(
+                workout: args.workout,
+                plan: args.plan,
+              ),
+            );
+          }
+
+          return null; // let routes map handle others
+        },
+
         routes: {
           '/': (_) => const WelcomeFlowScreen(),
           '/gender': (_) => const GenderScreen(),
@@ -60,11 +90,16 @@ class _MyAppState extends State<MyApp> {
           '/profile_section': (_) => const ProfileSectionScreen(),
           '/streak': (_) => const StreakScreen(),
           '/history': (_) => const HistoryScreen(),
-
           '/exercise_select': (_) => const ExerciseSelectionScreen(),
-          '/setup_mode': (_) => const SetupModeScreen(),
+
         },
       ),
     );
   }
+}
+
+class ExerciseArgs {
+  final Workout workout;
+  final WorkoutPlan plan;
+  const ExerciseArgs({required this.workout, required this.plan});
 }

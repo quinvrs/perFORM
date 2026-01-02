@@ -1,18 +1,26 @@
+import 'dart:async';
+import 'dart:io';
+import 'dart:ui'; // ✅ for BackdropFilter blur
+
+import 'package:camera/camera.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
-import 'package:camera/camera.dart';
 import 'package:permission_handler/permission_handler.dart';
-
-import '../services/camera_setup_checker.dart';
-import '../services/rep_counter_squats.dart';
-import '../app_state.dart';
-
-//import for pose detection
-import 'dart:io';
 import 'package:google_mlkit_pose_detection/google_mlkit_pose_detection.dart';
 
+import '../app_state.dart';
+import '../models/workout.dart';
+import '../models/workout_plan.dart';
+import '../services/rep_counter_squats.dart';
+import 'exercise_screen.dart';
+
 class SetupModeScreen extends StatefulWidget {
-  const SetupModeScreen({super.key});
+  const SetupModeScreen({
+    super.key,
+    required this.workout,
+  });
+
+  final Workout workout;
 
   @override
   State<SetupModeScreen> createState() => _SetupModeScreenState();
@@ -25,37 +33,58 @@ class _SetupModeScreenState extends State<SetupModeScreen> {
   Future<void>? _initFuture;
   String? _error;
 
-  //Add pose detector
   PoseDetector? _poseDetector;
   bool _isDetecting = false;
 
   List<Pose> _poses = const [];
-  Size? _lastImageSize; // used for overlay scaling
   CameraDescription? _selectedCamera;
   InputImageRotation? _imgRotation;
   Size? _imgSize;
 
-  final _checker = CameraSetupChecker();
-  bool _setupReady = false;
+  // checklist + readiness
+  SetupChecklist _checklist = SetupChecklist.empty();
+  bool _allReady = false;
 
-  //add squat rep counter 
-  late final RepCounter _repCounter = RepCounter.squat();
+  // countdown
+  int _countdown = 0;
+  Timer? _countdownTimer;
+
+  // optional rep debug for squats
+  final RepCounter _repCounter = RepCounter.squat();
   int _reps = 0;
+
+  static const bool _showDebug = true;
 
   @override
   void initState() {
     super.initState();
 
-    //Initialize pose detector
     _poseDetector = PoseDetector(
-    options: PoseDetectorOptions(
-    mode: PoseDetectionMode.stream,
-    model: PoseDetectionModel.base,
+      options: PoseDetectorOptions(
+        mode: PoseDetectionMode.stream,
+        model: PoseDetectionModel.base,
       ),
     );
 
     _initCamera();
   }
+
+  @override
+  void dispose() {
+    _countdownTimer?.cancel();
+
+    try {
+      _controller?.stopImageStream();
+    } catch (_) {}
+    _controller?.dispose();
+
+    _poseDetector?.close();
+    super.dispose();
+  }
+
+  // -------------------------
+  // Camera init + pose stream
+  // -------------------------
 
   Future<void> _initCamera() async {
     try {
@@ -67,9 +96,7 @@ class _SetupModeScreenState extends State<SetupModeScreen> {
 
       final cams = await availableCameras();
       if (cams.isEmpty) {
-        if (mounted) {
-          setState(() => _error = 'No cameras found on this device/emulator.');
-        }
+        if (mounted) setState(() => _error = 'No cameras found on this device.');
         return;
       }
 
@@ -82,9 +109,8 @@ class _SetupModeScreenState extends State<SetupModeScreen> {
         chosen,
         ResolutionPreset.medium,
         enableAudio: false,
-        imageFormatGroup: Platform.isAndroid
-        ? ImageFormatGroup.nv21
-        : ImageFormatGroup.bgra8888,
+        imageFormatGroup:
+            Platform.isAndroid ? ImageFormatGroup.nv21 : ImageFormatGroup.bgra8888,
       );
 
       _controller = ctrl;
@@ -98,49 +124,43 @@ class _SetupModeScreenState extends State<SetupModeScreen> {
         _isDetecting = true;
 
         try {
-          final inputImage = _cameraImageToInputImage(image, _selectedCamera!);
-          if (inputImage == null) {
-            _isDetecting = false;
-            return;
-          }
+          final inputImage = _cameraImageToInputImage(image, chosen);
+          if (inputImage == null) return;
+
           final poses = await _poseDetector!.processImage(inputImage);
 
-            bool readyNow = _setupReady;
+          final c = _buildChecklist(
+            poses: poses,
+            imageSize: _imgSize,
+            rotation: _imgRotation,
+            title: widget.workout.title,
+          );
 
-            if (_imgSize != null && _imgRotation != null && _selectedCamera != null) {
-              final pSize = _controller!.value.previewSize!;
-              final canvas = Size(pSize.height, pSize.width); // portrait canvas
+          final ready = c.allMet;
 
-              readyNow = _checker.update(
-                poses: poses,
-                canvasSize: canvas,
-                imageSize: _imgSize!,
-                rotation: _imgRotation!,
-                lensDirection: _selectedCamera!.lensDirection,
-              );
-            }
+          // if readiness breaks during countdown -> stop countdown
+          if (_countdown > 0 && !ready) _stopCountdown();
+
+          // if became ready and not counting down -> start countdown
+          if (_countdown == 0 && ready) _startCountdown(seconds: 5);
+
+          // rep counter (debug)
+          int newReps = 0;
+          if (_isSquat(widget.workout.title) && poses.isNotEmpty) {
+            _repCounter.update(poses.first);
+            newReps = _repCounter.reps;
+          }
 
           if (mounted) {
-            final changedReady = readyNow != _setupReady;
-
             setState(() {
               _poses = poses;
-              if (changedReady) _setupReady = readyNow;
+              _checklist = c;
+              _allReady = ready;
+              _reps = newReps;
             });
           }
-        if (/*_setupReady && */_poses.isNotEmpty) {
-          final hadRep = _repCounter.update(_poses.first);
-
-          if (hadRep) {
-            setState(() {
-              _reps = _repCounter.reps;
-            });
-          }
-        }
-
-        } catch (e,st) {
-          debugPrint('Pose error. $e');
-          debugPrint('Pose error. $st'); //try if di maidentify
+        } catch (e, st) {
+          debugPrint('Setup pose error: $e\n$st');
         } finally {
           _isDetecting = false;
         }
@@ -152,139 +172,322 @@ class _SetupModeScreenState extends State<SetupModeScreen> {
     }
   }
 
-  @override
-  void dispose() {
-    _controller?.stopImageStream();
-    _controller?.dispose();
+  // -------------------------
+  // Countdown + navigation
+  // -------------------------
+
+  void _startCountdown({required int seconds}) {
+    _countdownTimer?.cancel();
+    _countdown = seconds;
+
+    _countdownTimer = Timer.periodic(const Duration(seconds: 1), (t) async {
+      if (!mounted) return;
+      setState(() => _countdown--);
+
+      if (_countdown <= 0) {
+        t.cancel();
+        _countdownTimer = null;
+        await _goToExercise();
+      }
+    });
+
+    setState(() {});
+  }
+
+  void _stopCountdown() {
+    _countdownTimer?.cancel();
+    _countdownTimer = null;
+    if (mounted) setState(() => _countdown = 0);
+  }
+
+  Future<void> _goToExercise() async {
+  final state = AppStateScope.of(context);
+
+  final plan = WorkoutPlan.forWorkout(
+    title: widget.workout.title,
+    activityLevel: state.activityLevel,
+  );
+
+  // ✅ IMPORTANT: release camera BEFORE opening ExerciseScreen
+  final old = _controller;
+  _controller = null;
+
+  try {
+    await old?.stopImageStream();
+  } catch (_) {}
+
+  try {
+    await old?.dispose();
+  } catch (_) {}
+
+  // (optional) also stop detector early (dispose will still call close)
+  try {
     _poseDetector?.close();
-    super.dispose();
-  }
+  } catch (_) {}
 
-static const _orientations = <DeviceOrientation, int>{
-  DeviceOrientation.portraitUp: 0,
-  DeviceOrientation.landscapeLeft: 90,
-  DeviceOrientation.portraitDown: 180,
-  DeviceOrientation.landscapeRight: 270,
-};
+  // ✅ give Android time to release camera (MIUI needs this)
+  await Future.delayed(const Duration(milliseconds: 250));
 
-InputImage? _cameraImageToInputImage(CameraImage image, CameraDescription camera) {
-  // rotation
-  final sensorOrientation = camera.sensorOrientation;
-  InputImageRotation? rotation;
+  if (!mounted) return;
 
-  if (Platform.isIOS) {
-    rotation = InputImageRotationValue.fromRawValue(sensorOrientation);
-  } else if (Platform.isAndroid) {
-    final rotationCompensation = _orientations[_controller!.value.deviceOrientation];
-    if (rotationCompensation == null) return null;
-
-    final rot = camera.lensDirection == CameraLensDirection.front
-        ? (sensorOrientation + rotationCompensation) % 360
-        : (sensorOrientation - rotationCompensation + 360) % 360;
-
-    rotation = InputImageRotationValue.fromRawValue(rot);
-  }
-
-  if (rotation == null) return null;
-
-  // format
-  final format = InputImageFormatValue.fromRawValue(image.format.raw);
-  if (format == null) return null;
-
-  if (Platform.isAndroid && format != InputImageFormat.nv21) return null;
-  if (Platform.isIOS && format != InputImageFormat.bgra8888) return null;
-
-  if (image.planes.length != 1) return null;
-
-  final plane = image.planes.first;
-
-  final imgSize = Size(image.width.toDouble(), image.height.toDouble());
-
-  // Save these for your painter overlay
-  _imgRotation = rotation;
-  _imgSize = imgSize;
-
-  return InputImage.fromBytes(
-    bytes: plane.bytes,
-    metadata: InputImageMetadata(
-      size: imgSize,
-      rotation: rotation,
-      format: format,
-      bytesPerRow: plane.bytesPerRow,
+  Navigator.pushReplacement(
+    context,
+    MaterialPageRoute(
+      builder: (_) => ExerciseScreen(
+        workout: widget.workout,
+        plan: plan,
+      ),
     ),
   );
 }
 
-//camera fix 
-Widget _buildCameraWithOverlay() {
-  final controller = _controller;
-  if (controller == null || !controller.value.isInitialized) {
-    return const Center(child: CircularProgressIndicator());
+
+  // -------------------------
+  // Camera -> MLKit InputImage
+  // -------------------------
+
+  static const Map<DeviceOrientation, int> _orientations = {
+    DeviceOrientation.portraitUp: 0,
+    DeviceOrientation.landscapeLeft: 90,
+    DeviceOrientation.portraitDown: 180,
+    DeviceOrientation.landscapeRight: 270,
+  };
+
+  InputImage? _cameraImageToInputImage(CameraImage image, CameraDescription camera) {
+    final sensorOrientation = camera.sensorOrientation;
+    InputImageRotation? rotation;
+
+    if (Platform.isIOS) {
+      rotation = InputImageRotationValue.fromRawValue(sensorOrientation);
+    } else if (Platform.isAndroid) {
+      final deviceOrientation = _controller?.value.deviceOrientation;
+      final rotationCompensation = _orientations[deviceOrientation];
+      if (rotationCompensation == null) return null;
+
+      final rot = camera.lensDirection == CameraLensDirection.front
+          ? (sensorOrientation + rotationCompensation) % 360
+          : (sensorOrientation - rotationCompensation + 360) % 360;
+
+      rotation = InputImageRotationValue.fromRawValue(rot);
+    }
+
+    if (rotation == null) return null;
+
+    final format = InputImageFormatValue.fromRawValue(image.format.raw);
+    if (format == null) return null;
+
+    if (Platform.isAndroid && format != InputImageFormat.nv21) return null;
+    if (Platform.isIOS && format != InputImageFormat.bgra8888) return null;
+
+    if (image.planes.length != 1) return null;
+
+    final plane = image.planes.first;
+    final imgSize = Size(image.width.toDouble(), image.height.toDouble());
+
+    _imgRotation = rotation;
+    _imgSize = imgSize;
+
+    return InputImage.fromBytes(
+      bytes: plane.bytes,
+      metadata: InputImageMetadata(
+        size: imgSize,
+        rotation: rotation,
+        format: format,
+        bytesPerRow: plane.bytesPerRow,
+      ),
+    );
   }
 
-  return LayoutBuilder(
-    builder: (context, constraints) {
-      final previewSize = controller.value.previewSize!;
-      final screenW = constraints.maxWidth;
-      final screenH = constraints.maxHeight;
+  // -------------------------
+  // Checklist evaluation
+  // -------------------------
 
-      // previewSize is landscape; in portrait we treat it as rotated
-      final previewW = previewSize.height;
-      final previewH = previewSize.width;
+  bool _isSquat(String title) => title.toLowerCase().contains('squat');
+  bool _isJumpingJack(String title) =>
+      title.toLowerCase().contains('jump') || title.toLowerCase().contains('jack');
 
-      final scaleW = screenW / previewW;
-      final scaleH = screenH / previewH;
-      final scale = scaleW > scaleH ? scaleW : scaleH;
-      
+  SetupChecklist _buildChecklist({
+    required List<Pose> poses,
+    required Size? imageSize,
+    required InputImageRotation? rotation,
+    required String title,
+  }) {
+    if (poses.isEmpty || imageSize == null || rotation == null) {
+      return SetupChecklist.empty();
+    }
 
-      return ClipRect(
-        child: Center(
-          child: Transform.scale(
-            scale: scale,
-            alignment: Alignment.center,
-            child: SizedBox(
-              width: previewW,
-              height: previewH,
-              child: Stack(
-                fit: StackFit.expand,
-                children: [
-                  CameraPreview(controller),
+    final pose = poses.first;
+    final lm = pose.landmarks;
 
-                  if (_imgSize != null && _imgRotation != null && _selectedCamera != null)
-                    IgnorePointer(
-                      child: RepaintBoundary(
-                        child: CustomPaint(
-                          painter: _PosePainter(
-                            poses: _poses,
-                            imageSize: _imgSize!,
-                            rotation: _imgRotation!,
-                            isFrontCamera:
-                                _selectedCamera!.lensDirection == CameraLensDirection.front,
+    PoseLandmark? L(PoseLandmarkType t) => lm[t];
+
+    final ls = L(PoseLandmarkType.leftShoulder);
+    final rs = L(PoseLandmarkType.rightShoulder);
+    final lh = L(PoseLandmarkType.leftHip);
+    final rh = L(PoseLandmarkType.rightHip);
+    final lk = L(PoseLandmarkType.leftKnee);
+    final rk = L(PoseLandmarkType.rightKnee);
+    final la = L(PoseLandmarkType.leftAnkle);
+    final ra = L(PoseLandmarkType.rightAnkle);
+    final lw = L(PoseLandmarkType.leftWrist);
+    final rw = L(PoseLandmarkType.rightWrist);
+
+    final fullBodyVisible = ls != null &&
+        rs != null &&
+        lh != null &&
+        rh != null &&
+        lk != null &&
+        rk != null &&
+        la != null &&
+        ra != null;
+
+    // effective width/height depending on rotation
+    final effW = (rotation == InputImageRotation.rotation90deg ||
+            rotation == InputImageRotation.rotation270deg)
+        ? imageSize.height
+        : imageSize.width;
+
+    final effH = (rotation == InputImageRotation.rotation90deg ||
+            rotation == InputImageRotation.rotation270deg)
+        ? imageSize.width
+        : imageSize.height;
+
+    // distance (body height fraction)
+    bool distanceOk = false;
+    if (fullBodyVisible) {
+      final topY = [ls.y, rs.y].reduce((a, b) => a < b ? a : b);
+      final botY = [la.y, ra.y].reduce((a, b) => a > b ? a : b);
+      final bodyH = (botY - topY).abs();
+      final frac = effH == 0 ? 0.0 : (bodyH / effH);
+      distanceOk = frac >= 0.55 && frac <= 0.92;
+    }
+
+    // enough side space
+    bool spaceOk = false;
+    if (fullBodyVisible && lw != null && rw != null) {
+      final xs = <double>[ls.x, rs.x, lh.x, rh.x, la.x, ra.x, lw.x, rw.x];
+      final minX = xs.reduce((a, b) => a < b ? a : b);
+      final maxX = xs.reduce((a, b) => a > b ? a : b);
+      spaceOk = (minX > 0.04 * effW) && (maxX < 0.96 * effW);
+    }
+
+    // centered
+    bool centeredOk = false;
+    if (fullBodyVisible) {
+      final cx = (ls.x + rs.x + lh.x + rh.x) / 4.0;
+      centeredOk = ((cx - effW / 2).abs() / effW) <= 0.20;
+    }
+
+    // facing via shoulder width fraction
+    bool frontFacingOk = false;
+    bool sideFacingOk = false;
+    if (ls != null && rs != null) {
+      final shoulderFrac = (ls.x - rs.x).abs() / (effW == 0 ? 1.0 : effW);
+      frontFacingOk = shoulderFrac >= 0.18;
+      sideFacingOk = shoulderFrac <= 0.14;
+    }
+
+    if (_isSquat(title)) {
+      return SetupChecklist(
+        items: [
+          SetupItem('Stand 6–8 feet from the camera', distanceOk),
+          SetupItem('Ensure that the full body is visible', fullBodyVisible),
+          SetupItem('Position yourself side-facing to the camera', sideFacingOk),
+          SetupItem('Keep enough space for your arms and legs', spaceOk),
+        ],
+      );
+    }
+
+    if (_isJumpingJack(title)) {
+      return SetupChecklist(
+        items: [
+          SetupItem('Stand 6–8 feet from the camera', distanceOk),
+          SetupItem('Ensure that the full body is visible', fullBodyVisible),
+          SetupItem('Face the camera directly', frontFacingOk),
+          SetupItem(
+            'Keep your body centered, with extra space on the sides',
+            centeredOk && spaceOk,
+          ),
+        ],
+      );
+    }
+
+    return SetupChecklist(
+      items: [
+        SetupItem('Stand 6–8 feet from the camera', distanceOk),
+        SetupItem('Ensure that the full body is visible', fullBodyVisible),
+        SetupItem('Keep enough space for your arms and legs', spaceOk),
+      ],
+    );
+  }
+
+  // -------------------------
+  // UI
+  // -------------------------
+
+  Widget _buildCameraWithOverlay() {
+    final controller = _controller;
+    if (controller == null || !controller.value.isInitialized) {
+      return const Center(child: CircularProgressIndicator());
+    }
+
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        final previewSize = controller.value.previewSize!;
+        final screenW = constraints.maxWidth;
+        final screenH = constraints.maxHeight;
+
+        // previewSize is landscape; in portrait treat as rotated
+        final previewW = previewSize.height;
+        final previewH = previewSize.width;
+
+        final scaleW = screenW / previewW;
+        final scaleH = screenH / previewH;
+        final scale = scaleW > scaleH ? scaleW : scaleH;
+
+        return ClipRect(
+          child: Center(
+            child: Transform.scale(
+              scale: scale,
+              alignment: Alignment.center,
+              child: SizedBox(
+                width: previewW,
+                height: previewH,
+                child: Stack(
+                  fit: StackFit.expand,
+                  children: [
+                    CameraPreview(controller),
+                    if (_imgSize != null && _imgRotation != null && _selectedCamera != null)
+                      IgnorePointer(
+                        child: RepaintBoundary(
+                          child: CustomPaint(
+                            painter: _PosePainter(
+                              poses: _poses,
+                              imageSize: _imgSize!,
+                              rotation: _imgRotation!,
+                              isFrontCamera:
+                                  _selectedCamera!.lensDirection == CameraLensDirection.front,
+                            ),
                           ),
                         ),
                       ),
-                    ),
-                ],
+                  ],
+                ),
               ),
             ),
           ),
-        ),
-      );
-    },
-  );
-}
+        );
+      },
+    );
+  }
 
   @override
   Widget build(BuildContext context) {
-    final state = AppStateScope.of(context);
-
-    // ✅ full-screen scale (design width = 375)
     final size = MediaQuery.sizeOf(context);
     final s = size.width / 375.0;
 
     final topInset = MediaQuery.of(context).padding.top;
-    final appBarH = 44 * s; // tweak if you want taller top fade
-
+    final appBarH = 44 * s;
 
     return Scaffold(
       backgroundColor: _bgDark,
@@ -293,7 +496,6 @@ Widget _buildCameraWithOverlay() {
         bottom: false,
         child: Stack(
           children: [
-            // ✅ FULL SCREEN CAMERA PREVIEW (no centered phone card)
             Positioned.fill(
               child: _error != null
                   ? Container(
@@ -314,26 +516,30 @@ Widget _buildCameraWithOverlay() {
                         )
                       : _buildCameraWithOverlay(),
             ),
+
+            // top fade
             Positioned(
               left: 0,
               right: 0,
               top: 0,
               child: IgnorePointer(
                 child: Container(
-                height: topInset + appBarH,
-                decoration: BoxDecoration(
-                  gradient: LinearGradient(
-                  begin: Alignment.topCenter,
-                  end: Alignment.bottomCenter,
-                  colors: [
-                  Colors.black.withValues(alpha: 0.65),
-                  Colors.black.withValues(alpha: 0.0),
-                  ],
+                  height: topInset + appBarH,
+                  decoration: BoxDecoration(
+                    gradient: LinearGradient(
+                      begin: Alignment.topCenter,
+                      end: Alignment.bottomCenter,
+                      colors: [
+                        Colors.black.withValues(alpha: 0.65),
+                        Colors.black.withValues(alpha: 0.0),
+                      ],
+                    ),
+                  ),
                 ),
               ),
             ),
-          ),
-        ),
+
+            // top bar
             Positioned(
               left: 0,
               right: 0,
@@ -342,153 +548,92 @@ Widget _buildCameraWithOverlay() {
                 bottom: false,
                 child: Padding(
                   padding: EdgeInsets.fromLTRB(12 * s, 10 * s, 12 * s, 0),
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                      // Top bar
-                      Row(
-                        children: [
-                          InkWell(
-                            onTap: () => Navigator.pop(context),
-                            child: const Icon(Icons.arrow_back_rounded, color: Colors.white),
-                          ),
-                          SizedBox(width: 12 * s),
-                          Text(
-                            'Setup Mode',
-                            style: TextStyle(
-                            color: Colors.white.withValues(alpha: 0.95),
-                            fontSize: 14 * s,
-                            fontWeight: FontWeight.w600,
-                              shadows: const [
-                              Shadow(blurRadius: 8, color: Colors.black),
-                              ],
-                            ),
-                          ),
-                        ],
-                      ),
-                    ],
-                  ),
-                ),
-              ),
-            ),
-
-            // instruction card
-            if (!_setupReady)
-                Positioned(
-                left: 18 * s,
-                right: 18 * s,
-                top: 40 * s,
-                child: Container(
-                  padding: EdgeInsets.all(14 * s),
-                  decoration: BoxDecoration(
-                    color: Colors.white,
-                    borderRadius: BorderRadius.circular(10 * s),
-                    boxShadow: [
-                      BoxShadow(
-                        color: const Color(0xFF000000).withValues(alpha: 0.35),
-                        blurRadius: 10,
-                        offset: const Offset(0, 4),
-                      ),
-                    ],
-                  ),
                   child: Row(
-                    crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      Container(
-                        width: 34 * s,
-                        height: 34 * s,
-                        decoration: const BoxDecoration(
-                          color: Color(0xFF00C951),
-                          shape: BoxShape.circle,
-                        ),
-                        child: Icon(
-                          Icons.camera_alt_rounded,
-                          color: Colors.white,
-                          size: 20 * s,
-                        ),
+                      InkWell(
+                        onTap: () => Navigator.pop(context),
+                        child: const Icon(Icons.arrow_back_rounded, color: Colors.white),
                       ),
                       SizedBox(width: 12 * s),
-                      Expanded(
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            Text(
-                              'Camera Setup',
-                              style: TextStyle(
-                                color: Colors.black,
-                                fontSize: 16 * s,
-                                fontWeight: FontWeight.w700,
-                              ),
-                            ),
-                            SizedBox(height: 6 * s),
-                            Text(
-                              'Position yourself within the frame\n'
-                              '• Stand 6–8 feet from camera\n'
-                              '• Ensure full body is visible\n'
-                              '• Face the camera directly\n'
-                              '• Good lighting recommended',
-                              style: TextStyle(
-                                color: const Color(0xFF797B7F),
-                                fontSize: 11 * s,
-                                height: 1.35,
-                              ),
-                            ),
-                          ],
+                      Text(
+                        'Setup Mode',
+                        style: TextStyle(
+                          color: Colors.white.withValues(alpha: 0.95),
+                          fontSize: 14 * s,
+                          fontWeight: FontWeight.w600,
+                          shadows: const [Shadow(blurRadius: 8, color: Colors.black)],
                         ),
                       ),
                     ],
                   ),
                 ),
               ),
+            ),
 
-            // Done button
-            Positioned(
-              left: 18 * s,
-              right: 18 * s,
-              bottom: 14 * s,
-              child: SafeArea(
-                top: false,
-                bottom: true,
-                child: InkWell(
-                  onTap: () {
-                    state.setWorkoutDay(DateTime.now(), true);
-                    Navigator.pop(context, true);
-                  },
-                  child: Container(
-                    height: 56 * s,
-                    alignment: Alignment.center,
-                    decoration: BoxDecoration(
-                      color: const Color(0xFF051328),
-                      borderRadius: BorderRadius.circular(14 * s),
-                    ),
-                    child: Text(
-                      'Mark Workout Done',
-                      style: TextStyle(
-                        color: Colors.white,
-                        fontSize: 16 * s,
-                        fontWeight: FontWeight.w800,
+            // Big checklist (glass popup)
+            if (_countdown == 0)
+              Positioned(
+                left: 14 * s,
+                right: 14 * s,
+                top: 64 * s,
+                child: _ChecklistCard(
+                  s: s,
+                  title: widget.workout.title.toUpperCase(),
+                  subtitle: _allReady ? 'All set! Starting soon…' : 'Fix the RED items to start.',
+                  checklist: _checklist,
+                ),
+              ),
+
+            // Countdown overlay (5..1)
+            if (_countdown > 0)
+              Positioned.fill(
+                child: IgnorePointer(
+                  child: Center(
+                    child: Container(
+                      width: 160 * s,
+                      height: 160 * s,
+                      decoration: BoxDecoration(
+                        color: Colors.black.withValues(alpha: 0.55),
+                        shape: BoxShape.circle,
+                        border: Border.all(
+                          color: Colors.white.withValues(alpha: 0.35),
+                          width: 2,
+                        ),
+                      ),
+                      alignment: Alignment.center,
+                      child: Text(
+                        '$_countdown',
+                        style: TextStyle(
+                          color: Colors.white,
+                          fontSize: 64 * s,
+                          fontWeight: FontWeight.w900,
+                        ),
                       ),
                     ),
                   ),
                 ),
               ),
-            ),
-            //just to check if the pose detection is working [pose counter]
-            Positioned(
-              left: 16 * s,
-              bottom: 90 * s, // above your button
-              child: Container(
-                padding: EdgeInsets.symmetric(horizontal: 10 * s, vertical: 6 * s),
-                decoration: BoxDecoration(
-                  color: Colors.black.withValues(alpha: 0.6),
-                  borderRadius: BorderRadius.circular(8 * s),
-                ),
-                  child: Text(
-                    'counter: $_reps | ready: $_setupReady | ${_checker.lastReason}',
-                    style: TextStyle(color: Colors.white, fontSize: 12 * s),
+
+            // debug badge
+            if (_showDebug)
+              Positioned(
+                left: 14 * s,
+                bottom: 14 * s,
+                child: SafeArea(
+                  top: false,
+                  child: Container(
+                    padding: EdgeInsets.symmetric(horizontal: 10 * s, vertical: 6 * s),
+                    decoration: BoxDecoration(
+                      color: Colors.black.withValues(alpha: 0.6),
+                      borderRadius: BorderRadius.circular(8 * s),
+                    ),
+                    child: Text(
+                      'poses:${_poses.isEmpty ? 0 : 1} ready:$_allReady cd:$_countdown reps:$_reps',
+                      style: TextStyle(color: Colors.white, fontSize: 12 * s),
+                    ),
                   ),
+                ),
               ),
-            ),
           ],
         ),
       ),
@@ -496,7 +641,151 @@ Widget _buildCameraWithOverlay() {
   }
 }
 
-//White node pose detection in the camera
+// -------------------------
+// Checklist models + UI
+// -------------------------
+
+class SetupChecklist {
+  const SetupChecklist({required this.items});
+  final List<SetupItem> items;
+
+  factory SetupChecklist.empty() => const SetupChecklist(items: []);
+
+  bool get allMet => items.isNotEmpty && items.every((e) => e.ok);
+}
+
+class SetupItem {
+  const SetupItem(this.text, this.ok);
+  final String text;
+  final bool ok;
+}
+
+class _ChecklistCard extends StatelessWidget {
+  const _ChecklistCard({
+    required this.s,
+    required this.title,
+    required this.subtitle,
+    required this.checklist,
+  });
+
+  final double s;
+  final String title;
+  final String subtitle;
+  final SetupChecklist checklist;
+
+  @override
+  Widget build(BuildContext context) {
+    final items = checklist.items;
+
+    return ClipRRect(
+      borderRadius: BorderRadius.circular(16 * s),
+      child: BackdropFilter(
+        filter: ImageFilter.blur(sigmaX: 10, sigmaY: 10),
+        child: Container(
+          padding: EdgeInsets.all(16 * s),
+          decoration: BoxDecoration(
+            // ✅ transparent glass background
+            color: Colors.black.withValues(alpha: 0.45),
+            borderRadius: BorderRadius.circular(16 * s),
+            border: Border.all(
+              color: Colors.white.withValues(alpha: 0.18),
+              width: 1,
+            ),
+            boxShadow: [
+              BoxShadow(
+                color: Colors.black.withValues(alpha: 0.30),
+                blurRadius: 14,
+                offset: const Offset(0, 6),
+              ),
+            ],
+          ),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                title,
+                style: TextStyle(
+                  fontSize: 18 * s,
+                  fontWeight: FontWeight.w900,
+                  color: Colors.white,
+                  shadows: const [Shadow(blurRadius: 8, color: Colors.black)],
+                ),
+              ),
+              SizedBox(height: 6 * s),
+              Text(
+                subtitle,
+                style: TextStyle(
+                  fontSize: 13 * s,
+                  fontWeight: FontWeight.w800,
+                  color: Colors.white.withValues(alpha: 0.85),
+                  height: 1.25,
+                ),
+              ),
+              SizedBox(height: 12 * s),
+              if (items.isEmpty)
+                Text(
+                  'Detecting your pose…',
+                  style: TextStyle(
+                    fontSize: 14 * s,
+                    fontWeight: FontWeight.w800,
+                    color: Colors.white.withValues(alpha: 0.9),
+                  ),
+                )
+              else
+                Column(
+                  children: [
+                    for (final it in items)
+                      Padding(
+                        padding: EdgeInsets.only(bottom: 10 * s),
+                        child: Row(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Container(
+                              width: 28 * s,
+                              height: 28 * s,
+                              decoration: BoxDecoration(
+                                color: it.ok
+                                    ? const Color(0xFF00C951)
+                                    : const Color(0xFFE53935),
+                                shape: BoxShape.circle,
+                              ),
+                              child: Icon(
+                                it.ok ? Icons.check_rounded : Icons.close_rounded,
+                                color: Colors.white,
+                                size: 18 * s,
+                              ),
+                            ),
+                            SizedBox(width: 12 * s),
+                            Expanded(
+                              child: Text(
+                                it.text,
+                                style: TextStyle(
+                                  fontSize: 15 * s,
+                                  fontWeight: FontWeight.w900,
+                                  height: 1.25,
+                                  color: it.ok
+                                      ? Colors.white.withValues(alpha: 0.92)
+                                      : Colors.white.withValues(alpha: 0.92),
+                                ),
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                  ],
+                ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+// -------------------------
+// Pose painter (white dots/lines)
+// -------------------------
+
 class _PosePainter extends CustomPainter {
   _PosePainter({
     required this.poses,
@@ -517,12 +806,12 @@ class _PosePainter extends CustomPainter {
       ..color = Colors.white;
 
     final line = Paint()
-        ..style = PaintingStyle.stroke
-        ..strokeWidth = 3
-        ..strokeCap = StrokeCap.round
-        ..color = Colors.white.withValues(alpha: 0.9);
+      ..style = PaintingStyle.stroke
+      ..strokeWidth = 3
+      ..strokeCap = StrokeCap.round
+      ..color = Colors.white.withValues(alpha: 0.9);
 
-   double tx(double x) {
+    double tx(double x) {
       double mapped;
       switch (rotation) {
         case InputImageRotation.rotation90deg:
@@ -547,52 +836,41 @@ class _PosePainter extends CustomPainter {
       }
     }
 
-      Offset t(double x, double y) => Offset(tx(x), ty(y));
+    Offset t(double x, double y) => Offset(tx(x), ty(y));
 
-      for (final pose in poses) {
-        final lm = pose.landmarks;
+    for (final pose in poses) {
+      final lm = pose.landmarks;
 
-        // Helper to safely draw a line between 2 landmarks
-        void connect(PoseLandmarkType a, PoseLandmarkType b) {
-          final pa = lm[a];
-          final pb = lm[b];
-          if (pa == null || pb == null) return;
+      void connect(PoseLandmarkType a, PoseLandmarkType b) {
+        final pa = lm[a];
+        final pb = lm[b];
+        if (pa == null || pb == null) return;
+        canvas.drawLine(t(pa.x, pa.y), t(pb.x, pb.y), line);
+      }
 
-          canvas.drawLine(t(pa.x, pa.y), t(pb.x, pb.y), line);
-        }
+      connect(PoseLandmarkType.leftShoulder, PoseLandmarkType.rightShoulder);
 
-        // ---- Skeleton connections ----
+      connect(PoseLandmarkType.leftShoulder, PoseLandmarkType.leftElbow);
+      connect(PoseLandmarkType.leftElbow, PoseLandmarkType.leftWrist);
 
-        // Face / head (simple)
-        connect(PoseLandmarkType.leftShoulder, PoseLandmarkType.rightShoulder);
+      connect(PoseLandmarkType.rightShoulder, PoseLandmarkType.rightElbow);
+      connect(PoseLandmarkType.rightElbow, PoseLandmarkType.rightWrist);
 
-        // Left arm
-        connect(PoseLandmarkType.leftShoulder, PoseLandmarkType.leftElbow);
-        connect(PoseLandmarkType.leftElbow, PoseLandmarkType.leftWrist);
+      connect(PoseLandmarkType.leftShoulder, PoseLandmarkType.leftHip);
+      connect(PoseLandmarkType.rightShoulder, PoseLandmarkType.rightHip);
+      connect(PoseLandmarkType.leftHip, PoseLandmarkType.rightHip);
 
-        // Right arm
-        connect(PoseLandmarkType.rightShoulder, PoseLandmarkType.rightElbow);
-        connect(PoseLandmarkType.rightElbow, PoseLandmarkType.rightWrist);
+      connect(PoseLandmarkType.leftHip, PoseLandmarkType.leftKnee);
+      connect(PoseLandmarkType.leftKnee, PoseLandmarkType.leftAnkle);
 
-        // Torso
-        connect(PoseLandmarkType.leftShoulder, PoseLandmarkType.leftHip);
-        connect(PoseLandmarkType.rightShoulder, PoseLandmarkType.rightHip);
-        connect(PoseLandmarkType.leftHip, PoseLandmarkType.rightHip);
+      connect(PoseLandmarkType.rightHip, PoseLandmarkType.rightKnee);
+      connect(PoseLandmarkType.rightKnee, PoseLandmarkType.rightAnkle);
 
-        // Left leg
-        connect(PoseLandmarkType.leftHip, PoseLandmarkType.leftKnee);
-        connect(PoseLandmarkType.leftKnee, PoseLandmarkType.leftAnkle);
-
-        // Right leg
-        connect(PoseLandmarkType.rightHip, PoseLandmarkType.rightKnee);
-        connect(PoseLandmarkType.rightKnee, PoseLandmarkType.rightAnkle);
-
-        // ---- Dots on top ----
-        for (final landmark in lm.values) {
-          canvas.drawCircle(t(landmark.x, landmark.y), 4, dot);
-        }
+      for (final landmark in lm.values) {
+        canvas.drawCircle(t(landmark.x, landmark.y), 4, dot);
       }
     }
+  }
 
   @override
   bool shouldRepaint(covariant _PosePainter old) =>
@@ -600,5 +878,4 @@ class _PosePainter extends CustomPainter {
       old.imageSize != imageSize ||
       old.rotation != rotation ||
       old.isFrontCamera != isFrontCamera;
-  }
-
+}

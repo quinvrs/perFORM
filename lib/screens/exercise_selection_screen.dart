@@ -14,7 +14,6 @@ class _ExerciseSelectionScreenState extends State<ExerciseSelectionScreen> {
   static const _muted = Color(0xFF797B7F);
   static const _green = Color(0xFF00C951);
 
-
   final _items = const <_WorkoutItem>[
     _WorkoutItem(
       workout: Workout(
@@ -52,10 +51,11 @@ class _ExerciseSelectionScreenState extends State<ExerciseSelectionScreen> {
     showExerciseDetailsSheet(
       context,
       workout: w,
-    onStartExercise: () {
-      Navigator.of(context).pop();
-      // go to Setup Mode screen
-      Navigator.pushNamed(context, '/setup_mode'); 
+      onStartExercise: () {
+        Navigator.of(context).pushNamed(
+          '/setup_mode',
+          arguments: w,
+        );
       },
     );
   }
@@ -66,7 +66,7 @@ class _ExerciseSelectionScreenState extends State<ExerciseSelectionScreen> {
     final s = size.width / 375.0;
 
     return Scaffold(
-      backgroundColor: Colors.white, 
+      backgroundColor: Colors.white,
       body: SafeArea(
         child: SizedBox.expand(
           child: SingleChildScrollView(
@@ -74,7 +74,6 @@ class _ExerciseSelectionScreenState extends State<ExerciseSelectionScreen> {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                // header
                 SizedBox(
                   height: 56 * s,
                   child: Stack(
@@ -114,7 +113,7 @@ class _ExerciseSelectionScreenState extends State<ExerciseSelectionScreen> {
                     green: _green,
                     onTap: () {
                       setState(() => selectedIndex = i);
-                      _openDetails(_items[i].workout); 
+                      _openDetails(_items[i].workout);
                     },
                   ),
                   SizedBox(height: 16 * s),
@@ -157,7 +156,6 @@ class _WorkoutCard extends StatelessWidget {
   Widget build(BuildContext context) {
     final bg = selected ? _yellow.withValues(alpha: 0.55) : Colors.white;
 
-    // bigger image box when selected
     final avatarBox = selected ? 92 * s : 78 * s;
     final starSize = selected ? 90 * s : 76 * s;
 
@@ -182,7 +180,6 @@ class _WorkoutCard extends StatelessWidget {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            // top row: text + big avatar
             Row(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
@@ -214,7 +211,6 @@ class _WorkoutCard extends StatelessWidget {
                     ),
                   ),
                 ),
-
                 SizedBox(
                   width: avatarBox,
                   height: avatarBox,
@@ -240,17 +236,11 @@ class _WorkoutCard extends StatelessWidget {
                 ),
               ],
             ),
-
-            // benefits show only when selected (like your screenshot)
             if (selected) ...[
               SizedBox(height: 12 * s),
               Text(
                 'Benefits',
-                style: TextStyle(
-                  color: muted,
-                  fontSize: 11 * s,
-                  fontFamily: 'DM Sans',
-                ),
+                style: TextStyle(color: muted, fontSize: 11 * s, fontFamily: 'DM Sans'),
               ),
               SizedBox(height: 6 * s),
               for (final b in item.workout.benefits)
