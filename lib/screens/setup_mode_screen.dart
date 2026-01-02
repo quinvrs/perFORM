@@ -4,6 +4,7 @@ import 'package:camera/camera.dart';
 import 'package:permission_handler/permission_handler.dart';
 
 import '../services/camera_setup_checker.dart';
+import '../services/rep_counter.dart';
 import '../app_state.dart';
 
 //import for pose detection
