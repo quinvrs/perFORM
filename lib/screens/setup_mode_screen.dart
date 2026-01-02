@@ -38,7 +38,7 @@ class _SetupModeScreenState extends State<SetupModeScreen> {
   final _checker = CameraSetupChecker();
   bool _setupReady = false;
 
-  //add rep counter 
+  //add squat rep counter 
   late final RepCounter _repCounter = RepCounter.squat();
   int _reps = 0;
 
