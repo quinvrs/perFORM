@@ -5,6 +5,7 @@ import 'screens/welcome_screen.dart';
 import 'screens/gender_screen.dart';
 import 'screens/profile_setup_screen.dart';
 import 'screens/home_screen.dart';
+import 'screens/profile_section_screen.dart';
 import 'screens/exercise_selection_screen.dart';
 import 'screens/setup_mode_screen.dart';
 import 'screens/streak_screen.dart';
@@ -56,6 +57,7 @@ class _MyAppState extends State<MyApp> {
           '/gender': (_) => const GenderScreen(),
           '/profile': (_) => const ProfileSetUpScreen(),
           '/home': (_) => const HomeScreen(initialTab: 0),
+          '/profile_section': (_) => const ProfileSectionScreen(),
           '/streak': (_) => const StreakScreen(),
           '/history': (_) => const HistoryScreen(),
 

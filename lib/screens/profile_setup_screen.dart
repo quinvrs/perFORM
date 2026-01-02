@@ -16,9 +16,10 @@ class _ProfileSetUpScreenState extends State<ProfileSetUpScreen> {
   double _weightKg = 80;
 
   String? _selectedGoal; // "Lose Weight" | "Build Muscle" | "Keep Fit"
-  String? _selectedActivity; // "Sedentary" | "Lightly active" | ...
+  String? _selectedActivity; // "Sedentary" | ...
 
-  bool _attemptedSubmit = false;
+  bool _goalError = false;
+  bool _activityError = false;
 
   static const _ink = Color(0xFF051328);
   static const _mutedBorder = Color(0x26051328);
@@ -30,47 +31,66 @@ class _ProfileSetUpScreenState extends State<ProfileSetUpScreen> {
     super.dispose();
   }
 
-  Future<void> _editNumber({
+  Future<void> _editNumberDialog({
     required String title,
+    required double current,
     required double min,
     required double max,
-    required double current,
     required String suffix,
-    required void Function(double v) onApply,
+    required void Function(double v) onSave,
   }) async {
     final ctrl = TextEditingController(text: current.round().toString());
 
     final res = await showDialog<double>(
       context: context,
-      builder: (ctx) {
-        return AlertDialog(
-          title: Text(title, style: const TextStyle(fontFamily: 'DM Sans')),
-          content: TextField(
-            controller: ctrl,
-            keyboardType: TextInputType.number,
-            inputFormatters: [FilteringTextInputFormatter.digitsOnly],
-            decoration: InputDecoration(hintText: 'Enter value ($suffix)'),
+      builder: (ctx) => AlertDialog(
+        title: Text(title),
+        content: TextField(
+          controller: ctrl,
+          keyboardType: TextInputType.number,
+          inputFormatters: [FilteringTextInputFormatter.digitsOnly],
+          decoration: InputDecoration(hintText: 'Enter value ($suffix)'),
+        ),
+        actions: [
+          TextButton(onPressed: () => Navigator.pop(ctx), child: const Text('Cancel')),
+          TextButton(
+            onPressed: () {
+              final v = double.tryParse(ctrl.text.trim());
+              if (v == null) return;
+              Navigator.pop(ctx, v.clamp(min, max));
+            },
+            child: const Text('Save'),
           ),
-          actions: [
-            TextButton(
-              onPressed: () => Navigator.pop(ctx),
-              child: const Text('Cancel'),
-            ),
-            TextButton(
-              onPressed: () {
-                final v = double.tryParse(ctrl.text.trim());
-                if (v == null) return;
-                Navigator.pop(ctx, v.clamp(min, max));
-              },
-              child: const Text('OK'),
-            ),
-          ],
-        );
-      },
+        ],
+      ),
     );
 
     if (!mounted) return;
-    if (res != null) onApply(res);
+    if (res != null) onSave(res);
+  }
+
+  Widget _requiredTitle(double s, String text) {
+    return RichText(
+      text: TextSpan(
+        style: TextStyle(
+          color: _ink,
+          fontSize: 18 * s,
+          fontFamily: 'DM Sans',
+          fontWeight: FontWeight.w700,
+        ),
+        children: [
+          TextSpan(text: text),
+          TextSpan(
+            text: ' *',
+            style: TextStyle(
+              color: Colors.red,
+              fontSize: 18 * s,
+              fontWeight: FontWeight.w800,
+            ),
+          ),
+        ],
+      ),
+    );
   }
 
   @override
@@ -87,346 +107,313 @@ class _ProfileSetUpScreenState extends State<ProfileSetUpScreen> {
       _heightCm = state.heightCm;
       _weightKg = state.weightKg;
     }
+    if (_selectedGoal == null && (state.mainGoal ?? '').isNotEmpty) {
+      _selectedGoal = state.mainGoal;
+    }
+    if (_selectedActivity == null && (state.activityLevel ?? '').isNotEmpty) {
+      _selectedActivity = state.activityLevel;
+    }
 
     // Profile step progress (2/3)
     final progress = 2 / 3;
-
-    final goalMissing = _selectedGoal == null;
-    final activityMissing = _selectedActivity == null;
-    final canProceed = !goalMissing && !activityMissing;
 
     return Scaffold(
       backgroundColor: Colors.white,
       body: SafeArea(
         bottom: false,
-        child: SizedBox.expand(
-          child: Stack(
-            children: [
-              Column(
-                children: [
-                  // Top row: back + progress
-                  Padding(
-                    padding: EdgeInsets.fromLTRB(16 * s, 10 * s, 16 * s, 0),
-                    child: Row(
-                      children: [
-                        InkWell(
-                          onTap: () => Navigator.pushReplacementNamed(context, '/gender'),
-                          child: Icon(Icons.arrow_back_rounded, color: _ink, size: 26 * s),
-                        ),
-                        SizedBox(width: 12 * s),
-                        Expanded(
-                          child: ClipRRect(
-                            borderRadius: BorderRadius.circular(99),
-                            child: Container(
-                              height: 4 * s,
-                              color: Colors.black.withAlpha(20),
-                              child: Align(
-                                alignment: Alignment.centerLeft,
-                                child: FractionallySizedBox(
-                                  widthFactor: progress,
-                                  child: Container(color: _yellow),
-                                ),
+        child: Stack(
+          children: [
+            Column(
+              children: [
+                Padding(
+                  padding: EdgeInsets.fromLTRB(16 * s, 10 * s, 16 * s, 0),
+                  child: Row(
+                    children: [
+                      InkWell(
+                        onTap: () => Navigator.pushReplacementNamed(context, '/gender'),
+                        child: Icon(Icons.arrow_back_rounded, color: _ink, size: 26 * s),
+                      ),
+                      SizedBox(width: 12 * s),
+                      Expanded(
+                        child: ClipRRect(
+                          borderRadius: BorderRadius.circular(99),
+                          child: Container(
+                            height: 4 * s,
+                            color: Colors.black.withAlpha(20),
+                            child: Align(
+                              alignment: Alignment.centerLeft,
+                              child: FractionallySizedBox(
+                                widthFactor: progress,
+                                child: Container(color: _yellow),
                               ),
                             ),
                           ),
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+
+                Expanded(
+                  child: SingleChildScrollView(
+                    padding: EdgeInsets.fromLTRB(
+                      24 * s,
+                      18 * s,
+                      24 * s,
+                      (110 * s) + kb,
+                    ),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          'Give us some basic information',
+                          style: TextStyle(
+                            color: _ink,
+                            fontSize: 32 * s,
+                            fontFamily: 'DM Sans',
+                            fontWeight: FontWeight.w500,
+                          ),
+                        ),
+                        SizedBox(height: 18 * s),
+
+                        Text(
+                          'What shall we call you?',
+                          style: TextStyle(
+                            color: _ink,
+                            fontSize: 18 * s,
+                            fontFamily: 'DM Sans',
+                            fontWeight: FontWeight.w700,
+                          ),
+                        ),
+                        SizedBox(height: 10 * s),
+
+                        TextField(
+                          controller: _nameCtrl,
+                          textInputAction: TextInputAction.next,
+                          style: TextStyle(
+                            color: _ink,
+                            fontSize: 16 * s,
+                            fontFamily: 'DM Sans',
+                            fontWeight: FontWeight.w500,
+                          ),
+                          decoration: InputDecoration(
+                            hintText: 'Enter your name',
+                            hintStyle: TextStyle(
+                              color: Colors.black.withAlpha(90),
+                              fontSize: 16 * s,
+                              fontFamily: 'DM Sans',
+                            ),
+                            filled: true,
+                            fillColor: Colors.white,
+                            contentPadding: EdgeInsets.symmetric(horizontal: 14 * s, vertical: 14 * s),
+                            border: OutlineInputBorder(
+                              borderRadius: BorderRadius.circular(16 * s),
+                              borderSide: const BorderSide(color: _mutedBorder),
+                            ),
+                            enabledBorder: OutlineInputBorder(
+                              borderRadius: BorderRadius.circular(16 * s),
+                              borderSide: const BorderSide(color: _mutedBorder),
+                            ),
+                            focusedBorder: OutlineInputBorder(
+                              borderRadius: BorderRadius.circular(16 * s),
+                              borderSide: const BorderSide(color: _ink, width: 1.5),
+                            ),
+                          ),
+                        ),
+
+                        SizedBox(height: 22 * s),
+
+                        _SliderBlock(
+                          title: 'Height',
+                          valueText: '${_heightCm.round()}cm',
+                          minText: '50cm',
+                          maxText: '200cm',
+                          min: 50,
+                          max: 200,
+                          value: _heightCm,
+                          scale: s,
+                          onChanged: (v) => setState(() => _heightCm = v),
+                          onValueTap: () => _editNumberDialog(
+                            title: 'Edit Height',
+                            current: _heightCm,
+                            min: 50,
+                            max: 200,
+                            suffix: 'cm',
+                            onSave: (v) => setState(() => _heightCm = v),
+                          ),
+                        ),
+
+                        SizedBox(height: 18 * s),
+
+                        _SliderBlock(
+                          title: 'Weight',
+                          valueText: '${_weightKg.round()}kg',
+                          minText: '20kg',
+                          maxText: '200kg',
+                          min: 20,
+                          max: 200,
+                          value: _weightKg,
+                          scale: s,
+                          onChanged: (v) => setState(() => _weightKg = v),
+                          onValueTap: () => _editNumberDialog(
+                            title: 'Edit Weight',
+                            current: _weightKg,
+                            min: 20,
+                            max: 200,
+                            suffix: 'kg',
+                            onSave: (v) => setState(() => _weightKg = v),
+                          ),
+                        ),
+
+                        // GOALS (required)
+                        SizedBox(height: 22 * s),
+                        _requiredTitle(s, 'What are your main goals?'),
+                        if (_goalError)
+                          Padding(
+                            padding: EdgeInsets.only(top: 6 * s),
+                            child: Text('Please select a goal.', style: TextStyle(color: Colors.red, fontSize: 12 * s)),
+                          ),
+                        SizedBox(height: 10 * s),
+
+                        _GoalTile(
+                          s: s,
+                          title: 'Lose Weight',
+                          icon: Icons.monitor_weight_outlined,
+                          selected: _selectedGoal == 'Lose Weight',
+                          onTap: () => setState(() {
+                            _selectedGoal = 'Lose Weight';
+                            _goalError = false;
+                          }),
+                        ),
+                        SizedBox(height: 10 * s),
+                        _GoalTile(
+                          s: s,
+                          title: 'Build Muscle',
+                          icon: Icons.fitness_center_rounded,
+                          selected: _selectedGoal == 'Build Muscle',
+                          onTap: () => setState(() {
+                            _selectedGoal = 'Build Muscle';
+                            _goalError = false;
+                          }),
+                        ),
+                        SizedBox(height: 10 * s),
+                        _GoalTile(
+                          s: s,
+                          title: 'Keep Fit',
+                          icon: Icons.favorite_border_rounded,
+                          selected: _selectedGoal == 'Keep Fit',
+                          onTap: () => setState(() {
+                            _selectedGoal = 'Keep Fit';
+                            _goalError = false;
+                          }),
+                        ),
+
+                        // ACTIVITY (required)
+                        SizedBox(height: 22 * s),
+                        _requiredTitle(s, "What's your activity level?"),
+                        if (_activityError)
+                          Padding(
+                            padding: EdgeInsets.only(top: 6 * s),
+                            child: Text('Please select an activity level.', style: TextStyle(color: Colors.red, fontSize: 12 * s)),
+                          ),
+                        SizedBox(height: 10 * s),
+
+                        _ActivityTile(
+                          s: s,
+                          emoji: '🪑',
+                          title: 'Sedentary',
+                          selected: _selectedActivity == 'Sedentary',
+                          onTap: () => setState(() {
+                            _selectedActivity = 'Sedentary';
+                            _activityError = false;
+                          }),
+                        ),
+                        SizedBox(height: 10 * s),
+                        _ActivityTile(
+                          s: s,
+                          emoji: '🚶',
+                          title: 'Lightly active',
+                          selected: _selectedActivity == 'Lightly active',
+                          onTap: () => setState(() {
+                            _selectedActivity = 'Lightly active';
+                            _activityError = false;
+                          }),
+                        ),
+                        SizedBox(height: 10 * s),
+                        _ActivityTile(
+                          s: s,
+                          emoji: '🏃',
+                          title: 'Moderately active',
+                          selected: _selectedActivity == 'Moderately active',
+                          onTap: () => setState(() {
+                            _selectedActivity = 'Moderately active';
+                            _activityError = false;
+                          }),
+                        ),
+                        SizedBox(height: 10 * s),
+                        _ActivityTile(
+                          s: s,
+                          emoji: '🥵',
+                          title: 'Very active',
+                          selected: _selectedActivity == 'Very active',
+                          onTap: () => setState(() {
+                            _selectedActivity = 'Very active';
+                            _activityError = false;
+                          }),
                         ),
                       ],
                     ),
                   ),
+                ),
+              ],
+            ),
 
-                  Expanded(
-                    child: SingleChildScrollView(
-                      padding: EdgeInsets.fromLTRB(
-                        24 * s,
-                        18 * s,
-                        24 * s,
-                        (110 * s) + kb,
-                      ),
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Text(
-                            'Give us some basic information',
-                            style: TextStyle(
-                              color: _ink,
-                              fontSize: 32 * s,
-                              fontFamily: 'DM Sans',
-                              fontWeight: FontWeight.w500,
-                            ),
-                          ),
-                          SizedBox(height: 18 * s),
+            // NEXT button
+            Positioned(
+              right: 18 * s,
+              bottom: 18 * s,
+              child: InkWell(
+                onTap: () {
+                  final goalMissing = _selectedGoal == null;
+                  final actMissing = _selectedActivity == null;
 
-                          Text(
-                            'What shall we call you?',
-                            style: TextStyle(
-                              color: _ink,
-                              fontSize: 18 * s,
-                              fontFamily: 'DM Sans',
-                              fontWeight: FontWeight.w700,
-                            ),
-                          ),
-                          SizedBox(height: 10 * s),
+                  setState(() {
+                    _goalError = goalMissing;
+                    _activityError = actMissing;
+                  });
 
-                          TextField(
-                            controller: _nameCtrl,
-                            textInputAction: TextInputAction.next,
-                            style: TextStyle(
-                              color: _ink,
-                              fontSize: 16 * s,
-                              fontFamily: 'DM Sans',
-                              fontWeight: FontWeight.w500,
-                            ),
-                            decoration: InputDecoration(
-                              hintText: 'Enter your name',
-                              hintStyle: TextStyle(
-                                color: Colors.black.withAlpha(90),
-                                fontSize: 16 * s,
-                                fontFamily: 'DM Sans',
-                              ),
-                              filled: true,
-                              fillColor: Colors.white,
-                              contentPadding: EdgeInsets.symmetric(
-                                horizontal: 14 * s,
-                                vertical: 14 * s,
-                              ),
-                              border: OutlineInputBorder(
-                                borderRadius: BorderRadius.circular(16 * s),
-                                borderSide: const BorderSide(color: _mutedBorder),
-                              ),
-                              enabledBorder: OutlineInputBorder(
-                                borderRadius: BorderRadius.circular(16 * s),
-                                borderSide: const BorderSide(color: _mutedBorder),
-                              ),
-                              focusedBorder: OutlineInputBorder(
-                                borderRadius: BorderRadius.circular(16 * s),
-                                borderSide: const BorderSide(color: _ink, width: 1.5),
-                              ),
-                            ),
-                          ),
-
-                          SizedBox(height: 22 * s),
-
-                          _SliderBlock(
-                            title: 'Height',
-                            valueText: '${_heightCm.round()}cm',
-                            minText: '50cm',
-                            maxText: '200cm',
-                            min: 50,
-                            max: 200,
-                            value: _heightCm,
-                            scale: s,
-                            onChanged: (v) => setState(() => _heightCm = v),
-                            onTapValue: () => _editNumber(
-                              title: 'Set Height (cm)',
-                              min: 50,
-                              max: 200,
-                              current: _heightCm,
-                              suffix: 'cm',
-                              onApply: (v) => setState(() => _heightCm = v),
-                            ),
-                          ),
-
-                          SizedBox(height: 18 * s),
-
-                          _SliderBlock(
-                            title: 'Weight',
-                            valueText: '${_weightKg.round()}kg',
-                            minText: '20kg',
-                            maxText: '200kg',
-                            min: 20,
-                            max: 200,
-                            value: _weightKg,
-                            scale: s,
-                            onChanged: (v) => setState(() => _weightKg = v),
-                            onTapValue: () => _editNumber(
-                              title: 'Set Weight (kg)',
-                              min: 20,
-                              max: 200,
-                              current: _weightKg,
-                              suffix: 'kg',
-                              onApply: (v) => setState(() => _weightKg = v),
-                            ),
-                          ),
-
-                          // GOALS (required)
-                          SizedBox(height: 22 * s),
-                          _RequiredTitle(
-                            s: s,
-                            text: 'What are your main goals?',
-                          ),
-                          if (_attemptedSubmit && goalMissing) ...[
-                            SizedBox(height: 6 * s),
-                            Text(
-                              'Please select a goal.',
-                              style: TextStyle(
-                                color: Colors.red,
-                                fontSize: 12 * s,
-                                fontFamily: 'DM Sans',
-                                fontWeight: FontWeight.w600,
-                              ),
-                            ),
-                          ],
-                          SizedBox(height: 10 * s),
-
-                          _GoalTile(
-                            s: s,
-                            title: 'Lose Weight',
-                            icon: Icons.monitor_weight_outlined,
-                            selected: _selectedGoal == 'Lose Weight',
-                            onTap: () => setState(() => _selectedGoal = 'Lose Weight'),
-                          ),
-                          SizedBox(height: 10 * s),
-                          _GoalTile(
-                            s: s,
-                            title: 'Build Muscle',
-                            icon: Icons.fitness_center_rounded,
-                            selected: _selectedGoal == 'Build Muscle',
-                            onTap: () => setState(() => _selectedGoal = 'Build Muscle'),
-                          ),
-                          SizedBox(height: 10 * s),
-                          _GoalTile(
-                            s: s,
-                            title: 'Keep Fit',
-                            icon: Icons.favorite_border_rounded,
-                            selected: _selectedGoal == 'Keep Fit',
-                            onTap: () => setState(() => _selectedGoal = 'Keep Fit'),
-                          ),
-
-                          // ACTIVITY (required)
-                          SizedBox(height: 22 * s),
-                          _RequiredTitle(
-                            s: s,
-                            text: "What's your activity level?",
-                          ),
-                          if (_attemptedSubmit && activityMissing) ...[
-                            SizedBox(height: 6 * s),
-                            Text(
-                              'Please select an activity level.',
-                              style: TextStyle(
-                                color: Colors.red,
-                                fontSize: 12 * s,
-                                fontFamily: 'DM Sans',
-                                fontWeight: FontWeight.w600,
-                              ),
-                            ),
-                          ],
-                          SizedBox(height: 10 * s),
-
-                          _ActivityTile(
-                            s: s,
-                            emoji: '🪑',
-                            title: 'Sedentary',
-                            selected: _selectedActivity == 'Sedentary',
-                            onTap: () => setState(() => _selectedActivity = 'Sedentary'),
-                          ),
-                          SizedBox(height: 10 * s),
-                          _ActivityTile(
-                            s: s,
-                            emoji: '🚶',
-                            title: 'Lightly active',
-                            selected: _selectedActivity == 'Lightly active',
-                            onTap: () => setState(() => _selectedActivity = 'Lightly active'),
-                          ),
-                          SizedBox(height: 10 * s),
-                          _ActivityTile(
-                            s: s,
-                            emoji: '🏃',
-                            title: 'Moderately active',
-                            selected: _selectedActivity == 'Moderately active',
-                            onTap: () => setState(() => _selectedActivity = 'Moderately active'),
-                          ),
-                          SizedBox(height: 10 * s),
-                          _ActivityTile(
-                            s: s,
-                            emoji: '🥵',
-                            title: 'Very active',
-                            selected: _selectedActivity == 'Very active',
-                            onTap: () => setState(() => _selectedActivity = 'Very active'),
-                          ),
-                        ],
-                      ),
-                    ),
-                  ),
-                ],
-              ),
-
-              // Next button (disabled until required fields filled)
-              Positioned(
-                right: 18 * s,
-                bottom: 18 * s,
-                child: InkWell(
-                  onTap: () {
-                    if (!canProceed) {
-                      setState(() => _attemptedSubmit = true);
-                      ScaffoldMessenger.of(context).showSnackBar(
-                        const SnackBar(content: Text('Please select your goal and activity level.')),
-                      );
-                      return;
-                    }
-
-                    state.saveProfile(
-                      newName: _nameCtrl.text.trim(),
-                      newGender: state.gender,
-                      newHeightCm: _heightCm,
-                      newWeightKg: _weightKg,
+                  if (goalMissing || actMissing) {
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      const SnackBar(content: Text('Please complete the required fields.')),
                     );
+                    return;
+                  }
 
-                    Navigator.pushReplacementNamed(context, '/home');
-                  },
-                  child: Container(
-                    width: 56 * s,
-                    height: 56 * s,
-                    decoration: ShapeDecoration(
-                      color: canProceed ? _yellow : _yellow.withAlpha(90),
-                      shape: const OvalBorder(),
-                    ),
-                    child: Icon(
-                      Icons.arrow_forward,
-                      color: canProceed ? _ink : _ink.withAlpha(120),
-                      size: 22 * s,
-                    ),
+                  state.saveProfile(
+                    newName: _nameCtrl.text.trim(),
+                    newGender: state.gender,
+                    newHeightCm: _heightCm,
+                    newWeightKg: _weightKg,
+                    newMainGoal: _selectedGoal,
+                    newActivityLevel: _selectedActivity,
+                  );
+
+                  Navigator.pushReplacementNamed(context, '/home');
+                },
+                child: Container(
+                  width: 56 * s,
+                  height: 56 * s,
+                  decoration: const ShapeDecoration(
+                    color: _yellow,
+                    shape: OvalBorder(),
                   ),
+                  child: Icon(Icons.arrow_forward, color: _ink, size: 22 * s),
                 ),
               ),
-            ],
-          ),
+            ),
+          ],
         ),
       ),
-    );
-  }
-}
-
-class _RequiredTitle extends StatelessWidget {
-  const _RequiredTitle({required this.s, required this.text});
-  final double s;
-  final String text;
-
-  static const _ink = Color(0xFF051328);
-
-  @override
-  Widget build(BuildContext context) {
-    return Row(
-      children: [
-        Text(
-          text,
-          style: TextStyle(
-            color: _ink,
-            fontSize: 18 * s,
-            fontFamily: 'DM Sans',
-            fontWeight: FontWeight.w700,
-          ),
-        ),
-        SizedBox(width: 4 * s),
-        Text(
-          '*',
-          style: TextStyle(
-            color: Colors.red,
-            fontSize: 18 * s,
-            fontFamily: 'DM Sans',
-            fontWeight: FontWeight.w900,
-          ),
-        ),
-      ],
     );
   }
 }
@@ -442,7 +429,7 @@ class _SliderBlock extends StatelessWidget {
     required this.value,
     required this.scale,
     required this.onChanged,
-    required this.onTapValue, // ✅ only right value clickable
+    required this.onValueTap,
   });
 
   final String title;
@@ -454,7 +441,9 @@ class _SliderBlock extends StatelessWidget {
   final double value;
   final double scale;
   final ValueChanged<double> onChanged;
-  final VoidCallback onTapValue;
+
+  // clickable right value only
+  final VoidCallback onValueTap;
 
   static const _ink = Color(0xFF051328);
   static const _mutedBorder = Color(0x26051328);
@@ -476,13 +465,11 @@ class _SliderBlock extends StatelessWidget {
                 fontWeight: FontWeight.w700,
               ),
             ),
-
-            // ✅ RIGHT VALUE ONLY is clickable
             InkWell(
-              onTap: onTapValue,
-              borderRadius: BorderRadius.circular(8 * scale),
+              onTap: onValueTap,
+              borderRadius: BorderRadius.circular(8),
               child: Padding(
-                padding: EdgeInsets.symmetric(horizontal: 6 * scale, vertical: 4 * scale),
+                padding: EdgeInsets.symmetric(horizontal: 6 * scale, vertical: 2 * scale),
                 child: Text(
                   valueText,
                   style: TextStyle(
@@ -568,12 +555,7 @@ class _GoalTile extends StatelessWidget {
             Expanded(
               child: Text(
                 title,
-                style: TextStyle(
-                  color: _ink,
-                  fontSize: 14 * s,
-                  fontFamily: 'DM Sans',
-                  fontWeight: FontWeight.w600,
-                ),
+                style: TextStyle(color: _ink, fontSize: 14 * s, fontFamily: 'DM Sans', fontWeight: FontWeight.w600),
               ),
             ),
             if (selected) Icon(Icons.check_circle_rounded, size: 18 * s, color: _ink),
@@ -623,12 +605,7 @@ class _ActivityTile extends StatelessWidget {
             Expanded(
               child: Text(
                 title,
-                style: TextStyle(
-                  color: _ink,
-                  fontSize: 14 * s,
-                  fontFamily: 'DM Sans',
-                  fontWeight: FontWeight.w600,
-                ),
+                style: TextStyle(color: _ink, fontSize: 14 * s, fontFamily: 'DM Sans', fontWeight: FontWeight.w600),
               ),
             ),
             if (selected) Icon(Icons.check_circle_rounded, size: 18 * s, color: _ink),

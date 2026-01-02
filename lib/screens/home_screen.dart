@@ -1,4 +1,7 @@
+import 'dart:io';
+import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:flutter/material.dart';
+
 import '../app_state.dart';
 import '../widgets/app_bottom_nav.dart';
 
@@ -32,10 +35,10 @@ class _HomeScreenState extends State<HomeScreen> {
     final navPad = (130 * s) + bottomInset;
 
     return Scaffold(
-      backgroundColor: Colors.white, 
+      backgroundColor: Colors.white,
       body: SafeArea(
         top: true,
-        bottom: false, // bottom handled by nav SafeArea
+        bottom: false,
         child: SizedBox.expand(
           child: Stack(
             children: [
@@ -68,9 +71,7 @@ class _HomeScreenState extends State<HomeScreen> {
                       onHistory: () => setState(() => _tab = 2),
                       onPlus: () async {
                         final res = await Navigator.pushNamed(context, '/exercise_select');
-                        if (res == true && mounted) {
-                          setState(() => _tab = 1);
-                        }
+                        if (res == true && mounted) setState(() => _tab = 1);
                       },
                     ),
                   ),
@@ -102,10 +103,36 @@ class _HomeTab extends StatelessWidget {
     final streak = state.currentStreak == 0 ? 10 : state.currentStreak;
 
     return SingleChildScrollView(
-      padding: EdgeInsets.fromLTRB(24 * scale, 24 * scale, 24 * scale, navPad),
+      padding: EdgeInsets.fromLTRB(24 * scale, 18 * scale, 24 * scale, navPad),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
+          // ✅ NEW: top row (logo + profile avatar) aligned
+          SizedBox(
+            height: 54 * scale,
+            child: Row(
+              crossAxisAlignment: CrossAxisAlignment.center,
+              children: [
+                // logo
+                Image.asset(
+                  'assets/corerect-transparent.png',
+                  height: 44 * scale,
+                  fit: BoxFit.contain,
+                ),
+                const Spacer(),
+
+                // avatar (click -> profile screen)
+                InkWell(
+                  onTap: () => Navigator.pushNamed(context, '/profile_section'),
+                  borderRadius: BorderRadius.circular(999),
+                  child: _ProfileAvatar(scale: scale),
+                ),
+              ],
+            ),
+          ),
+
+          SizedBox(height: 6 * scale),
+
           Text(
             'Hello,',
             style: TextStyle(
@@ -250,11 +277,56 @@ class _HomeTab extends StatelessWidget {
           Text('Your Progress', style: TextStyle(color: _ink, fontSize: 20 * scale, fontWeight: FontWeight.w700)),
           SizedBox(height: 14 * scale),
 
-          _ProgressCard(scale: scale, title: 'Average Form Score', mainValue: '88', suffix: '%', rightNote: '+3% from last month'),
+          _ProgressCard(
+            scale: scale,
+            title: 'Average Form Score',
+            mainValue: '88',
+            suffix: '%',
+            rightNote: '+3% from last month',
+          ),
           SizedBox(height: 18 * scale),
-          _ProgressCard(scale: scale, title: 'Weekly Session', mainValue: weekly == 0 ? '4' : '$weekly', suffix: 'sessions', rightNote: ''),
+          _ProgressCard(
+            scale: scale,
+            title: 'Weekly Session',
+            mainValue: weekly == 0 ? '4' : '$weekly',
+            suffix: 'sessions',
+            rightNote: '',
+          ),
         ],
       ),
+    );
+  }
+}
+
+// ✅ NEW: avatar widget that can show image from AppState
+class _ProfileAvatar extends StatelessWidget {
+  const _ProfileAvatar({required this.scale});
+  final double scale;
+
+  @override
+  Widget build(BuildContext context) {
+    final state = AppStateScope.of(context);
+
+    final path = state.avatarPath; // ✅ NEW field in AppState (see step 3)
+    ImageProvider? img;
+
+    if (path != null && path.trim().isNotEmpty) {
+      if (kIsWeb) {
+        // on web, file paths won't work; keep icon fallback
+        img = null;
+      } else {
+        final f = File(path);
+        if (f.existsSync()) img = FileImage(f);
+      }
+    }
+
+    return CircleAvatar(
+      radius: 22 * scale,
+      backgroundColor: Colors.black.withAlpha(18),
+      backgroundImage: img,
+      child: img == null
+          ? Icon(Icons.person_rounded, color: const Color(0xFF051328), size: 22 * scale)
+          : null,
     );
   }
 }
@@ -324,6 +396,8 @@ class _ProgressCard extends StatelessWidget {
   }
 }
 
+// ====== (UNCHANGED tabs below, kept as-is) ======
+
 class _StreakTab extends StatelessWidget {
   const _StreakTab({required this.scale, required this.navPad});
   final double scale;
@@ -366,25 +440,13 @@ class _StreakTab extends StatelessWidget {
               ],
             ),
           ),
-
           SizedBox(height: 18 * scale),
 
           Row(
             children: [
-              _MetricCard(
-                scale: scale,
-                title: 'Streak',
-                value: '$streak',
-                tint: const Color(0xFFECC051),
-              ),
+              _MetricCard(scale: scale, title: 'Streak', value: '$streak', tint: const Color(0xFFECC051)),
               SizedBox(width: 14 * scale),
-              _MetricCard(
-                scale: scale,
-                title: 'Weekly\nSessions',
-                value: '$weekly',
-                suffix: 'sessions',
-                tint: const Color(0xFF537892),
-              ),
+              _MetricCard(scale: scale, title: 'Weekly\nSessions', value: '$weekly', suffix: 'sessions', tint: const Color(0xFF537892)),
             ],
           ),
 
@@ -403,22 +465,12 @@ class _StreakTab extends StatelessWidget {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Text(
-                  '${_monthName(month)} $year',
-                  style: TextStyle(color: Colors.black, fontSize: 16 * scale, fontWeight: FontWeight.w700),
-                ),
+                Text('${_monthName(month)} $year', style: TextStyle(color: Colors.black, fontSize: 16 * scale, fontWeight: FontWeight.w700)),
                 SizedBox(height: 12 * scale),
 
                 Row(
                   children: const ['S', 'M', 'T', 'W', 'T', 'F', 'S']
-                      .map((t) => Expanded(
-                            child: Center(
-                              child: Text(
-                                t,
-                                style: TextStyle(color: Color(0xFF797B7F), fontSize: 12),
-                              ),
-                            ),
-                          ))
+                      .map((t) => Expanded(child: Center(child: Text(t, style: TextStyle(color: Color(0xFF797B7F), fontSize: 12)))))
                       .toList(),
                 ),
 
@@ -485,22 +537,13 @@ class _StreakTab extends StatelessWidget {
   }
 
   static String _monthName(int m) {
-    const names = [
-      'January','February','March','April','May','June',
-      'July','August','September','October','November','December'
-    ];
+    const names = ['January','February','March','April','May','June','July','August','September','October','November','December'];
     return names[m - 1];
   }
 }
 
 class _MetricCard extends StatelessWidget {
-  const _MetricCard({
-    required this.scale,
-    required this.title,
-    required this.value,
-    required this.tint,
-    this.suffix,
-  });
+  const _MetricCard({required this.scale, required this.title, required this.value, required this.tint, this.suffix});
 
   final double scale;
   final String title;
@@ -527,12 +570,7 @@ class _MetricCard extends StatelessWidget {
               title,
               maxLines: 2,
               overflow: TextOverflow.ellipsis,
-              style: TextStyle(
-                color: tint,
-                fontSize: 12 * scale,
-                fontWeight: FontWeight.w700,
-                height: 1.10,
-              ),
+              style: TextStyle(color: tint, fontSize: 12 * scale, fontWeight: FontWeight.w700, height: 1.10),
             ),
             const Spacer(),
             FittedBox(
@@ -543,13 +581,7 @@ class _MetricCard extends StatelessWidget {
                 children: [
                   Text(
                     value,
-                    style: TextStyle(
-                      color: tint,
-                      fontSize: 36 * scale,
-                      fontWeight: FontWeight.w800,
-                      height: 1.0,
-                      fontFamily: 'DM Sans',
-                    ),
+                    style: TextStyle(color: tint, fontSize: 36 * scale, fontWeight: FontWeight.w800, height: 1.0, fontFamily: 'DM Sans'),
                   ),
                   if (suffix != null) ...[
                     SizedBox(width: 6 * scale),
@@ -557,12 +589,7 @@ class _MetricCard extends StatelessWidget {
                       padding: EdgeInsets.only(bottom: 8 * scale),
                       child: Text(
                         suffix!,
-                        style: TextStyle(
-                          color: _ink.withValues(alpha: 0.65),
-                          fontSize: 12 * scale,
-                          height: 1.0,
-                          fontFamily: 'DM Sans',
-                        ),
+                        style: TextStyle(color: _ink.withValues(alpha: 0.65), fontSize: 12 * scale, height: 1.0, fontFamily: 'DM Sans'),
                       ),
                     ),
                   ],
@@ -618,15 +645,11 @@ class _HistoryTab extends StatelessWidget {
             child: Stack(
               children: [
                 Center(
-                  child: Text(
-                    'Workout History',
-                    style: TextStyle(color: _ink, fontSize: 20 * scale, fontWeight: FontWeight.w700),
-                  ),
+                  child: Text('Workout History', style: TextStyle(color: _ink, fontSize: 20 * scale, fontWeight: FontWeight.w700)),
                 ),
               ],
             ),
           ),
-
           SizedBox(height: 18 * scale),
 
           Row(
@@ -724,12 +747,7 @@ class _HistoryStatCard extends StatelessWidget {
                   title,
                   maxLines: 2,
                   overflow: TextOverflow.ellipsis,
-                  style: TextStyle(
-                    color: accent,
-                    fontSize: 13 * scale,
-                    fontWeight: FontWeight.w600,
-                    height: 1.10,
-                  ),
+                  style: TextStyle(color: accent, fontSize: 13 * scale, fontWeight: FontWeight.w600, height: 1.10),
                 ),
               ),
             ],
@@ -743,13 +761,7 @@ class _HistoryStatCard extends StatelessWidget {
               children: [
                 Text(
                   value,
-                  style: TextStyle(
-                    color: accent,
-                    fontSize: 40 * scale,
-                    fontWeight: FontWeight.w800,
-                    height: 1.0,
-                    fontFamily: 'DM Sans',
-                  ),
+                  style: TextStyle(color: accent, fontSize: 40 * scale, fontWeight: FontWeight.w800, height: 1.0, fontFamily: 'DM Sans'),
                 ),
                 SizedBox(width: 6 * scale),
                 Padding(
@@ -801,10 +813,7 @@ class _WorkoutCard extends StatelessWidget {
               const Spacer(),
               Container(
                 padding: EdgeInsets.symmetric(horizontal: 10 * scale, vertical: 4 * scale),
-                decoration: BoxDecoration(
-                  color: const Color(0xFFDBFCE7),
-                  borderRadius: BorderRadius.circular(50),
-                ),
+                decoration: BoxDecoration(color: const Color(0xFFDBFCE7), borderRadius: BorderRadius.circular(50)),
                 child: Text('92% Form', style: TextStyle(color: const Color(0xFF3C926C), fontSize: 10 * scale)),
               ),
             ],
@@ -814,11 +823,15 @@ class _WorkoutCard extends StatelessWidget {
           SizedBox(height: 10 * scale),
           Row(
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
-            children: [
-              _MiniStat(scale: scale, value: '45', label: 'Reps'),
-              _MiniStat(scale: scale, value: '12 min', label: 'Duration'),
-              _MiniStat(scale: scale, value: '3', label: 'Sets'),
-            ],
+            children: const [
+              _MiniStat(scale: 1, value: '45', label: 'Reps'),
+              _MiniStat(scale: 1, value: '12 min', label: 'Duration'),
+              _MiniStat(scale: 1, value: '3', label: 'Sets'),
+            ].map((w) {
+              // keep scale correct
+              final m = w;
+              return _MiniStat(scale: scale, value: m.value, label: m.label);
+            }).toList(),
           ),
         ],
       ),
