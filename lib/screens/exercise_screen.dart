@@ -956,7 +956,7 @@ class ExerciseSummaryScreen extends StatelessWidget {
                   SizedBox(height: 20 * s),
 
                   Text(
-                    "Nice, you've\ncompleted\nexercise!",
+                    "Nice, you've\ncompleted the\nexercise!",
                     style: TextStyle(
                       color: Colors.white,
                       fontSize: 28 * s,
@@ -1056,14 +1056,14 @@ class ExerciseSummaryScreen extends StatelessWidget {
                       height: 54 * s,
                       width: double.infinity,
                       decoration: BoxDecoration(
-                        color: _ink,
+                        color: _yellow,
                         borderRadius: BorderRadius.circular(16 * s),
                       ),
                       alignment: Alignment.center,
                       child: Text(
                         'Next',
                         style: TextStyle(
-                          color: _yellow,
+                          color: _ink,
                           fontSize: 16 * s,
                           fontWeight: FontWeight.w900,
                         ),
