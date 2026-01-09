@@ -65,13 +65,15 @@ class _SetupModeScreenState extends State<SetupModeScreen> {
         model: PoseDetectionModel.base,
       ),
     );
-
     _initCamera();
+    unawaited(TtsService.I.speak("TTS test"));
+    unawaited(TtsService.I.init());
   }
 
   @override
   void dispose() {
     _countdownTimer?.cancel();
+    unawaited(TtsService.I.stop());
 
     try {
       _controller?.stopImageStream();
@@ -206,27 +208,37 @@ class _SetupModeScreenState extends State<SetupModeScreen> {
   // -------------------------
   // Countdown + navigation
   // -------------------------
-  void _startCountdown({required int seconds}) {
-    _countdownTimer?.cancel();
-    _countdown = seconds;
+    void _startCountdown({required int seconds}) {
+      _countdownTimer?.cancel();
+      _countdown = seconds;
 
-    _countdownTimer = Timer.periodic(const Duration(seconds: 1), (t) async {
-      if (!mounted) return;
-      setState(() => _countdown--);
+      // Speak the first number immediately (e.g., "5")
+      unawaited(TtsService.I.speak('$_countdown'));
 
-      if (_countdown <= 0) {
-        t.cancel();
-        _countdownTimer = null;
-        await _goToExercise();
-      }
-    });
+      _countdownTimer = Timer.periodic(const Duration(seconds: 1), (t) async {
+        if (!mounted) return;
 
-    setState(() {});
-  }
+        final next = _countdown - 1;
+        setState(() => _countdown = next);
+
+        if (next <= 0) {
+          t.cancel();
+          _countdownTimer = null;
+          await _goToExercise();
+        } else {
+          // Speak the next number (e.g., "4", "3", "2", "1")
+          await TtsService.I.speak('$next');
+        }
+      });
+
+      setState(() {});
+    }
+
 
   void _stopCountdown() {
     _countdownTimer?.cancel();
     _countdownTimer = null;
+    unawaited(TtsService.I.stop());
     if (mounted) setState(() => _countdown = 0);
   }
 
