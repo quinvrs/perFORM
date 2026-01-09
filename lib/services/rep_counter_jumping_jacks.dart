@@ -10,23 +10,23 @@ class JumpingJacksRepCounter {
     this.minLikelihood = 0.55,
 
     // Smoothing (helps fast reps + jitter)
-    this.emaAlpha = 0.35, // 0.25–0.45 good range
+    this.emaAlpha = 0.45, // 0.25–0.45 good range
 
     // Hysteresis thresholds (prevents state flip-flop)
-    this.openRatio = 1.12,   // ankleDist/shoulderWidth -> OPEN
-    this.closeRatio = 0.72,  // ankleDist/shoulderWidth -> CLOSED
+    this.openRatio = 1.10,   // ankleDist/shoulderWidth -> OPEN
+    this.closeRatio = 0.78,  // ankleDist/shoulderWidth -> CLOSED
 
     // Symmetry gate to prevent "one-leg" fake reps
     this.openSideRatio = 0.35,  // each ankle must be this far from body center (normalized)
-    this.closeSideRatio = 0.18, // each ankle must be near center (normalized)
+    this.closeSideRatio = 0.24, // each ankle must be near center (normalized)
 
     // Arms: allow elbows when wrists are cropped
     this.armsUpMarginTorso = 0.10,   // how far above shoulders (fraction of torso height)
     this.armsDownMarginTorso = 0.08, // how close to hips for "down"
 
     // Robustness
-    this.graceMissingFrames = 3,
-    this.minRepInterval = const Duration(milliseconds: 420),
+    this.graceMissingFrames = 4, // allow this many missing frames before resetting
+    this.minRepInterval = const Duration(milliseconds: 320), // min time between counted reps
   });
 
   // Output
@@ -149,7 +149,8 @@ class JumpingJacksRepCounter {
 
     // y grows downward: "up" means smaller y
     final armsUp = avgArmY < (avgShoulderY - armsUpMarginTorso * torsoH);
-    final armsDown = avgArmY > (avgHipY - armsDownMarginTorso * torsoH);
+    // arms "down" for jumping jacks = below shoulders (not necessarily near hips)
+    final armsDown = avgArmY > (avgShoulderY + 0.05 * torsoH);
 
     // EMA smoothing (helps fast motion + jitter)
     _emaAnkleRatio = _ema(_emaAnkleRatio, ankleRatio, emaAlpha);
