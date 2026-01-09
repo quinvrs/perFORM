@@ -449,64 +449,52 @@ class _SetupModeScreenState extends State<SetupModeScreen> {
     );
   }
 
-  // -------------------------
-  // UI
-  // -------------------------
-  Widget _buildCameraWithOverlay() {
-    final controller = _controller;
-    if (controller == null || !controller.value.isInitialized) {
-      return const Center(child: CircularProgressIndicator());
-    }
 
-    return LayoutBuilder(
-      builder: (context, constraints) {
-        final previewSize = controller.value.previewSize!;
-        final screenW = constraints.maxWidth;
-        final screenH = constraints.maxHeight;
+ Widget _buildCameraWithOverlay() {
+  final controller = _controller;
+  if (controller == null || !controller.value.isInitialized) {
+    return const Center(child: CircularProgressIndicator());
+  }
 
-        // previewSize is landscape; in portrait treat as rotated
-        final previewW = previewSize.height;
-        final previewH = previewSize.width;
+  return LayoutBuilder(
+    builder: (context, constraints) {
+      final screenAspect = constraints.maxWidth / constraints.maxHeight;
+      final previewAspect = controller.value.aspectRatio;
 
-        final scaleW = screenW / previewW;
-        final scaleH = screenH / previewH;
-        final scale = scaleW > scaleH ? scaleW : scaleH;
+      final portraitPreviewAspect = 1 / previewAspect;
+      final scale = screenAspect / portraitPreviewAspect *1.75;
 
-        return ClipRect(
+      return ClipRect(
+        child: Transform.scale(
+          scale: scale,
+          alignment: Alignment.center,
           child: Center(
-            child: Transform.scale(
-              scale: scale,
-              alignment: Alignment.center,
-              child: SizedBox(
-                width: previewW,
-                height: previewH,
-                child: Stack(
-                  fit: StackFit.expand,
-                  children: [
-                    CameraPreview(controller),
-                    if (_imgSize != null && _imgRotation != null && _selectedCamera != null)
-                      IgnorePointer(
-                        child: RepaintBoundary(
-                          child: CustomPaint(
-                            painter: _PosePainter(
-                              poses: _poses,
-                              imageSize: _imgSize!,
-                              rotation: _imgRotation!,
-                              isFrontCamera:
-                                  _selectedCamera!.lensDirection == CameraLensDirection.front,
-                            ),
-                          ),
+            child: AspectRatio(
+              aspectRatio: portraitPreviewAspect,
+              child: Stack(
+                fit: StackFit.expand,
+                children: [
+                  CameraPreview(controller),
+                  if (_imgSize != null && _imgRotation != null && _selectedCamera != null)
+                    IgnorePointer(
+                      child: CustomPaint(
+                        painter: _PosePainter(
+                          poses: _poses,
+                          imageSize: _imgSize!,
+                          rotation: _imgRotation!,
+                          isFrontCamera: _selectedCamera!.lensDirection == CameraLensDirection.front,
                         ),
                       ),
-                  ],
-                ),
+                    ),
+                ],
               ),
             ),
           ),
-        );
-      },
-    );
-  }
+        ),
+      );
+    },
+  );
+}
 
   @override
   Widget build(BuildContext context) {
