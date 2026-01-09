@@ -14,30 +14,43 @@ class RepCounter {
 
   // --- Squat tuning (good starting values for side view)
   final double downAngleDeg; // smaller = deeper squat
-  final double upAngleDeg;   // larger = standing
-  final int confirmFrames;   // requires N consistent frames to change state
+  final double upAngleDeg; // larger = standing
+  final int confirmFrames; // requires N consistent frames to change state
   final Duration minRepInterval; // avoid fast double counts
-  //revision one leg fix
-  final bool requireBothFeetDown;
-  final double minFootLikelihood;
-  final double feetLevelToleranceTorso; // max ankle Y mismatch as fraction of torso height
-  final double ankleAboveKneeTolTorso;
+
+  // --- Anti false reps (single-leg raise)
+  /// Require hips to drop by this fraction of torso height before accepting "DOWN"
+  final double minHipDropTorso; // 0.08 looser, 0.12 stricter
+
+  /// Standing hip baseline smoothing (EMA)
+  final double hipBaseEmaAlpha;
+
+  /// When counting a rep, require both ankles visible/confident/level
+  /// (This blocks reps when a foot is lifted OR when ankles are missing/low-confidence.)
+  final bool strictFeetOnRep;
+  final double strictFootMinLikelihood;
+  final double strictFeetLevelTolTorso;
 
   _SquatPhase _phase = _SquatPhase.unknown;
   int _downHits = 0;
   int _upHits = 0;
   DateTime _lastRepTime = DateTime.fromMillisecondsSinceEpoch(0);
 
+  // Standing baseline hip Y (EMA)
+  double? _baseHipY;
+
   RepCounter.squat({
     this.downAngleDeg = 110, // try 100–120
-    this.upAngleDeg = 160,   // try 155–170
+    this.upAngleDeg = 160, // try 155–170
     this.confirmFrames = 3,
     this.minRepInterval = const Duration(milliseconds: 450),
 
-    this.requireBothFeetDown = false,
-    this.minFootLikelihood = 0.35,
-    this.feetLevelToleranceTorso = 0.22, // 0.12 stricter, 0.22 looser
-    this.ankleAboveKneeTolTorso = 0.06,
+    // NEW (anti-leg-raise)
+    this.minHipDropTorso = 0.10,
+    this.hipBaseEmaAlpha = 0.15,
+    this.strictFeetOnRep = true,
+    this.strictFootMinLikelihood = 0.50,
+    this.strictFeetLevelTolTorso = 0.14, // 0.12 stricter, 0.18 looser
   }) : type = ExerciseType.squat;
 
   void reset() {
@@ -47,6 +60,7 @@ class RepCounter {
     _downHits = 0;
     _upHits = 0;
     _lastRepTime = DateTime.fromMillisecondsSinceEpoch(0);
+    _baseHipY = null;
   }
 
   /// Call this per detected pose frame.
@@ -58,7 +72,7 @@ class RepCounter {
     }
   }
 
-  //Squat logic
+  // Squat logic
   bool _updateSquat(Pose pose) {
     final side = _bestSide(pose);
 
@@ -70,27 +84,38 @@ class RepCounter {
       debug = 'Missing landmarks (hip/knee/ankle).';
       return false;
     }
-    if (requireBothFeetDown) {
-      final torsoH = _torsoHeight(pose, fallbackHip: hip, fallbackKnee: knee);
-      final reason = _feetGateReason(pose, torsoH);
-      if (reason != null) {
-        // freeze the state machine on suspicious frames
-        _downHits = 0;
-        _upHits = 0;
-        if (_phase == _SquatPhase.unknown) _phase = _SquatPhase.standing;
 
-        debug = '$reason | phase=$_phase reps=$reps';
-        return false;
-      }
-    }
     final kneeAngle = _angleDeg(hip, knee, ankle);
+    final torsoH = _torsoH(pose, hip, knee);
+
+    // Update standing hip baseline when clearly upright.
+    // y grows downward, so a "drop" means hip.y becomes larger.
+    if (kneeAngle >= upAngleDeg) {
+      _baseHipY = _emaD(_baseHipY, hip.y, hipBaseEmaAlpha);
+    }
+
+    final hipDropped = _baseHipY == null
+        ? true
+        : (hip.y >= _baseHipY! + (minHipDropTorso * torsoH));
+
     debug =
         'knee=${kneeAngle.toStringAsFixed(1)} '
+        'hipY=${hip.y.toStringAsFixed(1)} baseHip=${_baseHipY?.toStringAsFixed(1) ?? "na"} '
+        'drop=${hipDropped ? "Y" : "N"} '
         'phase=$_phase reps=$reps '
         '(down<$downAngleDeg up>$upAngleDeg)';
 
     // DOWN condition (deep squat)
     if (kneeAngle <= downAngleDeg) {
+      // NEW: block "down" if knee bends but hips didn't actually drop (common in leg raise)
+      if (!hipDropped) {
+        _downHits = 0;
+        _upHits = 0;
+        if (_phase == _SquatPhase.unknown) _phase = _SquatPhase.standing;
+        debug += ' | blocked: no hip drop';
+        return false;
+      }
+
       _downHits++;
       _upHits = 0;
 
@@ -108,6 +133,15 @@ class RepCounter {
       if (_upHits >= confirmFrames) {
         // Count rep ONLY when we came from bottom -> standing
         if (_phase == _SquatPhase.bottom) {
+          // NEW: strict feet check ONLY when counting (blocks single-leg raises)
+          if (strictFeetOnRep) {
+            final reason = _strictFeetGate(pose, torsoH);
+            if (reason != null) {
+              debug += ' | blocked: $reason';
+              return false; // keep phase bottom; wait for a clean standing frame
+            }
+          }
+
           final now = DateTime.now();
           if (now.difference(_lastRepTime) >= minRepInterval) {
             reps++;
@@ -123,7 +157,7 @@ class RepCounter {
       return false;
     }
 
-    // In-between (moving). Don’t change phase; just reset hit counters slowly.
+    // In-between (moving). Don’t change phase; just reset hit counters.
     _downHits = 0;
     _upHits = 0;
 
@@ -134,67 +168,6 @@ class RepCounter {
   }
 
   // Helpers
-  //one leg raise fix helpers
-  double _torsoHeight(Pose pose, {PoseLandmark? fallbackHip, PoseLandmark? fallbackKnee}) {
-    final lSh = pose.landmarks[PoseLandmarkType.leftShoulder];
-    final rSh = pose.landmarks[PoseLandmarkType.rightShoulder];
-    final lHip = pose.landmarks[PoseLandmarkType.leftHip];
-    final rHip = pose.landmarks[PoseLandmarkType.rightHip];
-
-    if (lSh != null && rSh != null && lHip != null && rHip != null) {
-      final avgShoulderY = (lSh.y + rSh.y) / 2.0;
-      final avgHipY = (lHip.y + rHip.y) / 2.0;
-      return (avgHipY - avgShoulderY).abs().clamp(1.0, 1e9);
-    }
-
-    // fallback: use thigh length approx
-    if (fallbackHip != null && fallbackKnee != null) {
-      return ((fallbackHip.y - fallbackKnee.y).abs() * 2.0).clamp(1.0, 1e9);
-    }
-
-    return 200.0; // last-resort scale
-  }
-
-  /// Returns null if OK, else a short reason why we should IGNORE this frame for squats.
-  String? _feetGateReason(Pose pose, double torsoH) {
-    final lAnk = pose.landmarks[PoseLandmarkType.leftAnkle];
-    final rAnk = pose.landmarks[PoseLandmarkType.rightAnkle];
-
-    // If we can't see both ankles, don't block (to avoid killing reps on occlusion)
-    if (lAnk == null || rAnk == null) return null;
-
-    final lLik = lAnk.likelihood ?? 0.0;
-    final rLik = rAnk.likelihood ?? 0.0;
-
-    // If ankles are too low confidence, don't block (avoid false negatives)
-    if (lLik < minFootLikelihood || rLik < minFootLikelihood) return null;
-
-    final maxDY = feetLevelToleranceTorso * torsoH;
-    final dy = (lAnk.y - rAnk.y).abs();
-
-    // One foot lifted -> ankle Y differs a lot
-    if (dy > maxDY) return 'Feet not level (dy=${dy.toStringAsFixed(1)} > ${maxDY.toStringAsFixed(1)})';
-
-    // Optional extra: if ankle appears ABOVE knee by a lot, it’s almost surely a leg raise
-    final lKnee = pose.landmarks[PoseLandmarkType.leftKnee];
-    final rKnee = pose.landmarks[PoseLandmarkType.rightKnee];
-    final tol = ankleAboveKneeTolTorso * torsoH;
-
-    if (lKnee != null) {
-      final kLik = lKnee.likelihood ?? 0.0;
-      if (kLik >= minFootLikelihood && (lAnk.y + tol) < lKnee.y) {
-        return 'Left ankle above left knee (leg raise)';
-      }
-    }
-    if (rKnee != null) {
-      final kLik = rKnee.likelihood ?? 0.0;
-      if (kLik >= minFootLikelihood && (rAnk.y + tol) < rKnee.y) {
-        return 'Right ankle above right knee (leg raise)';
-      }
-    }
-
-    return null;
-  }
 
   double _angleDeg(PoseLandmark a, PoseLandmark b, PoseLandmark c) {
     // Angle at point b formed by a-b-c
@@ -211,6 +184,49 @@ class RepCounter {
     var cosv = dot / (mag1 * mag2);
     cosv = cosv.clamp(-1.0, 1.0);
     return math.acos(cosv) * 180 / math.pi;
+  }
+
+  double _emaD(double? prev, double next, double alpha) {
+    final a = alpha.clamp(0.0, 1.0);
+    return prev == null ? next : (prev * (1.0 - a)) + (next * a);
+  }
+
+  double _torsoH(Pose pose, PoseLandmark hip, PoseLandmark knee) {
+    final lSh = pose.landmarks[PoseLandmarkType.leftShoulder];
+    final rSh = pose.landmarks[PoseLandmarkType.rightShoulder];
+    final lHip = pose.landmarks[PoseLandmarkType.leftHip];
+    final rHip = pose.landmarks[PoseLandmarkType.rightHip];
+
+    if (lSh != null && rSh != null && lHip != null && rHip != null) {
+      final avgShoulderY = (lSh.y + rSh.y) / 2.0;
+      final avgHipY = (lHip.y + rHip.y) / 2.0;
+      return (avgHipY - avgShoulderY).abs().clamp(1.0, 1e9);
+    }
+
+    // fallback scale if shoulders aren't reliable
+    return ((hip.y - knee.y).abs() * 2.0).clamp(1.0, 1e9);
+  }
+
+  /// Strict check at rep moment:
+  /// - both ankles must exist
+  /// - both must have decent likelihood
+  /// - ankles must be roughly level (blocks one-leg raise)
+  String? _strictFeetGate(Pose pose, double torsoH) {
+    final lA = pose.landmarks[PoseLandmarkType.leftAnkle];
+    final rA = pose.landmarks[PoseLandmarkType.rightAnkle];
+    if (lA == null || rA == null) return 'Missing ankles';
+
+    final lLik = lA.likelihood ?? 0.0;
+    final rLik = rA.likelihood ?? 0.0;
+    if (lLik < strictFootMinLikelihood || rLik < strictFootMinLikelihood) {
+      return 'Low ankle confidence';
+    }
+
+    final dy = (lA.y - rA.y).abs();
+    final maxDy = strictFeetLevelTolTorso * torsoH;
+    if (dy > maxDy) return 'Feet not level (dy=${dy.toStringAsFixed(1)})';
+
+    return null;
   }
 
   _Side _bestSide(Pose pose) {
