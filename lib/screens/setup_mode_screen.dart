@@ -14,6 +14,7 @@ import '../models/workout.dart';
 import '../models/workout_plan.dart';
 import '../services/rep_counter_squats.dart';
 import 'exercise_screen.dart';
+import '../services/tts_service.dart';
 
 class SetupModeScreen extends StatefulWidget {
   const SetupModeScreen({

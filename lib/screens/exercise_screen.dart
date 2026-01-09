@@ -15,6 +15,7 @@ import '../models/workout_plan.dart';
 import '../app_state.dart';
 import '../services/rep_counter_squats.dart';
 import '../services/rep_counter_jumping_jacks.dart';
+import '../services/tts_service.dart';
 
 enum _Phase { setup, active, rest, continueNext, finished }
 
