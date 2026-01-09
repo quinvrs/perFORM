@@ -11,22 +11,23 @@ class JumpingJacksRepCounter {
 
     // Smoothing (helps fast reps + jitter)
     this.emaAlpha = 0.45, // 0.25–0.45 good range
-
     // Hysteresis thresholds (prevents state flip-flop)
-    this.openRatio = 1.10,   // ankleDist/shoulderWidth -> OPEN
-    this.closeRatio = 0.78,  // ankleDist/shoulderWidth -> CLOSED
-
+    this.openRatio = 1.10, // ankleDist/shoulderWidth -> OPEN
+    this.closeRatio = 0.78, // ankleDist/shoulderWidth -> CLOSED
     // Symmetry gate to prevent "one-leg" fake reps
-    this.openSideRatio = 0.35,  // each ankle must be this far from body center (normalized)
+    this.openSideRatio =
+        0.35, // each ankle must be this far from body center (normalized)
     this.closeSideRatio = 0.24, // each ankle must be near center (normalized)
-
     // Arms: allow elbows when wrists are cropped
-    this.armsUpMarginTorso = 0.10,   // how far above shoulders (fraction of torso height)
+    this.armsUpMarginTorso =
+        0.20, // how far above shoulders (fraction of torso height)
     this.armsDownMarginTorso = 0.08, // how close to hips for "down"
-
     // Robustness
-    this.graceMissingFrames = 4, // allow this many missing frames before resetting
-    this.minRepInterval = const Duration(milliseconds: 320), // min time between counted reps
+    this.graceMissingFrames =
+        4, // allow this many missing frames before resetting
+    this.minRepInterval = const Duration(
+      milliseconds: 320,
+    ), // min time between counted reps
   });
 
   // Output
@@ -103,12 +104,16 @@ class JumpingJacksRepCounter {
     final rEl = pose.landmarks[PoseLandmarkType.rightElbow];
 
     // We'll accept wrists OR elbows if confident
-    PoseLandmark? lArm = (lWr != null && lWr.likelihood >= minLikelihood) ? lWr
-        : (lEl != null && lEl.likelihood >= minLikelihood) ? lEl
+    PoseLandmark? lArm = (lWr != null && lWr.likelihood >= minLikelihood)
+        ? lWr
+        : (lEl != null && lEl.likelihood >= minLikelihood)
+        ? lEl
         : null;
 
-    PoseLandmark? rArm = (rWr != null && rWr.likelihood >= minLikelihood) ? rWr
-        : (rEl != null && rEl.likelihood >= minLikelihood) ? rEl
+    PoseLandmark? rArm = (rWr != null && rWr.likelihood >= minLikelihood)
+        ? rWr
+        : (rEl != null && rEl.likelihood >= minLikelihood)
+        ? rEl
         : null;
 
     if (lArm == null || rArm == null) {
@@ -119,7 +124,8 @@ class JumpingJacksRepCounter {
     // Reset missing streak on good frame
     _missingStreak = 0;
 
-    Offset map(PoseLandmark p) => _map(p.x, p.y, canvasSize, imageSize, rotation, lensDirection);
+    Offset map(PoseLandmark p) =>
+        _map(p.x, p.y, canvasSize, imageSize, rotation, lensDirection);
 
     final lAnk = map(pose.landmarks[PoseLandmarkType.leftAnkle]!);
     final rAnk = map(pose.landmarks[PoseLandmarkType.rightAnkle]!);
@@ -135,8 +141,12 @@ class JumpingJacksRepCounter {
     final ankleDist = (lAnk - rAnk).distance;
 
     final centerX = ((lHip.dx + rHip.dx) / 2.0);
-    final leftSide = (centerX - lAnk.dx).abs() / shoulderWidth;  // how far left ankle from center
-    final rightSide = (rAnk.dx - centerX).abs() / shoulderWidth; // how far right ankle from center
+    final leftSide =
+        (centerX - lAnk.dx).abs() /
+        shoulderWidth; // how far left ankle from center
+    final rightSide =
+        (rAnk.dx - centerX).abs() /
+        shoulderWidth; // how far right ankle from center
 
     final ankleRatio = ankleDist / shoulderWidth;
 
@@ -145,11 +155,34 @@ class JumpingJacksRepCounter {
     final avgHipY = (lHip.dy + rHip.dy) / 2.0;
     final torsoH = (avgHipY - avgShoulderY).abs().clamp(1.0, 1e9);
 
+    // --- NEW: use head-level reference for "arms up" ---
+    // Fallback headY (if face landmarks aren't available)
+    double headY = avgShoulderY - 0.45 * torsoH;
+
+    bool okLm(PoseLandmark? p) => p != null && p.likelihood >= minLikelihood;
+
+    final nose = pose.landmarks[PoseLandmarkType.nose];
+    final lEye = pose.landmarks[PoseLandmarkType.leftEye];
+    final rEye = pose.landmarks[PoseLandmarkType.rightEye];
+
+    if (okLm(nose)) {
+      final n = map(nose!);
+      headY = n.dy;
+    } else if (okLm(lEye) && okLm(rEye)) {
+      final le = map(lEye!);
+      final re = map(rEye!);
+      headY = (le.dy + re.dy) / 2.0;
+    }
+
+    // Arms UP: require BOTH arms above headY (not just above shoulders)
+    final leftArmUp = lArmPt.dy < (headY - 0.02 * torsoH);
+    final rightArmUp = rArmPt.dy < (headY - 0.02 * torsoH);
+    final armsUp = leftArmUp && rightArmUp;
+
+    // Keep avgArmY for "arms down" (fast + reliable)
     final avgArmY = (lArmPt.dy + rArmPt.dy) / 2.0;
 
-    // y grows downward: "up" means smaller y
-    final armsUp = avgArmY < (avgShoulderY - armsUpMarginTorso * torsoH);
-    // arms "down" for jumping jacks = below shoulders (not necessarily near hips)
+    // Arms DOWN: below shoulders (still good for fast reps)
     final armsDown = avgArmY > (avgShoulderY + 0.05 * torsoH);
 
     // EMA smoothing (helps fast motion + jitter)
