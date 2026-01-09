@@ -3,35 +3,42 @@ import 'dart:ui';
 import 'package:camera/camera.dart';
 import 'package:google_mlkit_pose_detection/google_mlkit_pose_detection.dart';
 
+/// Internal phases for the Jumping Jacks state machine:
+/// - closed: feet together + arms down
+/// - open:   feet apart + arms overhead
 enum _Phase { unknown, closed, open }
 
 class JumpingJacksRepCounter {
   JumpingJacksRepCounter({
+    // Minimum landmark confidence required before we trust a point.
     this.minLikelihood = 0.55,
 
-    // Smoothing (helps fast reps + jitter)
-    this.emaAlpha = 0.45, // 0.25–0.45 good range
-    // Hysteresis thresholds (prevents state flip-flop)
-    this.openRatio = 1.10, // ankleDist/shoulderWidth -> OPEN
-    this.closeRatio = 0.78, // ankleDist/shoulderWidth -> CLOSED
-    // Symmetry gate to prevent "one-leg" fake reps
-    this.openSideRatio =
-        0.35, // each ankle must be this far from body center (normalized)
-    this.closeSideRatio = 0.24, // each ankle must be near center (normalized)
-    // Arms: allow elbows when wrists are cropped
-    this.armsUpMarginTorso =
-        0.20, // how far above shoulders (fraction of torso height)
-    this.armsDownMarginTorso = 0.08, // how close to hips for "down"
-    // Robustness
-    this.graceMissingFrames =
-        4, // allow this many missing frames before resetting
-    this.minRepInterval = const Duration(
-      milliseconds: 320,
-    ), // min time between counted reps
+    // Exponential moving average smoothing for leg signals.
+    // Higher = more responsive (better for fast jacks), lower = smoother (less jitter).
+    this.emaAlpha = 0.45,
+
+    // Normalized ankle distance (ankleDist / shoulderWidth) thresholds.
+    // We use hysteresis by having separate open/close thresholds.
+    this.openRatio = 1.10,
+    this.closeRatio = 0.78,
+
+    // Symmetry thresholds to prevent cheating with one leg only:
+    // Each ankle must move away from the body center by this normalized amount.
+    this.openSideRatio = 0.35,
+    // To be considered "closed", both ankles must be close to the center.
+    this.closeSideRatio = 0.24,
+
+    // If some landmarks disappear (fast motion / blur), allow a few frames before resetting.
+    this.graceMissingFrames = 4,
+
+    // Prevent double-counting due to jitter when returning to closed.
+    this.minRepInterval = const Duration(milliseconds: 320),
   });
 
-  // Output
+  /// Public outputs
   int reps = 0;
+
+  /// Useful for debugging on-screen (thresholds, state, etc.)
   String debug = '';
 
   // Tunables
@@ -44,23 +51,27 @@ class JumpingJacksRepCounter {
   final double openSideRatio;
   final double closeSideRatio;
 
-  final double armsUpMarginTorso;
-  final double armsDownMarginTorso;
-
   final int graceMissingFrames;
   final Duration minRepInterval;
 
-  // Internal
+  // Internal state
   _Phase _phase = _Phase.unknown;
+
+  // Only count when we've seen an OPEN once before returning to CLOSED.
   bool _seenOpen = false;
+
+  // Cooldown timer for rep counting.
   DateTime _lastRepTime = DateTime.fromMillisecondsSinceEpoch(0);
 
+  // Smoothed signals (EMA)
   double? _emaAnkleRatio;
   double? _emaLeftSide;
   double? _emaRightSide;
 
+  // Counts consecutive "bad frames" (missing/low confidence)
   int _missingStreak = 0;
 
+  /// Reset all counters/state (call this when a new set starts, or exercise ends).
   void reset() {
     reps = 0;
     debug = '';
@@ -73,6 +84,9 @@ class JumpingJacksRepCounter {
     _missingStreak = 0;
   }
 
+  /// Update the rep counter from the latest pose.
+  ///
+  /// Returns true if a rep was counted on this frame.
   bool update({
     required Pose pose,
     required Size canvasSize,
@@ -80,8 +94,11 @@ class JumpingJacksRepCounter {
     required InputImageRotation rotation,
     required CameraLensDirection lensDirection,
   }) {
-    // Required lower-body + torso reference
-    final required = <PoseLandmarkType>[
+    // Helper: landmark exists and is confident enough
+    bool okLm(PoseLandmark? p) => p != null && p.likelihood >= minLikelihood;
+
+    // We need these to reliably compute legs open/close and normalization.
+    const required = <PoseLandmarkType>[
       PoseLandmarkType.leftAnkle,
       PoseLandmarkType.rightAnkle,
       PoseLandmarkType.leftShoulder,
@@ -92,41 +109,32 @@ class JumpingJacksRepCounter {
 
     for (final t in required) {
       final lm = pose.landmarks[t];
-      if (lm == null || lm.likelihood < minLikelihood) {
-        return _handleMissing('missing/low: $t');
-      }
+      if (!okLm(lm)) return _handleMissing('missing/low: $t');
     }
 
-    // Arms (prefer wrists, fallback to elbows if wrists cropped)
+    // Arms: prefer wrists (best for "hands overhead"),
+    // but fallback to elbows if wrists are cropped/out of frame.
     final lWr = pose.landmarks[PoseLandmarkType.leftWrist];
     final rWr = pose.landmarks[PoseLandmarkType.rightWrist];
     final lEl = pose.landmarks[PoseLandmarkType.leftElbow];
     final rEl = pose.landmarks[PoseLandmarkType.rightElbow];
 
-    // We'll accept wrists OR elbows if confident
-    PoseLandmark? lArm = (lWr != null && lWr.likelihood >= minLikelihood)
-        ? lWr
-        : (lEl != null && lEl.likelihood >= minLikelihood)
-        ? lEl
-        : null;
-
-    PoseLandmark? rArm = (rWr != null && rWr.likelihood >= minLikelihood)
-        ? rWr
-        : (rEl != null && rEl.likelihood >= minLikelihood)
-        ? rEl
-        : null;
+    final lArm = okLm(lWr) ? lWr : okLm(lEl) ? lEl : null;
+    final rArm = okLm(rWr) ? rWr : okLm(rEl) ? rEl : null;
 
     if (lArm == null || rArm == null) {
-      // arms missing is common when cropped; allow a few frames grace
+      // Arms missing is common during fast motion; allow grace frames.
       return _handleMissing('arms missing');
     }
 
-    // Reset missing streak on good frame
+    // We have a valid frame; reset missing streak.
     _missingStreak = 0;
 
+    // Landmark -> canvas mapping must match how your preview is displayed.
     Offset map(PoseLandmark p) =>
         _map(p.x, p.y, canvasSize, imageSize, rotation, lensDirection);
 
+    // Key points in canvas coordinates
     final lAnk = map(pose.landmarks[PoseLandmarkType.leftAnkle]!);
     final rAnk = map(pose.landmarks[PoseLandmarkType.rightAnkle]!);
     final lSh = map(pose.landmarks[PoseLandmarkType.leftShoulder]!);
@@ -137,55 +145,57 @@ class JumpingJacksRepCounter {
     final lArmPt = map(lArm);
     final rArmPt = map(rArm);
 
+    // Normalization anchor: shoulder width (scales well across body sizes).
     final shoulderWidth = (lSh - rSh).distance.clamp(1.0, 1e9);
+
+    // Legs: raw ankle distance
     final ankleDist = (lAnk - rAnk).distance;
-
-    final centerX = ((lHip.dx + rHip.dx) / 2.0);
-    final leftSide =
-        (centerX - lAnk.dx).abs() /
-        shoulderWidth; // how far left ankle from center
-    final rightSide =
-        (rAnk.dx - centerX).abs() /
-        shoulderWidth; // how far right ankle from center
-
     final ankleRatio = ankleDist / shoulderWidth;
 
-    // Torso height reference for arms up/down
+    // Body center (x) from hips; used to ensure BOTH legs move (anti-cheat).
+    final centerX = (lHip.dx + rHip.dx) / 2.0;
+    final leftSide = (centerX - lAnk.dx).abs() / shoulderWidth;
+    final rightSide = (rAnk.dx - centerX).abs() / shoulderWidth;
+
+    // Torso reference for deriving head level when face landmarks are missing.
     final avgShoulderY = (lSh.dy + rSh.dy) / 2.0;
     final avgHipY = (lHip.dy + rHip.dy) / 2.0;
     final torsoH = (avgHipY - avgShoulderY).abs().clamp(1.0, 1e9);
 
-    // --- NEW: use head-level reference for "arms up" ---
-    // Fallback headY (if face landmarks aren't available)
-    double headY = avgShoulderY - 0.45 * torsoH;
-
-    bool okLm(PoseLandmark? p) => p != null && p.likelihood >= minLikelihood;
+    // --- Arms UP detection (good form) ---
+    // We want "hands overhead" / arms above the head.
+    // Use nose/eyes if present; otherwise estimate headY from shoulders + torso height.
+    double headY = avgShoulderY - 0.45 * torsoH; // fallback estimate
 
     final nose = pose.landmarks[PoseLandmarkType.nose];
     final lEye = pose.landmarks[PoseLandmarkType.leftEye];
     final rEye = pose.landmarks[PoseLandmarkType.rightEye];
 
     if (okLm(nose)) {
-      final n = map(nose!);
-      headY = n.dy;
+      headY = map(nose!).dy;
     } else if (okLm(lEye) && okLm(rEye)) {
-      final le = map(lEye!);
-      final re = map(rEye!);
-      headY = (le.dy + re.dy) / 2.0;
+      headY = (map(lEye!).dy + map(rEye!).dy) / 2.0;
     }
 
-    // Arms UP: require BOTH arms above headY (not just above shoulders)
-    final leftArmUp = lArmPt.dy < (headY - 0.02 * torsoH);
-    final rightArmUp = rArmPt.dy < (headY - 0.02 * torsoH);
-    final armsUp = leftArmUp && rightArmUp;
+    // Prefer wrists for true overhead check; if we fell back to elbows, require stricter height.
+    final usingLeftWrist = okLm(lWr);
+    final usingRightWrist = okLm(rWr);
 
-    // Keep avgArmY for "arms down" (fast + reliable)
+    // Tune these to make "overhead" stricter:
+    // - Increase 0.06 to require higher wrists above head
+    // - Increase 0.12 to require higher elbows (fallback) above head
+    final leftThresh =
+        headY - (usingLeftWrist ? 0.06 * torsoH : 0.12 * torsoH);
+    final rightThresh =
+        headY - (usingRightWrist ? 0.06 * torsoH : 0.12 * torsoH);
+
+    final armsUp = (lArmPt.dy < leftThresh) && (rArmPt.dy < rightThresh);
+
+    // Arms DOWN: below shoulders (doesn't require hands near hips, helps fast reps).
     final avgArmY = (lArmPt.dy + rArmPt.dy) / 2.0;
-
-    // Arms DOWN: below shoulders (still good for fast reps)
     final armsDown = avgArmY > (avgShoulderY + 0.05 * torsoH);
 
-    // EMA smoothing (helps fast motion + jitter)
+    // --- Smooth leg signals to reduce jitter while staying responsive ---
     _emaAnkleRatio = _ema(_emaAnkleRatio, ankleRatio, emaAlpha);
     _emaLeftSide = _ema(_emaLeftSide, leftSide, emaAlpha);
     _emaRightSide = _ema(_emaRightSide, rightSide, emaAlpha);
@@ -194,19 +204,23 @@ class JumpingJacksRepCounter {
     final ls = _emaLeftSide!;
     final rs = _emaRightSide!;
 
-    // Symmetry gate to avoid "one-leg" fake
+    // Symmetry gate to stop "one-leg step" from counting as OPEN/CLOSED.
     final legsOpenSym = (ls >= openSideRatio && rs >= openSideRatio);
     final legsCloseSym = (ls <= closeSideRatio && rs <= closeSideRatio);
 
-    // OPEN/CLOSED with hysteresis
+    // State detection:
+    // - OPEN requires legs apart + arms overhead
+    // - CLOSED requires legs together + arms down
     final isOpen = (r >= openRatio) && legsOpenSym && armsUp;
     final isClosed = (r <= closeRatio) && legsCloseSym && armsDown;
 
+    // Debug string for on-screen overlay
     debug =
         'phase=$_phase reps=$reps r=${r.toStringAsFixed(2)} '
         'ls=${ls.toStringAsFixed(2)} rs=${rs.toStringAsFixed(2)} '
         'open=${isOpen ? 1 : 0} closed=${isClosed ? 1 : 0}';
 
+    // Transition handling
     if (isOpen) {
       _phase = _Phase.open;
       _seenOpen = true;
@@ -214,7 +228,7 @@ class JumpingJacksRepCounter {
     }
 
     if (isClosed) {
-      // Count only when returning CLOSED after being OPEN
+      // Count only on OPEN -> CLOSED transition, with cooldown.
       if (_phase == _Phase.open && _seenOpen) {
         final now = DateTime.now();
         if (now.difference(_lastRepTime) >= minRepInterval) {
@@ -230,15 +244,18 @@ class JumpingJacksRepCounter {
       return false;
     }
 
-    // Neutral zone: keep phase, do nothing
+    // Neutral zone: do nothing, keep current phase.
     return false;
   }
 
+  /// Handle frames where key landmarks are missing/low confidence.
+  /// We allow a few grace frames before fully resetting the internal state.
   bool _handleMissing(String why) {
     _missingStreak++;
     debug = '$why (grace $_missingStreak/$graceMissingFrames)';
+
     if (_missingStreak > graceMissingFrames) {
-      // If missing too long, reset phase to avoid random counts later
+      // Reset internal phase and filters after too many missing frames.
       _phase = _Phase.unknown;
       _seenOpen = false;
       _emaAnkleRatio = null;
@@ -248,11 +265,14 @@ class JumpingJacksRepCounter {
     return false;
   }
 
+  /// Exponential moving average (EMA) smoothing.
   double _ema(double? prev, double next, double a) {
     if (prev == null) return next;
     return prev + a * (next - prev);
   }
 
+  /// Maps ML Kit landmark coordinates to your overlay canvas coordinates,
+  /// taking rotation and front-camera mirroring into account.
   Offset _map(
     double x,
     double y,
@@ -272,6 +292,8 @@ class JumpingJacksRepCounter {
       default:
         tx = x * canvas.width / img.width;
     }
+
+    // Front camera preview is typically mirrored; mirror overlay x to match.
     if (lens == CameraLensDirection.front) {
       tx = canvas.width - tx;
     }
@@ -285,6 +307,7 @@ class JumpingJacksRepCounter {
       default:
         ty = y * canvas.height / img.height;
     }
+
     return Offset(tx, ty);
   }
 }
