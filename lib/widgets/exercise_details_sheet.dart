@@ -384,7 +384,6 @@ class _TabAnimation extends StatelessWidget {
         _SectionRow(s: s, left: 'SETS', right: '${plan.sets}', leftColor: _blue),
         SizedBox(height: 8 * s),
 
-        // ✅ For timed workouts, show BOTH TIMER and REPS info
         if (plan.isTimed) ...[
           _SectionRow(s: s, left: 'TIMER PER SET', right: plan.timerLabel, leftColor: _blue),
           SizedBox(height: 8 * s),

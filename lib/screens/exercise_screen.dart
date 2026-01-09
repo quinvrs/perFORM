@@ -1,6 +1,7 @@
 import 'dart:async';
 import 'dart:io';
 import 'dart:typed_data';
+import 'dart:ui';
 
 import 'package:camera/camera.dart';
 import 'package:flutter/material.dart';
@@ -13,7 +14,7 @@ import '../models/workout_plan.dart';
 import '../app_state.dart';
 import '../services/rep_counter_squats.dart';
 
-enum _Phase { active, rest, continueNext, finished }
+enum _Phase { setup, active, rest, continueNext, finished }
 
 class ExerciseScreen extends StatefulWidget {
   const ExerciseScreen({
@@ -47,8 +48,6 @@ class _ExerciseScreenState extends State<ExerciseScreen> {
   // session timer (top-right)
   int _elapsed = 0;
   Timer? _elapsedTimer;
-
-  // ✅ mutable (NOT final)
   bool _elapsedFrozen = false;
 
   // exercise flow
@@ -58,7 +57,6 @@ class _ExerciseScreenState extends State<ExerciseScreen> {
   // reps
   RepCounter _repCounter = RepCounter.squat();
   final _JumpingJacksCounter _jjCounter = _JumpingJacksCounter();
-
   int _reps = 0; // reps for current set
   int _totalReps = 0; // total reps across sets
   bool _setCommitted = false;
@@ -72,9 +70,19 @@ class _ExerciseScreenState extends State<ExerciseScreen> {
   Timer? _restTimer;
   late int _restRemaining;
 
+  SetupChecklist _checklist = SetupChecklist.empty();
+  bool _allReady = false;
+  int _countdown = 0;
+  Timer? _countdownTimer;
+  static const int _setupCountdownSeconds = 5;
+
   bool get _isJumpingJacks =>
       widget.workout.title.toLowerCase().contains('jump') ||
       widget.workout.title.toLowerCase().contains('jack');
+
+  bool _isSquat(String title) => title.toLowerCase().contains('squat');
+  bool _isJumpingJack(String title) =>
+      title.toLowerCase().contains('jump') || title.toLowerCase().contains('jack');
 
   @override
   void initState() {
@@ -103,6 +111,7 @@ class _ExerciseScreenState extends State<ExerciseScreen> {
     _elapsedTimer?.cancel();
     _setTimer?.cancel();
     _restTimer?.cancel();
+    _countdownTimer?.cancel();
 
     try {
       _controller?.stopImageStream();
@@ -123,23 +132,19 @@ class _ExerciseScreenState extends State<ExerciseScreen> {
   // -------------------------
 
   void _freezeElapsedTimer() {
-  _elapsedFrozen = true;
-}
+    _elapsedFrozen = true;
+  }
 
-void _startElapsedTimer() {
-  _elapsedTimer?.cancel();
-  _elapsedFrozen = false;
+  void _startElapsedTimer() {
+    _elapsedTimer?.cancel();
+    _elapsedFrozen = false;
 
-  _elapsedTimer = Timer.periodic(const Duration(seconds: 1), (_) {
-    if (!mounted) return;
-
-    // ✅ freeze anytime you want (continueNext/finished/summary)
-    if (_elapsedFrozen) return;
-
-    setState(() => _elapsed++);
-  });
-}
-
+    _elapsedTimer = Timer.periodic(const Duration(seconds: 1), (_) {
+      if (!mounted) return;
+      if (_elapsedFrozen) return;
+      setState(() => _elapsed++);
+    });
+  }
 
   void _startSetIfTimed() {
     if (!widget.plan.isTimed) return;
@@ -149,7 +154,7 @@ void _startElapsedTimer() {
 
     _setTimer = Timer.periodic(const Duration(seconds: 1), (t) {
       if (!mounted) return;
-      if (_phase != _Phase.active) return; // ✅ freeze set timer during rest/continue
+      if (_phase != _Phase.active) return; // freeze during rest/setup/continue
       setState(() => _setRemaining--);
 
       if (_setRemaining <= 0) {
@@ -160,7 +165,7 @@ void _startElapsedTimer() {
     });
   }
 
-  void _resetForNextSet() {
+  void _resetForNextSet({bool startTimedTimer = false}) {
     _reps = 0;
     _setCommitted = false;
 
@@ -170,7 +175,11 @@ void _startElapsedTimer() {
       _repCounter = RepCounter.squat();
     }
 
-    if (widget.plan.isTimed) _startSetIfTimed();
+    // prepare set timer value (but don't start unless requested)
+    if (widget.plan.isTimed) {
+      _setRemaining = _secondsFromTimerLabel(widget.plan.timerLabel);
+      if (startTimedTimer) _startSetIfTimed();
+    }
   }
 
   void _commitSetRepsOnce() {
@@ -188,10 +197,10 @@ void _startElapsedTimer() {
       _setTimer = null;
       _restTimer?.cancel();
       _restTimer = null;
+      _countdownTimer?.cancel();
+      _countdownTimer = null;
 
-      // ✅ freeze session timer once workout is actually finished
       _freezeElapsedTimer();
-
       setState(() => _phase = _Phase.finished);
       return;
     }
@@ -212,7 +221,6 @@ void _startElapsedTimer() {
         _restTimer = null;
 
         _freezeElapsedTimer();
-
         if (mounted) setState(() => _phase = _Phase.continueNext);
       }
     });
@@ -231,51 +239,183 @@ void _startElapsedTimer() {
   }
 
   void _continueNextSet() {
+    if (_phase != _Phase.continueNext) return;
+
+    // freeze session timer while in setup (like you wanted)
+    _freezeElapsedTimer();
+
+    // stop any leftover countdown
+    _stopCountdown();
+
+    // reset checklist UI
+    _checklist = SetupChecklist.empty();
+    _allReady = false;
+
+    // reset reps now so next set starts clean
+    _resetForNextSet(startTimedTimer: false);
+
+    setState(() => _phase = _Phase.setup);
+  }
+
+  // -------------------------
+  // Setup-mode replication
+  // -------------------------
+
+  void _startCountdown({required int seconds}) {
+    _countdownTimer?.cancel();
+    _countdown = seconds;
+
+    _countdownTimer = Timer.periodic(const Duration(seconds: 1), (t) {
+      if (!mounted) return;
+      setState(() => _countdown--);
+
+      if (_countdown <= 0) {
+        t.cancel();
+        _countdownTimer = null;
+        _beginNextSetAfterSetup();
+      }
+    });
+
+    if (mounted) setState(() {});
+  }
+
+  void _stopCountdown() {
+    _countdownTimer?.cancel();
+    _countdownTimer = null;
+    if (mounted) setState(() => _countdown = 0);
+  }
+
+  void _beginNextSetAfterSetup() {
+    if (_setIndex >= widget.plan.sets) {
+      _freezeElapsedTimer();
+      setState(() => _phase = _Phase.finished);
+      return;
+    }
+
+    // Start timers again
     _startElapsedTimer();
 
     setState(() {
       _setIndex++;
       _phase = _Phase.active;
     });
-    _resetForNextSet();
+
+    // start timed set timer only when active
+    if (widget.plan.isTimed) _startSetIfTimed();
   }
 
-  Future<void> _viewExerciseSummary() async {
-    // ✅ freeze ALSO when user taps “Mark workout done” / “View Exercise Summary”
-    _freezeElapsedTimer();
+  SetupChecklist _buildChecklist({
+    required List<Pose> poses,
+    required Size? imageSize,
+    required InputImageRotation? rotation,
+    required String title,
+  }) {
+    if (poses.isEmpty || imageSize == null || rotation == null) {
+      return SetupChecklist.empty();
+    }
 
-    final state = AppStateScope.of(context);
-    await Future.sync(() => state.setWorkoutDay(DateTime.now(), true));
+    final pose = poses.first;
+    final lm = pose.landmarks;
 
-    _commitSetRepsOnce();
+    PoseLandmark? L(PoseLandmarkType t) => lm[t];
 
-    final old = _controller;
-    _controller = null;
+    final ls = L(PoseLandmarkType.leftShoulder);
+    final rs = L(PoseLandmarkType.rightShoulder);
+    final lh = L(PoseLandmarkType.leftHip);
+    final rh = L(PoseLandmarkType.rightHip);
+    final lk = L(PoseLandmarkType.leftKnee);
+    final rk = L(PoseLandmarkType.rightKnee);
+    final la = L(PoseLandmarkType.leftAnkle);
+    final ra = L(PoseLandmarkType.rightAnkle);
+    final lw = L(PoseLandmarkType.leftWrist);
+    final rw = L(PoseLandmarkType.rightWrist);
 
-    try {
-      await old?.stopImageStream();
-    } catch (_) {}
-    try {
-      await old?.dispose();
-    } catch (_) {}
+    final fullBodyVisible = ls != null &&
+        rs != null &&
+        lh != null &&
+        rh != null &&
+        lk != null &&
+        rk != null &&
+        la != null &&
+        ra != null;
 
-    try {
-      await _poseDetector?.close();
-    } catch (_) {}
-    _poseDetector = null;
+    // effective width/height depending on rotation
+    final effW = (rotation == InputImageRotation.rotation90deg ||
+            rotation == InputImageRotation.rotation270deg)
+        ? imageSize.height
+        : imageSize.width;
 
-    if (!mounted) return;
+    final effH = (rotation == InputImageRotation.rotation90deg ||
+            rotation == InputImageRotation.rotation270deg)
+        ? imageSize.width
+        : imageSize.height;
 
-    Navigator.pushReplacement(
-      context,
-      MaterialPageRoute(
-        builder: (_) => ExerciseSummaryScreen(
-          workout: widget.workout,
-          plan: widget.plan,
-          elapsedSeconds: _elapsed,
-          totalReps: _totalReps,
-        ),
-      ),
+    // distance (body height fraction)
+    bool distanceOk = false;
+    if (fullBodyVisible) {
+      final topY = [ls.y, rs.y].reduce((a, b) => a < b ? a : b);
+      final botY = [la.y, ra.y].reduce((a, b) => a > b ? a : b);
+      final bodyH = (botY - topY).abs();
+      final frac = effH == 0 ? 0.0 : (bodyH / effH);
+      distanceOk = frac >= 0.55 && frac <= 0.92;
+    }
+
+    // enough side space
+    bool spaceOk = false;
+    if (fullBodyVisible && lw != null && rw != null) {
+      final xs = <double>[ls.x, rs.x, lh.x, rh.x, la.x, ra.x, lw.x, rw.x];
+      final minX = xs.reduce((a, b) => a < b ? a : b);
+      final maxX = xs.reduce((a, b) => a > b ? a : b);
+      spaceOk = (minX > 0.04 * effW) && (maxX < 0.96 * effW);
+    }
+
+    // centered
+    bool centeredOk = false;
+    if (fullBodyVisible) {
+      final cx = (ls.x + rs.x + lh.x + rh.x) / 4.0;
+      centeredOk = ((cx - effW / 2).abs() / effW) <= 0.20;
+    }
+
+    // facing via shoulder width fraction
+    bool frontFacingOk = false;
+    bool sideFacingOk = false;
+    if (ls != null && rs != null) {
+      final shoulderFrac = (ls.x - rs.x).abs() / (effW == 0 ? 1.0 : effW);
+      frontFacingOk = shoulderFrac >= 0.18;
+      sideFacingOk = shoulderFrac <= 0.14;
+    }
+
+    if (_isSquat(title)) {
+      return SetupChecklist(
+        items: [
+          SetupItem('Stand 6–8 feet from the camera', distanceOk),
+          SetupItem('Ensure that the full body is visible', fullBodyVisible),
+          SetupItem('Position yourself side-facing to the camera', sideFacingOk),
+          SetupItem('Keep enough space for your arms and legs', spaceOk),
+        ],
+      );
+    }
+
+    if (_isJumpingJack(title)) {
+      return SetupChecklist(
+        items: [
+          SetupItem('Stand 6–8 feet from the camera', distanceOk),
+          SetupItem('Ensure that the full body is visible', fullBodyVisible),
+          SetupItem('Face the camera directly', frontFacingOk),
+          SetupItem(
+            'Keep your body centered, with extra space on the sides',
+            centeredOk && spaceOk,
+          ),
+        ],
+      );
+    }
+
+    return SetupChecklist(
+      items: [
+        SetupItem('Stand 6–8 feet from the camera', distanceOk),
+        SetupItem('Ensure that the full body is visible', fullBodyVisible),
+        SetupItem('Keep enough space for your arms and legs', spaceOk),
+      ],
     );
   }
 
@@ -346,6 +486,31 @@ void _startElapsedTimer() {
 
           final poses = await detector.processImage(inputImage);
           if (mounted) setState(() => _poses = poses);
+
+          if (_phase == _Phase.setup) {
+            final c = _buildChecklist(
+              poses: poses,
+              imageSize: _imgSize,
+              rotation: _imgRotation,
+              title: widget.workout.title,
+            );
+
+            final ready = c.allMet;
+
+            // if readiness breaks during countdown -> stop countdown
+            if (_countdown > 0 && !ready) _stopCountdown();
+
+            // if became ready and not counting down -> start countdown
+            if (_countdown == 0 && ready) _startCountdown(seconds: _setupCountdownSeconds);
+
+            if (mounted) {
+              setState(() {
+                _checklist = c;
+                _allReady = ready;
+              });
+            }
+            return;
+          }
 
           if (_phase != _Phase.active) return;
           if (poses.isEmpty) return;
@@ -451,6 +616,47 @@ void _startElapsedTimer() {
   }
 
   // -------------------------
+  // Summary nav
+  // -------------------------
+  Future<void> _viewExerciseSummary() async {
+    _freezeElapsedTimer();
+
+    final state = AppStateScope.of(context);
+    await Future.sync(() => state.setWorkoutDay(DateTime.now(), true));
+
+    _commitSetRepsOnce();
+
+    final old = _controller;
+    _controller = null;
+
+    try {
+      await old?.stopImageStream();
+    } catch (_) {}
+    try {
+      await old?.dispose();
+    } catch (_) {}
+
+    try {
+      await _poseDetector?.close();
+    } catch (_) {}
+    _poseDetector = null;
+
+    if (!mounted) return;
+
+    Navigator.pushReplacement(
+      context,
+      MaterialPageRoute(
+        builder: (_) => ExerciseSummaryScreen(
+          workout: widget.workout,
+          plan: widget.plan,
+          elapsedSeconds: _elapsed,
+          totalReps: _totalReps,
+        ),
+      ),
+    );
+  }
+
+  // -------------------------
   // UI
   // -------------------------
 
@@ -547,6 +753,7 @@ void _startElapsedTimer() {
                       : _buildCameraWithOverlay(),
             ),
 
+            // top fade
             Positioned(
               left: 0,
               right: 0,
@@ -568,6 +775,7 @@ void _startElapsedTimer() {
               ),
             ),
 
+            // top bar
             Positioned(
               left: 0,
               right: 0,
@@ -598,6 +806,49 @@ void _startElapsedTimer() {
               ),
             ),
 
+            if (_phase == _Phase.setup && _countdown == 0)
+              Positioned(
+                left: 14 * s,
+                right: 14 * s,
+                top: 64 * s,
+                child: _ChecklistCard(
+                  s: s,
+                  title: widget.workout.title.toUpperCase(),
+                  subtitle: _allReady ? 'All set! Starting soon…' : 'Fix the RED items to start.',
+                  checklist: _checklist,
+                ),
+              ),
+
+            if (_phase == _Phase.setup && _countdown > 0)
+              Positioned.fill(
+                child: IgnorePointer(
+                  child: Center(
+                    child: Container(
+                      width: 160 * s,
+                      height: 160 * s,
+                      decoration: BoxDecoration(
+                        color: Colors.black.withValues(alpha: 0.55),
+                        shape: BoxShape.circle,
+                        border: Border.all(
+                          color: Colors.white.withValues(alpha: 0.35),
+                          width: 2,
+                        ),
+                      ),
+                      alignment: Alignment.center,
+                      child: Text(
+                        '$_countdown',
+                        style: TextStyle(
+                          color: Colors.white,
+                          fontSize: 64 * s,
+                          fontWeight: FontWeight.w900,
+                        ),
+                      ),
+                    ),
+                  ),
+                ),
+              ),
+
+            // bottom card
             Positioned(
               left: 14 * s,
               right: 14 * s,
@@ -718,7 +969,6 @@ class _BottomWorkoutCardState extends State<_BottomWorkoutCard>
   void didUpdateWidget(covariant _BottomWorkoutCard oldWidget) {
     super.didUpdateWidget(oldWidget);
 
-    // trigger only when reps increases (usually during active)
     final inc = widget.repsDone - _prevReps;
     if (inc > 0) {
       _plusText = inc == 1 ? '+1' : '+$inc';
@@ -742,15 +992,17 @@ class _BottomWorkoutCardState extends State<_BottomWorkoutCard>
       color: _BottomWorkoutCard._ink,
       fontSize: 30 * s,
       fontWeight: FontWeight.w900,
-      );
+    );
 
     final repsStyle = TextStyle(
       color: _BottomWorkoutCard._ink.withValues(alpha: 0.80),
-      fontSize: 20 * s, 
+      fontSize: 20 * s,
       fontWeight: FontWeight.w800,
-      );
+    );
 
-    final border = (widget.phase == _Phase.continueNext || widget.phase == _Phase.finished)
+    final border = (widget.phase == _Phase.continueNext ||
+            widget.phase == _Phase.finished ||
+            widget.phase == _Phase.setup)
         ? Border.all(color: const Color(0xFF22C55E), width: 3)
         : null;
 
@@ -771,7 +1023,6 @@ class _BottomWorkoutCardState extends State<_BottomWorkoutCard>
       child: Column(
         mainAxisSize: MainAxisSize.min,
         children: [
-          // top row
           Row(
             children: [
               Text(
@@ -803,15 +1054,13 @@ class _BottomWorkoutCardState extends State<_BottomWorkoutCard>
                 children: [
                   Text(_fmt(widget.setRemaining), style: timerStyle),
                   SizedBox(width: 26 * s),
-
-                  // reps text + +1 pop overlay
                   Stack(
                     clipBehavior: Clip.none,
                     children: [
                       Container(
                         padding: EdgeInsets.symmetric(horizontal: 14 * s, vertical: 10 * s),
                         decoration: BoxDecoration(
-                          color: const Color(0xFFFEF9C2).withValues(alpha: 0.60), 
+                          color: const Color(0xFFFEF9C2).withValues(alpha: 0.60),
                           borderRadius: BorderRadius.circular(14 * s),
                           boxShadow: [
                             BoxShadow(
@@ -823,7 +1072,6 @@ class _BottomWorkoutCardState extends State<_BottomWorkoutCard>
                         ),
                         child: Text('REPS: ${widget.repsDone}', style: repsStyle),
                       ),
-
                       Positioned(
                         right: 2 * s,
                         top: -18 * s,
@@ -836,7 +1084,7 @@ class _BottomWorkoutCardState extends State<_BottomWorkoutCard>
                               child: Text(
                                 _plusText,
                                 style: TextStyle(
-                                 color: const Color(0xFF22C55E),
+                                  color: const Color(0xFF22C55E),
                                   fontSize: 18 * s,
                                   fontWeight: FontWeight.w900,
                                   shadows: const [Shadow(blurRadius: 10, color: Colors.black)],
@@ -851,11 +1099,7 @@ class _BottomWorkoutCardState extends State<_BottomWorkoutCard>
                 ],
               )
             else
-              Text(
-                '${widget.repsDone}/${widget.repsTarget}',
-                style: timerStyle,
-              ),
-
+              Text('${widget.repsDone}/${widget.repsTarget}', style: timerStyle),
             SizedBox(height: 6 * s),
             Text(
               'SET ${widget.setIndex}/${widget.setsTotal}',
@@ -878,6 +1122,35 @@ class _BottomWorkoutCardState extends State<_BottomWorkoutCard>
             ),
             SizedBox(height: 10 * s),
             _DarkButton(s: s, label: 'Skip', onTap: widget.onSkipRest),
+          ] else if (widget.phase == _Phase.setup) ...[
+            Text(
+              'SETUP MODE',
+              style: TextStyle(
+                color: _BottomWorkoutCard._ink,
+                fontSize: 18 * s,
+                fontWeight: FontWeight.w900,
+              ),
+            ),
+            SizedBox(height: 6 * s),
+            Text(
+              'Fix the checklist above.\nCountdown starts automatically.',
+              textAlign: TextAlign.center,
+              style: TextStyle(
+                color: _BottomWorkoutCard._ink.withValues(alpha: 0.75),
+                fontSize: 12 * s,
+                fontWeight: FontWeight.w800,
+                height: 1.25,
+              ),
+            ),
+            SizedBox(height: 10 * s),
+            Text(
+              'Next: SET ${widget.setIndex + 1}/${widget.setsTotal}',
+              style: TextStyle(
+                color: _BottomWorkoutCard._ink.withValues(alpha: 0.8),
+                fontSize: 12 * s,
+                fontWeight: FontWeight.w800,
+              ),
+            ),
           ] else if (widget.phase == _Phase.continueNext) ...[
             SizedBox(height: 4 * s),
             _PrimaryYellowButton(s: s, label: 'Continue', onTap: widget.onContinue),
@@ -983,6 +1256,143 @@ class _PrimaryYellowButton extends StatelessWidget {
             color: _ink,
             fontSize: 16 * s,
             fontWeight: FontWeight.w900,
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+// ---------------------------------------
+// Checklist models + UI (same feel as SetupModeScreen)
+// ---------------------------------------
+class SetupChecklist {
+  const SetupChecklist({required this.items});
+  final List<SetupItem> items;
+
+  factory SetupChecklist.empty() => const SetupChecklist(items: []);
+
+  bool get allMet => items.isNotEmpty && items.every((e) => e.ok);
+}
+
+class SetupItem {
+  const SetupItem(this.text, this.ok);
+  final String text;
+  final bool ok;
+}
+
+class _ChecklistCard extends StatelessWidget {
+  const _ChecklistCard({
+    required this.s,
+    required this.title,
+    required this.subtitle,
+    required this.checklist,
+  });
+
+  final double s;
+  final String title;
+  final String subtitle;
+  final SetupChecklist checklist;
+
+  @override
+  Widget build(BuildContext context) {
+    final items = checklist.items;
+
+    return ClipRRect(
+      borderRadius: BorderRadius.circular(16 * s),
+      child: BackdropFilter(
+        filter: ImageFilter.blur(sigmaX: 10, sigmaY: 10),
+        child: Container(
+          padding: EdgeInsets.all(16 * s),
+          decoration: BoxDecoration(
+            color: Colors.black.withValues(alpha: 0.45),
+            borderRadius: BorderRadius.circular(16 * s),
+            border: Border.all(
+              color: Colors.white.withValues(alpha: 0.18),
+              width: 1,
+            ),
+            boxShadow: [
+              BoxShadow(
+                color: Colors.black.withValues(alpha: 0.30),
+                blurRadius: 14,
+                offset: const Offset(0, 6),
+              ),
+            ],
+          ),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                title,
+                style: TextStyle(
+                  fontSize: 18 * s,
+                  fontWeight: FontWeight.w900,
+                  color: Colors.white,
+                  shadows: const [Shadow(blurRadius: 8, color: Colors.black)],
+                ),
+              ),
+              SizedBox(height: 6 * s),
+              Text(
+                subtitle,
+                style: TextStyle(
+                  fontSize: 13 * s,
+                  fontWeight: FontWeight.w800,
+                  color: Colors.white.withValues(alpha: 0.85),
+                  height: 1.25,
+                ),
+              ),
+              SizedBox(height: 12 * s),
+              if (items.isEmpty)
+                Text(
+                  'Detecting your pose…',
+                  style: TextStyle(
+                    fontSize: 14 * s,
+                    fontWeight: FontWeight.w800,
+                    color: Colors.white.withValues(alpha: 0.9),
+                  ),
+                )
+              else
+                Column(
+                  children: [
+                    for (final it in items)
+                      Padding(
+                        padding: EdgeInsets.only(bottom: 10 * s),
+                        child: Row(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Container(
+                              width: 28 * s,
+                              height: 28 * s,
+                              decoration: BoxDecoration(
+                                color: it.ok
+                                    ? const Color(0xFF00C951)
+                                    : const Color(0xFFE53935),
+                                shape: BoxShape.circle,
+                              ),
+                              child: Icon(
+                                it.ok ? Icons.check_rounded : Icons.close_rounded,
+                                color: Colors.white,
+                                size: 18 * s,
+                              ),
+                            ),
+                            SizedBox(width: 12 * s),
+                            Expanded(
+                              child: Text(
+                                it.text,
+                                style: TextStyle(
+                                  fontSize: 15 * s,
+                                  fontWeight: FontWeight.w900,
+                                  height: 1.25,
+                                  color: Colors.white.withValues(alpha: 0.92),
+                                ),
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                  ],
+                ),
+            ],
           ),
         ),
       ),
@@ -1115,7 +1525,6 @@ class ExerciseSummaryScreen extends StatelessWidget {
       backgroundColor: const Color(0xFF0F1A28),
       body: Stack(
         children: [
-          // ✅ No image needed — gradient background
           Positioned.fill(
             child: Container(
               decoration: const BoxDecoration(
@@ -1130,13 +1539,11 @@ class ExerciseSummaryScreen extends StatelessWidget {
           Positioned.fill(
             child: Container(color: Colors.black.withValues(alpha: 0.25)),
           ),
-
           SafeArea(
             child: Padding(
               padding: EdgeInsets.fromLTRB(18 * s, 12 * s, 18 * s, 18 * s),
               child: Column(
                 children: [
-                  // Top content scrolls
                   Expanded(
                     child: SingleChildScrollView(
                       child: Column(
@@ -1161,9 +1568,7 @@ class ExerciseSummaryScreen extends StatelessWidget {
                               ),
                             ),
                           ),
-
                           SizedBox(height: 18 * s),
-
                           Text(
                             "Nice, you've\ncompleted the\nexercise!",
                             style: TextStyle(
@@ -1173,9 +1578,7 @@ class ExerciseSummaryScreen extends StatelessWidget {
                               height: 1.05,
                             ),
                           ),
-
                           SizedBox(height: 12 * s),
-
                           Container(
                             padding: EdgeInsets.symmetric(
                               horizontal: 14 * s,
@@ -1209,10 +1612,7 @@ class ExerciseSummaryScreen extends StatelessWidget {
                               ],
                             ),
                           ),
-
                           SizedBox(height: 16 * s),
-
-                          // Stats card
                           Container(
                             padding: EdgeInsets.all(14 * s),
                             decoration: BoxDecoration(
@@ -1249,16 +1649,13 @@ class ExerciseSummaryScreen extends StatelessWidget {
                                     s: s,
                                     label: 'Time',
                                     value: _fmt(elapsedSeconds),
-                                    valueColor: _ink, // ✅ uses valueColor (no warning)
+                                    valueColor: _ink,
                                   ),
                                 ),
                               ],
                             ),
                           ),
-
                           SizedBox(height: 14 * s),
-
-                          // Summary card
                           Container(
                             width: double.infinity,
                             padding: EdgeInsets.all(16 * s),
@@ -1279,14 +1676,11 @@ class ExerciseSummaryScreen extends StatelessWidget {
                               ),
                             ),
                           ),
-
                           SizedBox(height: 18 * s),
                         ],
                       ),
                     ),
                   ),
-
-                  // Bottom pinned button (full screen)
                   InkWell(
                     onTap: () => Navigator.popUntil(context, (r) => r.isFirst),
                     borderRadius: BorderRadius.circular(16 * s),
@@ -1363,6 +1757,7 @@ class _StatBox extends StatelessWidget {
     );
   }
 }
+
 // -------------------------
 // Jumping Jacks Counter
 // -------------------------
