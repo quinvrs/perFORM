@@ -13,6 +13,7 @@ import '../models/workout.dart';
 import '../models/workout_plan.dart';
 import '../app_state.dart';
 import '../services/rep_counter_squats.dart';
+import '../services/rep_counter_jumping_jacks.dart';
 
 enum _Phase { setup, active, rest, continueNext, finished }
 
@@ -56,7 +57,7 @@ class _ExerciseScreenState extends State<ExerciseScreen> {
 
   // reps
   RepCounter _repCounter = RepCounter.squat();
-  final _JumpingJacksCounter _jjCounter = _JumpingJacksCounter();
+  final JumpingJacksRepCounter _jjCounter = JumpingJacksRepCounter();
   int _reps = 0; // reps for current set
   int _totalReps = 0; // total reps across sets
   bool _setCommitted = false;
@@ -517,14 +518,30 @@ class _ExerciseScreenState extends State<ExerciseScreen> {
 
           // Jumping Jacks: count reps even if timed
           if (_isJumpingJacks) {
-            final had = _jjCounter.update(poses.first);
+            // Need camera + mapping context for robust detection
+            if (_imgSize == null || _imgRotation == null || _selectedCamera == null) return;
+
+            final previewSize = _controller?.value.previewSize;
+            if (previewSize == null) return;
+
+            // Matches the SizedBox used by CustomPaint (see _buildCameraWithOverlay)
+            final canvasSize = Size(previewSize.height, previewSize.width);
+
+            final had = _jjCounter.update(
+              pose: poses.first,
+              canvasSize: canvasSize,
+              imageSize: _imgSize!,
+              rotation: _imgRotation!,
+              lensDirection: _selectedCamera!.lensDirection,
+            );
+
             if (had || _jjCounter.reps != _reps) {
               if (mounted) setState(() => _reps = _jjCounter.reps);
             }
             return;
           }
 
-          // Squats: reps-based only
+// Squats: reps-based only
           if (!widget.plan.isTimed) {
             final hadRep = _repCounter.update(poses.first);
             if (hadRep) {
@@ -1758,50 +1775,6 @@ class _StatBox extends StatelessWidget {
   }
 }
 
-// -------------------------
-// Jumping Jacks Counter
-// -------------------------
-class _JumpingJacksCounter {
-  int reps = 0;
-  bool _wasOpen = false;
-
-  void reset() {
-    reps = 0;
-    _wasOpen = false;
-  }
-
-  bool update(Pose pose) {
-    final lm = pose.landmarks;
-    final ls = lm[PoseLandmarkType.leftShoulder];
-    final rs = lm[PoseLandmarkType.rightShoulder];
-    final lw = lm[PoseLandmarkType.leftWrist];
-    final rw = lm[PoseLandmarkType.rightWrist];
-    final la = lm[PoseLandmarkType.leftAnkle];
-    final ra = lm[PoseLandmarkType.rightAnkle];
-    final lh = lm[PoseLandmarkType.leftHip];
-    final rh = lm[PoseLandmarkType.rightHip];
-
-    if ([ls, rs, lw, rw, la, ra, lh, rh].any((e) => e == null)) return false;
-
-    final shoulderY = (ls!.y + rs!.y) / 2.0;
-    final armsUp = (lw!.y < shoulderY - 10) && (rw!.y < shoulderY - 10);
-
-    final hipWidth = (lh!.x - rh!.x).abs();
-    final ankleWidth = (la!.x - ra!.x).abs();
-    final legsApart = ankleWidth > hipWidth * 1.35;
-
-    final openNow = armsUp && legsApart;
-
-    bool counted = false;
-    if (_wasOpen && !openNow) {
-      reps += 1;
-      counted = true;
-    }
-
-    _wasOpen = openNow;
-    return counted;
-  }
-}
 
 // -------------------------
 // helpers
