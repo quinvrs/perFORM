@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:url_launcher/url_launcher.dart';
+import 'package:video_player/video_player.dart';
 
 import '../models/workout.dart';
 import '../app_state.dart';
@@ -14,7 +15,7 @@ Future<void> showExerciseDetailsSheet(
 
   final plan = WorkoutPlan.recommended(
     workoutTitle: workout.title,
-    level: parseActivityLevel(state.activityLevel), // ✅ FIX
+    level: parseActivityLevel(state.activityLevel),
   );
 
   await showModalBottomSheet(
@@ -54,6 +55,36 @@ class _ExerciseDetailsSheetState extends State<_ExerciseDetailsSheet> {
   static const _segBg = Color(0xFFEFEFF3);
 
   int _tab = 0; // 0=Animation, 1=Muscle, 2=How to do
+
+  VideoPlayerController? _vid;
+  bool _vidReady = false;
+  bool _vidError = false;
+
+  @override
+  void initState() {
+    super.initState();
+
+    final asset = _videoFor(widget.workout.title);
+    if (asset != null) {
+      _vid = VideoPlayerController.asset(asset)
+        ..setLooping(true)
+        ..initialize().then((_) {
+          if (!mounted) return;
+          setState(() => _vidReady = true);
+        }).catchError((_) {
+          if (!mounted) return;
+          setState(() => _vidError = true);
+        });
+    } else {
+      _vidError = true;
+    }
+  }
+
+  @override
+  void dispose() {
+    _vid?.dispose();
+    super.dispose();
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -112,7 +143,7 @@ class _ExerciseDetailsSheetState extends State<_ExerciseDetailsSheet> {
                   ),
                 ),
 
-                // Thumbnail (no embed)
+                // Offline video preview (asset) — replaces thumbnail
                 Padding(
                   padding: EdgeInsets.symmetric(horizontal: 18 * s),
                   child: AspectRatio(
@@ -122,13 +153,13 @@ class _ExerciseDetailsSheetState extends State<_ExerciseDetailsSheet> {
                       child: Stack(
                         fit: StackFit.expand,
                         children: [
-                          if (ytId != null)
-                            Image.network(
-                              'https://img.youtube.com/vi/$ytId/hqdefault.jpg',
+                          if (_vidReady && _vid != null && !_vidError)
+                            FittedBox(
                               fit: BoxFit.cover,
-                              errorBuilder: (_, _, _) => Image.asset(
-                                _imageFor(title),
-                                fit: BoxFit.cover,
+                              child: SizedBox(
+                                width: _vid!.value.size.width,
+                                height: _vid!.value.size.height,
+                                child: VideoPlayer(_vid!),
                               ),
                             )
                           else
@@ -137,28 +168,44 @@ class _ExerciseDetailsSheetState extends State<_ExerciseDetailsSheet> {
                               fit: BoxFit.cover,
                             ),
 
-                          Container(color: Colors.black.withValues(alpha: 0.15)),
+                          // subtle overlay
+                          Container(color: Colors.black.withValues(alpha: 0.10)),
 
-                          Center(
-                            child: Container(
-                              width: 64 * s,
-                              height: 64 * s,
-                              decoration: BoxDecoration(
-                                color: Colors.black.withValues(alpha: 0.45),
-                                shape: BoxShape.circle,
-                              ),
-                              child: Icon(
-                                Icons.play_arrow_rounded,
-                                color: Colors.white,
-                                size: 40 * s,
+                          // loading spinner when initializing
+                          if (_vid != null && !_vidReady && !_vidError)
+                            const Center(child: CircularProgressIndicator()),
+
+                          // play/pause overlay (only if ready)
+                          if (_vidReady && _vid != null && !_vidError)
+                            Center(
+                              child: Container(
+                                width: 64 * s,
+                                height: 64 * s,
+                                decoration: BoxDecoration(
+                                  color: Colors.black.withValues(alpha: 0.45),
+                                  shape: BoxShape.circle,
+                                ),
+                                child: Icon(
+                                  _vid!.value.isPlaying
+                                      ? Icons.pause_rounded
+                                      : Icons.play_arrow_rounded,
+                                  color: Colors.white,
+                                  size: 40 * s,
+                                ),
                               ),
                             ),
-                          ),
 
+                          // tap to play/pause
                           Material(
                             color: Colors.transparent,
                             child: InkWell(
-                              onTap: ytUrl == null ? null : () => _openYoutube(ytUrl),
+                              onTap: (_vidReady && _vid != null && !_vidError)
+                                  ? () {
+                                      setState(() {
+                                        _vid!.value.isPlaying ? _vid!.pause() : _vid!.play();
+                                      });
+                                    }
+                                  : null,
                             ),
                           ),
                         ],
@@ -383,7 +430,6 @@ class _TabAnimation extends StatelessWidget {
       children: [
         _SectionRow(s: s, left: 'SETS', right: '${plan.sets}', leftColor: _blue),
         SizedBox(height: 8 * s),
-
         if (plan.isTimed) ...[
           _SectionRow(s: s, left: 'TIMER PER SET', right: plan.timerLabel, leftColor: _blue),
           SizedBox(height: 8 * s),
@@ -391,7 +437,6 @@ class _TabAnimation extends StatelessWidget {
         ] else ...[
           _SectionRow(s: s, left: 'REPS PER SET', right: '${plan.reps}', leftColor: _blue),
         ],
-
         SizedBox(height: 12 * s),
         Text(
           'Preview',
@@ -405,8 +450,8 @@ class _TabAnimation extends StatelessWidget {
         SizedBox(height: 8 * s),
         Text(
           hasLink
-              ? 'Tap the preview or the button to watch on YouTube.'
-              : 'No video demo available for this exercise.',
+              ? 'Tap the video to play/pause. Use the YouTube button for the full online demo.'
+              : 'Tap the video to play/pause.',
           style: TextStyle(
             color: Colors.black.withValues(alpha: 0.65),
             fontSize: 13 * s,
@@ -447,7 +492,6 @@ class _TabMuscle extends StatelessWidget {
           _SectionRow(s: s, left: 'TIMER PER SET', right: plan.timerLabel, leftColor: _blue)
         else
           _SectionRow(s: s, left: 'REPS PER SET', right: '${plan.reps}', leftColor: _blue),
-
         SizedBox(height: 14 * s),
         Text(
           'FOCUS AREA',
@@ -550,7 +594,6 @@ class _TabHowTo extends StatelessWidget {
           _SectionRow(s: s, left: 'TIMER PER SET', right: plan.timerLabel, leftColor: _blue)
         else
           _SectionRow(s: s, left: 'REPS PER SET', right: '${plan.reps}', leftColor: _blue),
-
         SizedBox(height: 14 * s),
         Text(
           'INSTRUCTIONS',
@@ -682,8 +725,13 @@ class _SectionRow extends StatelessWidget {
   }
 }
 
-
 /// ---- helpers ----
+String? _videoFor(String title) {
+  final t = title.toLowerCase();
+  if (t.contains('jump')) return 'assets/jumpingjacks.mp4';
+  if (t.contains('squat')) return 'assets/squat.mp4';
+  return null;
+}
 
 String _imageFor(String title) {
   final t = title.toLowerCase();
