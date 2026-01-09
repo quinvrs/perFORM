@@ -1457,7 +1457,7 @@ class _PosePainter extends CustomPainter {
         default:
           mapped = x * size.width / imageSize.width;
       }
-      return isFrontCamera ? size.width - mapped : mapped;
+      return mapped;
     }
 
     double ty(double y) {

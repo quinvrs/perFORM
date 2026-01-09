@@ -462,7 +462,7 @@ class _SetupModeScreenState extends State<SetupModeScreen> {
       final previewAspect = controller.value.aspectRatio;
 
       final portraitPreviewAspect = 1 / previewAspect;
-      final scale = screenAspect / portraitPreviewAspect *1.75;
+      final scale = screenAspect / portraitPreviewAspect *2.5;
 
       return ClipRect(
         child: Transform.scale(
@@ -833,7 +833,7 @@ class _PosePainter extends CustomPainter {
         default:
           mapped = x * size.width / imageSize.width;
       }
-      return isFrontCamera ? size.width - mapped : mapped;
+      return mapped;
     }
 
     double ty(double y) {
