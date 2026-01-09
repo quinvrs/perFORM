@@ -1,6 +1,7 @@
 import 'dart:async';
 import 'dart:io';
 import 'dart:ui';
+import 'dart:math' as math;
 
 import 'package:camera/camera.dart';
 import 'package:flutter/material.dart';
@@ -460,7 +461,14 @@ class _SetupModeScreenState extends State<SetupModeScreen> {
       final previewAspect = controller.value.aspectRatio;
 
       final portraitPreviewAspect = 1 / previewAspect;
-      final scale = screenAspect / portraitPreviewAspect *2.5;
+      
+      final rawScale = math.max(
+        screenAspect / portraitPreviewAspect,
+        portraitPreviewAspect / screenAspect,
+      );
+
+      // keep it from over-zooming on weird aspect ratios
+      final scale = rawScale.clamp(1.0, 1.6);
 
       return ClipRect(
         child: Transform.scale(

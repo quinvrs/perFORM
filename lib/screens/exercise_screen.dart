@@ -2,6 +2,7 @@ import 'dart:async';
 import 'dart:io';
 import 'dart:typed_data';
 import 'dart:ui';
+import 'dart:math' as math;
 
 import 'package:camera/camera.dart';
 import 'package:flutter/material.dart';
@@ -45,6 +46,7 @@ class _ExerciseScreenState extends State<ExerciseScreen> {
   CameraDescription? _selectedCamera;
   InputImageRotation? _imgRotation;
   Size? _imgSize;
+  Size? _canvasSize;
 
   // session timer (top-right)
   int _elapsed = 0;
@@ -521,11 +523,14 @@ class _ExerciseScreenState extends State<ExerciseScreen> {
             // Need camera + mapping context for robust detection
             if (_imgSize == null || _imgRotation == null || _selectedCamera == null) return;
 
-            final previewSize = _controller?.value.previewSize;
-            if (previewSize == null) return;
+          final canvasSize = _canvasSize ??
+              (() {
+                final previewSize = _controller?.value.previewSize;
+                if (previewSize == null) return null;
+                return Size(previewSize.height, previewSize.width);
+              })();
 
-            // Matches the SizedBox used by CustomPaint (see _buildCameraWithOverlay)
-            final canvasSize = Size(previewSize.height, previewSize.width);
+          if (canvasSize == null) return;
 
             final had = _jjCounter.update(
               pose: poses.first,
@@ -676,60 +681,78 @@ class _ExerciseScreenState extends State<ExerciseScreen> {
   // UI
   // -------------------------
 
-  Widget _buildCameraWithOverlay() {
-    final controller = _controller;
-    if (controller == null || !controller.value.isInitialized) {
-      return const Center(child: CircularProgressIndicator());
-    }
+ Widget _buildCameraWithOverlay() {
+  final controller = _controller;
+  if (controller == null || !controller.value.isInitialized) {
+    return const Center(child: CircularProgressIndicator());
+  }
 
-    return LayoutBuilder(
-      builder: (context, constraints) {
-        final previewSize = controller.value.previewSize!;
-        final screenW = constraints.maxWidth;
-        final screenH = constraints.maxHeight;
+  return LayoutBuilder(
+    builder: (context, constraints) {
+      final screenAspect = constraints.maxWidth / constraints.maxHeight;
 
-        final previewW = previewSize.height;
-        final previewH = previewSize.width;
+      // camera plugin gives landscape-ish aspect for portrait preview
+      final previewAspect = controller.value.aspectRatio;
+      final portraitPreviewAspect = 1 / previewAspect;
 
-        final scaleW = screenW / previewW;
-        final scaleH = screenH / previewH;
-        final scale = scaleW > scaleH ? scaleW : scaleH;
+      // cover scale, clamped (same as your SetupModeScreen fix)
+      final rawScale = math.max(
+        screenAspect / portraitPreviewAspect,
+        portraitPreviewAspect / screenAspect,
+      );
+      final scale = rawScale.clamp(1.0, 1.6);
 
-        return ClipRect(
+      // compute the actual on-screen size of the AspectRatio box (before scaling)
+      final boxW = constraints.maxWidth;
+      final boxH = constraints.maxHeight;
+
+      double paintW, paintH;
+      if (boxW / boxH > portraitPreviewAspect) {
+        // screen is wider → height matches, width follows aspect
+        paintH = boxH;
+        paintW = boxH * portraitPreviewAspect;
+      } else {
+        // screen is narrower → width matches, height follows aspect
+        paintW = boxW;
+        paintH = boxW / portraitPreviewAspect;
+      }
+      _canvasSize = Size(paintW, paintH);
+
+      return ClipRect(
+        child: Transform.scale(
+          scale: scale.toDouble(),
+          alignment: Alignment.center,
           child: Center(
-            child: Transform.scale(
-              scale: scale,
-              alignment: Alignment.center,
-              child: SizedBox(
-                width: previewW,
-                height: previewH,
-                child: Stack(
-                  fit: StackFit.expand,
-                  children: [
-                    CameraPreview(controller),
-                    if (_imgSize != null && _imgRotation != null && _selectedCamera != null)
-                      IgnorePointer(
-                        child: RepaintBoundary(
-                          child: CustomPaint(
-                            painter: _PosePainter(
-                              poses: _poses,
-                              imageSize: _imgSize!,
-                              rotation: _imgRotation!,
-                              isFrontCamera:
-                                  _selectedCamera!.lensDirection == CameraLensDirection.front,
-                            ),
+            child: AspectRatio(
+              aspectRatio: portraitPreviewAspect,
+              child: Stack(
+                fit: StackFit.expand,
+                children: [
+                  CameraPreview(controller),
+                  if (_imgSize != null && _imgRotation != null && _selectedCamera != null)
+                    IgnorePointer(
+                      child: RepaintBoundary(
+                        child: CustomPaint(
+                          painter: _PosePainter(
+                            poses: _poses,
+                            imageSize: _imgSize!,
+                            rotation: _imgRotation!,
+                            isFrontCamera:
+                                _selectedCamera!.lensDirection == CameraLensDirection.front,
                           ),
                         ),
                       ),
-                  ],
-                ),
+                    ),
+                ],
               ),
             ),
           ),
-        );
-      },
-    );
-  }
+        ),
+      );
+    },
+  );
+}
+
 
   @override
   Widget build(BuildContext context) {

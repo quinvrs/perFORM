@@ -13,20 +13,16 @@ class RepCounter {
   String debug = '';
 
   // --- Squat tuning (good starting values for side view)
-  final double downAngleDeg; // smaller = deeper squat
-  final double upAngleDeg; // larger = standing
-  final int confirmFrames; // requires N consistent frames to change state
-  final Duration minRepInterval; // avoid fast double counts
+  final double downAngleDeg; 
+  final double upAngleDeg; 
+  final int confirmFrames; 
+  final Duration minRepInterval; 
 
   // --- Anti false reps (single-leg raise)
   /// Require hips to drop by this fraction of torso height before accepting "DOWN"
-  final double minHipDropTorso; // 0.08 looser, 0.12 stricter
-
-  /// Standing hip baseline smoothing (EMA)
+  final double minHipDropTorso;
   final double hipBaseEmaAlpha;
-
-  /// When counting a rep, require both ankles visible/confident/level
-  /// (This blocks reps when a foot is lifted OR when ankles are missing/low-confidence.)
+  // This blocks reps when a foot is lifted OR when ankles are missing/low-confidence.
   final bool strictFeetOnRep;
   final double strictFootMinLikelihood;
   final double strictFeetLevelTolTorso;
@@ -40,8 +36,8 @@ class RepCounter {
   double? _baseHipY;
 
   RepCounter.squat({
-    this.downAngleDeg = 110, // try 100–120
-    this.upAngleDeg = 160, // try 155–170
+    this.downAngleDeg = 110, 
+    this.upAngleDeg = 160,
     this.confirmFrames = 3,
     this.minRepInterval = const Duration(milliseconds: 450),
 
