@@ -14,6 +14,7 @@ import '../models/workout.dart';
 import '../models/workout_plan.dart';
 import '../services/rep_counter_squats.dart';
 import 'exercise_screen.dart';
+import '../services/tts_service.dart';
 
 class SetupModeScreen extends StatefulWidget {
   const SetupModeScreen({
@@ -417,7 +418,7 @@ class _SetupModeScreenState extends State<SetupModeScreen> {
     if (_isSquat(title)) {
       return SetupChecklist(
         items: [
-          SetupItem('Stand 6–8 feet from the camera', distanceOk),
+          SetupItem('Stand 4-6 feet from the camera', distanceOk),
           SetupItem('Ensure that the full body is visible', fullBodyVisible),
           SetupItem('Position yourself side-facing to the camera', sideFacingOk),
           SetupItem('Keep enough space for your arms and legs', spaceOk),
@@ -428,7 +429,7 @@ class _SetupModeScreenState extends State<SetupModeScreen> {
     if (_isJumpingJack(title)) {
       return SetupChecklist(
         items: [
-          SetupItem('Stand 6–8 feet from the camera', distanceOk),
+          SetupItem('Stand 4-6 feet from the camera', distanceOk),
           SetupItem('Ensure that the full body is visible', fullBodyVisible),
           SetupItem('Face the camera directly', frontFacingOk),
           SetupItem(
