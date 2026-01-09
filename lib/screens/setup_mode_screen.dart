@@ -53,8 +53,6 @@ class _SetupModeScreenState extends State<SetupModeScreen> {
   final RepCounter _repCounter = RepCounter.squat();
   int _reps = 0;
 
-  static const bool _showDebug = true;
-
   @override
   void initState() {
     super.initState();
@@ -624,27 +622,6 @@ class _SetupModeScreenState extends State<SetupModeScreen> {
                           fontWeight: FontWeight.w900,
                         ),
                       ),
-                    ),
-                  ),
-                ),
-              ),
-
-            // debug badge
-            if (_showDebug)
-              Positioned(
-                left: 14 * s,
-                bottom: 14 * s,
-                child: SafeArea(
-                  top: false,
-                  child: Container(
-                    padding: EdgeInsets.symmetric(horizontal: 10 * s, vertical: 6 * s),
-                    decoration: BoxDecoration(
-                      color: Colors.black.withValues(alpha: 0.6),
-                      borderRadius: BorderRadius.circular(8 * s),
-                    ),
-                    child: Text(
-                      'poses:${_poses.isEmpty ? 0 : 1} ready:$_allReady cd:$_countdown reps:$_reps',
-                      style: TextStyle(color: Colors.white, fontSize: 12 * s),
                     ),
                   ),
                 ),

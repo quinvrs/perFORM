@@ -17,6 +17,11 @@ class RepCounter {
   final double upAngleDeg;   // larger = standing
   final int confirmFrames;   // requires N consistent frames to change state
   final Duration minRepInterval; // avoid fast double counts
+  //revision one leg fix
+  final bool requireBothFeetDown;
+  final double minFootLikelihood;
+  final double feetLevelToleranceTorso; // max ankle Y mismatch as fraction of torso height
+  final double ankleAboveKneeTolTorso;
 
   _SquatPhase _phase = _SquatPhase.unknown;
   int _downHits = 0;
@@ -28,6 +33,11 @@ class RepCounter {
     this.upAngleDeg = 160,   // try 155–170
     this.confirmFrames = 3,
     this.minRepInterval = const Duration(milliseconds: 450),
+
+    this.requireBothFeetDown = false,
+    this.minFootLikelihood = 0.35,
+    this.feetLevelToleranceTorso = 0.22, // 0.12 stricter, 0.22 looser
+    this.ankleAboveKneeTolTorso = 0.06,
   }) : type = ExerciseType.squat;
 
   void reset() {
@@ -60,7 +70,19 @@ class RepCounter {
       debug = 'Missing landmarks (hip/knee/ankle).';
       return false;
     }
+    if (requireBothFeetDown) {
+      final torsoH = _torsoHeight(pose, fallbackHip: hip, fallbackKnee: knee);
+      final reason = _feetGateReason(pose, torsoH);
+      if (reason != null) {
+        // freeze the state machine on suspicious frames
+        _downHits = 0;
+        _upHits = 0;
+        if (_phase == _SquatPhase.unknown) _phase = _SquatPhase.standing;
 
+        debug = '$reason | phase=$_phase reps=$reps';
+        return false;
+      }
+    }
     final kneeAngle = _angleDeg(hip, knee, ankle);
     debug =
         'knee=${kneeAngle.toStringAsFixed(1)} '
@@ -112,6 +134,67 @@ class RepCounter {
   }
 
   // Helpers
+  //one leg raise fix helpers
+  double _torsoHeight(Pose pose, {PoseLandmark? fallbackHip, PoseLandmark? fallbackKnee}) {
+    final lSh = pose.landmarks[PoseLandmarkType.leftShoulder];
+    final rSh = pose.landmarks[PoseLandmarkType.rightShoulder];
+    final lHip = pose.landmarks[PoseLandmarkType.leftHip];
+    final rHip = pose.landmarks[PoseLandmarkType.rightHip];
+
+    if (lSh != null && rSh != null && lHip != null && rHip != null) {
+      final avgShoulderY = (lSh.y + rSh.y) / 2.0;
+      final avgHipY = (lHip.y + rHip.y) / 2.0;
+      return (avgHipY - avgShoulderY).abs().clamp(1.0, 1e9);
+    }
+
+    // fallback: use thigh length approx
+    if (fallbackHip != null && fallbackKnee != null) {
+      return ((fallbackHip.y - fallbackKnee.y).abs() * 2.0).clamp(1.0, 1e9);
+    }
+
+    return 200.0; // last-resort scale
+  }
+
+  /// Returns null if OK, else a short reason why we should IGNORE this frame for squats.
+  String? _feetGateReason(Pose pose, double torsoH) {
+    final lAnk = pose.landmarks[PoseLandmarkType.leftAnkle];
+    final rAnk = pose.landmarks[PoseLandmarkType.rightAnkle];
+
+    // If we can't see both ankles, don't block (to avoid killing reps on occlusion)
+    if (lAnk == null || rAnk == null) return null;
+
+    final lLik = lAnk.likelihood ?? 0.0;
+    final rLik = rAnk.likelihood ?? 0.0;
+
+    // If ankles are too low confidence, don't block (avoid false negatives)
+    if (lLik < minFootLikelihood || rLik < minFootLikelihood) return null;
+
+    final maxDY = feetLevelToleranceTorso * torsoH;
+    final dy = (lAnk.y - rAnk.y).abs();
+
+    // One foot lifted -> ankle Y differs a lot
+    if (dy > maxDY) return 'Feet not level (dy=${dy.toStringAsFixed(1)} > ${maxDY.toStringAsFixed(1)})';
+
+    // Optional extra: if ankle appears ABOVE knee by a lot, it’s almost surely a leg raise
+    final lKnee = pose.landmarks[PoseLandmarkType.leftKnee];
+    final rKnee = pose.landmarks[PoseLandmarkType.rightKnee];
+    final tol = ankleAboveKneeTolTorso * torsoH;
+
+    if (lKnee != null) {
+      final kLik = lKnee.likelihood ?? 0.0;
+      if (kLik >= minFootLikelihood && (lAnk.y + tol) < lKnee.y) {
+        return 'Left ankle above left knee (leg raise)';
+      }
+    }
+    if (rKnee != null) {
+      final kLik = rKnee.likelihood ?? 0.0;
+      if (kLik >= minFootLikelihood && (rAnk.y + tol) < rKnee.y) {
+        return 'Right ankle above right knee (leg raise)';
+      }
+    }
+
+    return null;
+  }
 
   double _angleDeg(PoseLandmark a, PoseLandmark b, PoseLandmark c) {
     // Angle at point b formed by a-b-c

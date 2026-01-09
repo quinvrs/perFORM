@@ -542,7 +542,6 @@ class _ExerciseScreenState extends State<ExerciseScreen> {
           }
 
 // Squats: reps-based only
-          if (!widget.plan.isTimed) {
             final hadRep = _repCounter.update(poses.first);
             if (hadRep) {
               final newReps = _repCounter.reps;
@@ -552,7 +551,7 @@ class _ExerciseScreenState extends State<ExerciseScreen> {
                 _completeSet();
               }
             }
-          }
+          
         } catch (e, st) {
           debugPrint('Exercise pose error: $e\n$st');
         } finally {
