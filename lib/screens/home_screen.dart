@@ -107,7 +107,6 @@ class _HomeTab extends StatelessWidget {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          // ✅ NEW: top row (logo + profile avatar) aligned
           SizedBox(
             height: 54 * scale,
             child: Row(
@@ -298,7 +297,6 @@ class _HomeTab extends StatelessWidget {
   }
 }
 
-// ✅ NEW: avatar widget that can show image from AppState
 class _ProfileAvatar extends StatelessWidget {
   const _ProfileAvatar({required this.scale});
   final double scale;
@@ -307,7 +305,7 @@ class _ProfileAvatar extends StatelessWidget {
   Widget build(BuildContext context) {
     final state = AppStateScope.of(context);
 
-    final path = state.avatarPath; // ✅ NEW field in AppState (see step 3)
+    final path = state.avatarPath; 
     ImageProvider? img;
 
     if (path != null && path.trim().isNotEmpty) {

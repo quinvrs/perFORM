@@ -1,6 +1,6 @@
-// lib/screens/exercise_screen.dart
 import 'dart:async';
 import 'dart:io';
+import 'dart:typed_data';
 
 import 'package:camera/camera.dart';
 import 'package:flutter/material.dart';
@@ -48,26 +48,40 @@ class _ExerciseScreenState extends State<ExerciseScreen> {
   int _elapsed = 0;
   Timer? _elapsedTimer;
 
+  // ✅ mutable (NOT final)
+  bool _elapsedFrozen = false;
+
   // exercise flow
   _Phase _phase = _Phase.active;
   int _setIndex = 1; // 1..sets
 
-  // reps (for non-timed)
+  // reps
   RepCounter _repCounter = RepCounter.squat();
-  int _reps = 0;
+  final _JumpingJacksCounter _jjCounter = _JumpingJacksCounter();
+
+  int _reps = 0; // reps for current set
+  int _totalReps = 0; // total reps across sets
+  bool _setCommitted = false;
 
   // timed-set support
   Timer? _setTimer;
   int _setRemaining = 0;
 
   // rest
-  static const int _restSecondsDefault = 30;
+  late final int _restSecondsDefault;
   Timer? _restTimer;
-  int _restRemaining = _restSecondsDefault;
+  late int _restRemaining;
+
+  bool get _isJumpingJacks =>
+      widget.workout.title.toLowerCase().contains('jump') ||
+      widget.workout.title.toLowerCase().contains('jack');
 
   @override
   void initState() {
     super.initState();
+
+    _restSecondsDefault = widget.plan.restSeconds;
+    _restRemaining = _restSecondsDefault;
 
     _poseDetector = PoseDetector(
       options: PoseDetectorOptions(
@@ -78,7 +92,10 @@ class _ExerciseScreenState extends State<ExerciseScreen> {
 
     _startElapsedTimer();
     _startSetIfTimed();
-    _initCamera();
+
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      _initCamera();
+    });
   }
 
   @override
@@ -101,13 +118,28 @@ class _ExerciseScreenState extends State<ExerciseScreen> {
     super.dispose();
   }
 
-  void _startElapsedTimer() {
-    _elapsedTimer?.cancel();
-    _elapsedTimer = Timer.periodic(const Duration(seconds: 1), (_) {
-      if (!mounted) return;
-      setState(() => _elapsed++);
-    });
-  }
+  // -------------------------
+  // Timers
+  // -------------------------
+
+  void _freezeElapsedTimer() {
+  _elapsedFrozen = true;
+}
+
+void _startElapsedTimer() {
+  _elapsedTimer?.cancel();
+  _elapsedFrozen = false;
+
+  _elapsedTimer = Timer.periodic(const Duration(seconds: 1), (_) {
+    if (!mounted) return;
+
+    // ✅ freeze anytime you want (continueNext/finished/summary)
+    if (_elapsedFrozen) return;
+
+    setState(() => _elapsed++);
+  });
+}
+
 
   void _startSetIfTimed() {
     if (!widget.plan.isTimed) return;
@@ -117,6 +149,7 @@ class _ExerciseScreenState extends State<ExerciseScreen> {
 
     _setTimer = Timer.periodic(const Duration(seconds: 1), (t) {
       if (!mounted) return;
+      if (_phase != _Phase.active) return; // ✅ freeze set timer during rest/continue
       setState(() => _setRemaining--);
 
       if (_setRemaining <= 0) {
@@ -129,14 +162,36 @@ class _ExerciseScreenState extends State<ExerciseScreen> {
 
   void _resetForNextSet() {
     _reps = 0;
-    _repCounter = RepCounter.squat();
+    _setCommitted = false;
+
+    if (_isJumpingJacks) {
+      _jjCounter.reset();
+    } else {
+      _repCounter = RepCounter.squat();
+    }
+
     if (widget.plan.isTimed) _startSetIfTimed();
+  }
+
+  void _commitSetRepsOnce() {
+    if (_setCommitted) return;
+    _totalReps += _reps;
+    _setCommitted = true;
   }
 
   void _completeSet() {
     if (_phase != _Phase.active) return;
+    _commitSetRepsOnce();
 
     if (_setIndex >= widget.plan.sets) {
+      _setTimer?.cancel();
+      _setTimer = null;
+      _restTimer?.cancel();
+      _restTimer = null;
+
+      // ✅ freeze session timer once workout is actually finished
+      _freezeElapsedTimer();
+
       setState(() => _phase = _Phase.finished);
       return;
     }
@@ -155,6 +210,9 @@ class _ExerciseScreenState extends State<ExerciseScreen> {
       if (_restRemaining <= 0) {
         t.cancel();
         _restTimer = null;
+
+        _freezeElapsedTimer();
+
         if (mounted) setState(() => _phase = _Phase.continueNext);
       }
     });
@@ -163,6 +221,9 @@ class _ExerciseScreenState extends State<ExerciseScreen> {
   void _skipRest() {
     _restTimer?.cancel();
     _restTimer = null;
+
+    _freezeElapsedTimer();
+
     setState(() {
       _restRemaining = 0;
       _phase = _Phase.continueNext;
@@ -170,6 +231,8 @@ class _ExerciseScreenState extends State<ExerciseScreen> {
   }
 
   void _continueNextSet() {
+    _startElapsedTimer();
+
     setState(() {
       _setIndex++;
       _phase = _Phase.active;
@@ -178,10 +241,14 @@ class _ExerciseScreenState extends State<ExerciseScreen> {
   }
 
   Future<void> _viewExerciseSummary() async {
+    // ✅ freeze ALSO when user taps “Mark workout done” / “View Exercise Summary”
+    _freezeElapsedTimer();
+
     final state = AppStateScope.of(context);
     await Future.sync(() => state.setWorkoutDay(DateTime.now(), true));
 
-    // Clean up camera immediately before summary (prevents black preview issues on some devices)
+    _commitSetRepsOnce();
+
     final old = _controller;
     _controller = null;
 
@@ -206,7 +273,7 @@ class _ExerciseScreenState extends State<ExerciseScreen> {
           workout: widget.workout,
           plan: widget.plan,
           elapsedSeconds: _elapsed,
-          repsLastSet: _reps,
+          totalReps: _totalReps,
         ),
       ),
     );
@@ -215,9 +282,10 @@ class _ExerciseScreenState extends State<ExerciseScreen> {
   // -------------------------
   // Camera init + pose stream
   // -------------------------
+
   Future<void> _initCamera() async {
     try {
-      await Future.delayed(const Duration(milliseconds: 200));
+      await Future.delayed(const Duration(milliseconds: 300));
 
       final perm = await Permission.camera.request();
       if (!perm.isGranted) {
@@ -236,20 +304,36 @@ class _ExerciseScreenState extends State<ExerciseScreen> {
         orElse: () => cams.first,
       );
 
-      final ctrl = CameraController(
-        chosen,
-        ResolutionPreset.medium,
-        enableAudio: false,
-        imageFormatGroup: Platform.isAndroid ? ImageFormatGroup.yuv420 : ImageFormatGroup.bgra8888,
-      );
+      CameraController? ctrl;
+      try {
+        ctrl = CameraController(
+          chosen,
+          ResolutionPreset.medium,
+          enableAudio: false,
+          imageFormatGroup: Platform.isAndroid ? ImageFormatGroup.nv21 : ImageFormatGroup.bgra8888,
+        );
+        _controller = ctrl;
+        _initFuture = ctrl.initialize();
+        await _initFuture;
+      } catch (_) {
+        try {
+          await ctrl?.dispose();
+        } catch (_) {}
 
-      _controller = ctrl;
-      _initFuture = ctrl.initialize();
-      await _initFuture;
+        ctrl = CameraController(
+          chosen,
+          ResolutionPreset.medium,
+          enableAudio: false,
+          imageFormatGroup: Platform.isAndroid ? ImageFormatGroup.yuv420 : ImageFormatGroup.bgra8888,
+        );
+        _controller = ctrl;
+        _initFuture = ctrl.initialize();
+        await _initFuture;
+      }
 
       _selectedCamera = chosen;
 
-      await ctrl.startImageStream((CameraImage image) async {
+      await _controller!.startImageStream((CameraImage image) async {
         if (_isDetecting) return;
         _isDetecting = true;
 
@@ -261,11 +345,22 @@ class _ExerciseScreenState extends State<ExerciseScreen> {
           if (inputImage == null) return;
 
           final poses = await detector.processImage(inputImage);
-
           if (mounted) setState(() => _poses = poses);
 
-          // count reps only during active + non-timed
-          if (_phase == _Phase.active && !widget.plan.isTimed && poses.isNotEmpty) {
+          if (_phase != _Phase.active) return;
+          if (poses.isEmpty) return;
+
+          // Jumping Jacks: count reps even if timed
+          if (_isJumpingJacks) {
+            final had = _jjCounter.update(poses.first);
+            if (had || _jjCounter.reps != _reps) {
+              if (mounted) setState(() => _reps = _jjCounter.reps);
+            }
+            return;
+          }
+
+          // Squats: reps-based only
+          if (!widget.plan.isTimed) {
             final hadRep = _repCounter.update(poses.first);
             if (hadRep) {
               final newReps = _repCounter.reps;
@@ -348,16 +443,17 @@ class _ExerciseScreenState extends State<ExerciseScreen> {
   }
 
   Uint8List _bytesFromPlanes(List<Plane> planes) {
-    final allBytes = WriteBuffer();
-    for (final plane in planes) {
-      allBytes.putUint8List(plane.bytes);
+    final b = BytesBuilder(copy: false);
+    for (final p in planes) {
+      b.add(p.bytes);
     }
-    return allBytes.done().buffer.asUint8List();
+    return b.toBytes();
   }
 
   // -------------------------
   // UI
   // -------------------------
+
   Widget _buildCameraWithOverlay() {
     final controller = _controller;
     if (controller == null || !controller.value.isInitialized) {
@@ -397,7 +493,8 @@ class _ExerciseScreenState extends State<ExerciseScreen> {
                               poses: _poses,
                               imageSize: _imgSize!,
                               rotation: _imgRotation!,
-                              isFrontCamera: _selectedCamera!.lensDirection == CameraLensDirection.front,
+                              isFrontCamera:
+                                  _selectedCamera!.lensDirection == CameraLensDirection.front,
                             ),
                           ),
                         ),
@@ -450,7 +547,6 @@ class _ExerciseScreenState extends State<ExerciseScreen> {
                       : _buildCameraWithOverlay(),
             ),
 
-            // top fade
             Positioned(
               left: 0,
               right: 0,
@@ -472,7 +568,6 @@ class _ExerciseScreenState extends State<ExerciseScreen> {
               ),
             ),
 
-            // top bar
             Positioned(
               left: 0,
               right: 0,
@@ -503,7 +598,6 @@ class _ExerciseScreenState extends State<ExerciseScreen> {
               ),
             ),
 
-            // bottom control card
             Positioned(
               left: 14 * s,
               right: 14 * s,
@@ -525,7 +619,7 @@ class _ExerciseScreenState extends State<ExerciseScreen> {
                   restRemaining: _restRemaining,
                   onSkipRest: _skipRest,
                   onContinue: _continueNextSet,
-                  onViewSummary: _viewExerciseSummary, // ✅ new
+                  onViewSummary: _viewExerciseSummary,
                 ),
               ),
             ),
@@ -536,7 +630,7 @@ class _ExerciseScreenState extends State<ExerciseScreen> {
   }
 }
 
-class _BottomWorkoutCard extends StatelessWidget {
+class _BottomWorkoutCard extends StatefulWidget {
   const _BottomWorkoutCard({
     required this.s,
     required this.title,
@@ -551,7 +645,7 @@ class _BottomWorkoutCard extends StatelessWidget {
     required this.restRemaining,
     required this.onSkipRest,
     required this.onContinue,
-    required this.onViewSummary, // ✅ new
+    required this.onViewSummary,
   });
 
   final double s;
@@ -578,15 +672,92 @@ class _BottomWorkoutCard extends StatelessWidget {
   static const _ink = Color(0xFF051328);
 
   @override
+  State<_BottomWorkoutCard> createState() => _BottomWorkoutCardState();
+}
+
+class _BottomWorkoutCardState extends State<_BottomWorkoutCard>
+    with SingleTickerProviderStateMixin {
+  late final AnimationController _plusCtrl;
+  late final Animation<double> _plusOpacity;
+  late final Animation<double> _plusScale;
+  late final Animation<Offset> _plusSlide;
+
+  int _prevReps = 0;
+  String _plusText = '+1';
+
+  @override
+  void initState() {
+    super.initState();
+    _prevReps = widget.repsDone;
+
+    _plusCtrl = AnimationController(
+      vsync: this,
+      duration: const Duration(milliseconds: 650),
+    );
+
+    _plusCtrl.value = 1.0;
+
+    _plusOpacity = CurvedAnimation(
+      parent: _plusCtrl,
+      curve: Curves.easeOut,
+    );
+
+    _plusScale = Tween<double>(begin: 0.85, end: 1.12).animate(
+      CurvedAnimation(parent: _plusCtrl, curve: Curves.elasticOut),
+    );
+
+    _plusSlide = Tween<Offset>(
+      begin: const Offset(0, 0.25),
+      end: const Offset(0, -0.85),
+    ).animate(
+      CurvedAnimation(parent: _plusCtrl, curve: Curves.easeOut),
+    );
+  }
+
+  @override
+  void didUpdateWidget(covariant _BottomWorkoutCard oldWidget) {
+    super.didUpdateWidget(oldWidget);
+
+    // trigger only when reps increases (usually during active)
+    final inc = widget.repsDone - _prevReps;
+    if (inc > 0) {
+      _plusText = inc == 1 ? '+1' : '+$inc';
+      _plusCtrl.forward(from: 0);
+    }
+
+    _prevReps = widget.repsDone;
+  }
+
+  @override
+  void dispose() {
+    _plusCtrl.dispose();
+    super.dispose();
+  }
+
+  @override
   Widget build(BuildContext context) {
-    final border = (phase == _Phase.continueNext || phase == _Phase.finished)
+    final s = widget.s;
+
+    final timerStyle = TextStyle(
+      color: _BottomWorkoutCard._ink,
+      fontSize: 30 * s,
+      fontWeight: FontWeight.w900,
+      );
+
+    final repsStyle = TextStyle(
+      color: _BottomWorkoutCard._ink.withValues(alpha: 0.80),
+      fontSize: 20 * s, 
+      fontWeight: FontWeight.w800,
+      );
+
+    final border = (widget.phase == _Phase.continueNext || widget.phase == _Phase.finished)
         ? Border.all(color: const Color(0xFF22C55E), width: 3)
         : null;
 
     return Container(
       padding: EdgeInsets.fromLTRB(14 * s, 12 * s, 14 * s, 14 * s),
       decoration: BoxDecoration(
-        color: _cardBg.withValues(alpha: 0.96),
+        color: _BottomWorkoutCard._cardBg.withValues(alpha: 0.92),
         borderRadius: BorderRadius.circular(18 * s),
         border: border,
         boxShadow: [
@@ -604,9 +775,9 @@ class _BottomWorkoutCard extends StatelessWidget {
           Row(
             children: [
               Text(
-                title,
+                widget.title,
                 style: TextStyle(
-                  color: _ink,
+                  color: _BottomWorkoutCard._ink,
                   fontSize: 12 * s,
                   fontWeight: FontWeight.w900,
                   letterSpacing: 0.2,
@@ -614,89 +785,124 @@ class _BottomWorkoutCard extends StatelessWidget {
               ),
               const Spacer(),
               Text(
-                elapsed,
+                widget.elapsed,
                 style: TextStyle(
-                  color: _ink.withValues(alpha: 0.85),
+                  color: _BottomWorkoutCard._ink.withValues(alpha: 0.85),
                   fontSize: 12 * s,
                   fontWeight: FontWeight.w800,
                 ),
               ),
             ],
           ),
-
           SizedBox(height: 10 * s),
 
-          if (phase == _Phase.active) ...[
-            Text(
-              isTimed ? _fmt(setRemaining) : '$repsDone/$repsTarget',
-              style: TextStyle(
-                color: _ink,
-                fontSize: 30 * s,
-                fontWeight: FontWeight.w900,
+          if (widget.phase == _Phase.active) ...[
+            if (widget.isTimed)
+              Row(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  Text(_fmt(widget.setRemaining), style: timerStyle),
+                  SizedBox(width: 26 * s),
+
+                  // reps text + +1 pop overlay
+                  Stack(
+                    clipBehavior: Clip.none,
+                    children: [
+                      Container(
+                        padding: EdgeInsets.symmetric(horizontal: 14 * s, vertical: 10 * s),
+                        decoration: BoxDecoration(
+                          color: const Color(0xFFFEF9C2).withValues(alpha: 0.60), 
+                          borderRadius: BorderRadius.circular(14 * s),
+                          boxShadow: [
+                            BoxShadow(
+                              color: Colors.black.withValues(alpha: 0.10),
+                              blurRadius: 10,
+                              offset: const Offset(0, 4),
+                            ),
+                          ],
+                        ),
+                        child: Text('REPS: ${widget.repsDone}', style: repsStyle),
+                      ),
+
+                      Positioned(
+                        right: 2 * s,
+                        top: -18 * s,
+                        child: FadeTransition(
+                          opacity: Tween<double>(begin: 1, end: 0).animate(_plusOpacity),
+                          child: SlideTransition(
+                            position: _plusSlide,
+                            child: ScaleTransition(
+                              scale: _plusScale,
+                              child: Text(
+                                _plusText,
+                                style: TextStyle(
+                                 color: const Color(0xFF22C55E),
+                                  fontSize: 18 * s,
+                                  fontWeight: FontWeight.w900,
+                                  shadows: const [Shadow(blurRadius: 10, color: Colors.black)],
+                                ),
+                              ),
+                            ),
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                ],
+              )
+            else
+              Text(
+                '${widget.repsDone}/${widget.repsTarget}',
+                style: timerStyle,
               ),
-            ),
-            SizedBox(height: 2 * s),
+
+            SizedBox(height: 6 * s),
             Text(
-              'SET $setIndex/$setsTotal',
+              'SET ${widget.setIndex}/${widget.setsTotal}',
               style: TextStyle(
-                color: _ink.withValues(alpha: 0.75),
+                color: _BottomWorkoutCard._ink.withValues(alpha: 0.75),
                 fontSize: 12 * s,
                 fontWeight: FontWeight.w800,
               ),
             ),
-          ] else if (phase == _Phase.rest) ...[
-            Text(
-              _fmt(restRemaining),
-              style: TextStyle(
-                color: _ink,
-                fontSize: 30 * s,
-                fontWeight: FontWeight.w900,
-              ),
-            ),
+          ] else if (widget.phase == _Phase.rest) ...[
+            Text(_fmt(widget.restRemaining), style: timerStyle),
             SizedBox(height: 2 * s),
             Text(
               'REST',
               style: TextStyle(
-                color: _ink.withValues(alpha: 0.75),
+                color: _BottomWorkoutCard._ink.withValues(alpha: 0.75),
                 fontSize: 12 * s,
                 fontWeight: FontWeight.w800,
               ),
             ),
             SizedBox(height: 10 * s),
-            _DarkButton(s: s, label: 'Skip', onTap: onSkipRest),
-          ] else if (phase == _Phase.continueNext) ...[
+            _DarkButton(s: s, label: 'Skip', onTap: widget.onSkipRest),
+          ] else if (widget.phase == _Phase.continueNext) ...[
             SizedBox(height: 4 * s),
-            _PrimaryYellowButton(
-              s: s,
-              label: 'Continue',
-              onTap: onContinue,
-            ),
+            _PrimaryYellowButton(s: s, label: 'Continue', onTap: widget.onContinue),
+            SizedBox(height: 10 * s),
+            _DarkButton(s: s, label: 'Mark workout done', onTap: widget.onViewSummary),
             SizedBox(height: 10 * s),
             Text(
-              'Set ${setIndex + 1}/$setsTotal',
+              'Set ${widget.setIndex + 1}/${widget.setsTotal}',
               style: TextStyle(
-                color: _ink.withValues(alpha: 0.8),
+                color: _BottomWorkoutCard._ink.withValues(alpha: 0.8),
                 fontSize: 12 * s,
                 fontWeight: FontWeight.w800,
               ),
             ),
           ] else ...[
-            // ✅ FINISHED
             Text(
-              'FINISH', // ✅ was DONE
+              'Workout Complete!',
               style: TextStyle(
-                color: _ink,
+                color: _BottomWorkoutCard._ink,
                 fontSize: 26 * s,
                 fontWeight: FontWeight.w900,
               ),
             ),
             SizedBox(height: 10 * s),
-            // ✅ button identical to Continue, yellow + ink
-            _PrimaryYellowButton(
-              s: s,
-              label: 'View Exercise Summary',
-              onTap: onViewSummary,
-            ),
+            _DarkButton(s: s, label: 'View Exercise Summary', onTap: widget.onViewSummary),
           ],
         ],
       ),
@@ -716,7 +922,6 @@ class _DarkButton extends StatelessWidget {
   final VoidCallback onTap;
 
   static const _ink = Color(0xFF051328);
-  static const _yellow = Color(0xFFFEF9C2);
 
   @override
   Widget build(BuildContext context) {
@@ -734,7 +939,7 @@ class _DarkButton extends StatelessWidget {
         child: Text(
           label,
           style: TextStyle(
-            color: _yellow,
+            color: Colors.white,
             fontSize: 14 * s,
             fontWeight: FontWeight.w900,
           ),
@@ -883,7 +1088,7 @@ class _PosePainter extends CustomPainter {
 }
 
 // ============================
-// Exercise Summary Screen (NEW)
+// Exercise Summary Screen
 // ============================
 class ExerciseSummaryScreen extends StatelessWidget {
   const ExerciseSummaryScreen({
@@ -891,13 +1096,13 @@ class ExerciseSummaryScreen extends StatelessWidget {
     required this.workout,
     required this.plan,
     required this.elapsedSeconds,
-    required this.repsLastSet,
+    required this.totalReps,
   });
 
   final Workout workout;
   final WorkoutPlan plan;
   final int elapsedSeconds;
-  final int repsLastSet;
+  final int totalReps;
 
   static const _ink = Color(0xFF051328);
   static const _yellow = Color(0xFFFEF9C2);
@@ -907,150 +1112,183 @@ class ExerciseSummaryScreen extends StatelessWidget {
     final s = MediaQuery.sizeOf(context).width / 375.0;
 
     return Scaffold(
-      backgroundColor: Colors.white,
-      body: SafeArea(
-        child: Stack(
-          children: [
-            // background (optional)
-            Positioned.fill(
-              child: Image.asset(
-                'assets/summary_bg.jpg',
-                fit: BoxFit.cover,
-                errorBuilder: (_, _, _) => Container(
-                  decoration: const BoxDecoration(
-                    gradient: LinearGradient(
-                      begin: Alignment.topCenter,
-                      end: Alignment.bottomCenter,
-                      colors: [Color(0xFF0F1A28), Color(0xFF1F2B3C)],
-                    ),
-                  ),
+      backgroundColor: const Color(0xFF0F1A28),
+      body: Stack(
+        children: [
+          // ✅ No image needed — gradient background
+          Positioned.fill(
+            child: Container(
+              decoration: const BoxDecoration(
+                gradient: LinearGradient(
+                  begin: Alignment.topCenter,
+                  end: Alignment.bottomCenter,
+                  colors: [Color(0xFF0F1A28), Color(0xFF1F2B3C)],
                 ),
               ),
             ),
+          ),
+          Positioned.fill(
+            child: Container(color: Colors.black.withValues(alpha: 0.25)),
+          ),
 
-            // dark overlay for readability
-            Positioned.fill(
-              child: Container(color: Colors.black.withValues(alpha: 0.30)),
-            ),
-
-            // content
-            SingleChildScrollView(
+          SafeArea(
+            child: Padding(
               padding: EdgeInsets.fromLTRB(18 * s, 12 * s, 18 * s, 18 * s),
               child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  // back
+                  // Top content scrolls
+                  Expanded(
+                    child: SingleChildScrollView(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          InkWell(
+                            onTap: () => Navigator.pop(context),
+                            borderRadius: BorderRadius.circular(999),
+                            child: Container(
+                              width: 42 * s,
+                              height: 42 * s,
+                              decoration: BoxDecoration(
+                                color: Colors.black.withValues(alpha: 0.35),
+                                shape: BoxShape.circle,
+                                border: Border.all(
+                                  color: Colors.white.withValues(alpha: 0.15),
+                                ),
+                              ),
+                              child: const Icon(
+                                Icons.arrow_back_rounded,
+                                color: Colors.white,
+                              ),
+                            ),
+                          ),
+
+                          SizedBox(height: 18 * s),
+
+                          Text(
+                            "Nice, you've\ncompleted the\nexercise!",
+                            style: TextStyle(
+                              color: Colors.white,
+                              fontSize: 30 * s,
+                              fontWeight: FontWeight.w900,
+                              height: 1.05,
+                            ),
+                          ),
+
+                          SizedBox(height: 12 * s),
+
+                          Container(
+                            padding: EdgeInsets.symmetric(
+                              horizontal: 14 * s,
+                              vertical: 10 * s,
+                            ),
+                            decoration: BoxDecoration(
+                              color: Colors.white.withValues(alpha: 0.12),
+                              borderRadius: BorderRadius.circular(14 * s),
+                              border: Border.all(
+                                color: Colors.white.withValues(alpha: 0.15),
+                              ),
+                            ),
+                            child: Row(
+                              children: [
+                                Icon(
+                                  Icons.fitness_center_rounded,
+                                  color: Colors.white.withValues(alpha: 0.9),
+                                  size: 18 * s,
+                                ),
+                                SizedBox(width: 10 * s),
+                                Expanded(
+                                  child: Text(
+                                    workout.title,
+                                    style: TextStyle(
+                                      color: Colors.white.withValues(alpha: 0.95),
+                                      fontSize: 14 * s,
+                                      fontWeight: FontWeight.w900,
+                                    ),
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+
+                          SizedBox(height: 16 * s),
+
+                          // Stats card
+                          Container(
+                            padding: EdgeInsets.all(14 * s),
+                            decoration: BoxDecoration(
+                              color: Colors.white.withValues(alpha: 0.92),
+                              borderRadius: BorderRadius.circular(16 * s),
+                              boxShadow: [
+                                BoxShadow(
+                                  color: Colors.black.withValues(alpha: 0.25),
+                                  blurRadius: 16,
+                                  offset: const Offset(0, 8),
+                                )
+                              ],
+                            ),
+                            child: Row(
+                              children: [
+                                Expanded(
+                                  child: _StatBox(
+                                    s: s,
+                                    label: 'Repetitions',
+                                    value: '$totalReps',
+                                  ),
+                                ),
+                                SizedBox(width: 10 * s),
+                                Expanded(
+                                  child: _StatBox(
+                                    s: s,
+                                    label: 'Sets',
+                                    value: '${plan.sets}',
+                                  ),
+                                ),
+                                SizedBox(width: 10 * s),
+                                Expanded(
+                                  child: _StatBox(
+                                    s: s,
+                                    label: 'Time',
+                                    value: _fmt(elapsedSeconds),
+                                    valueColor: _ink, // ✅ uses valueColor (no warning)
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+
+                          SizedBox(height: 14 * s),
+
+                          // Summary card
+                          Container(
+                            width: double.infinity,
+                            padding: EdgeInsets.all(16 * s),
+                            decoration: BoxDecoration(
+                              color: Colors.white.withValues(alpha: 0.90),
+                              borderRadius: BorderRadius.circular(16 * s),
+                            ),
+                            child: Text(
+                              'Exercise Summary\n\n'
+                              '• Form score (coming soon)\n'
+                              '• Accuracy / depth / tempo metrics (optional)\n'
+                              '• Tips based on common mistakes',
+                              style: TextStyle(
+                                color: Colors.black.withValues(alpha: 0.75),
+                                fontSize: 13 * s,
+                                height: 1.35,
+                                fontWeight: FontWeight.w700,
+                              ),
+                            ),
+                          ),
+
+                          SizedBox(height: 18 * s),
+                        ],
+                      ),
+                    ),
+                  ),
+
+                  // Bottom pinned button (full screen)
                   InkWell(
-                    onTap: () => Navigator.pop(context),
-                    child: Container(
-                      width: 40 * s,
-                      height: 40 * s,
-                      decoration: BoxDecoration(
-                        color: Colors.black.withValues(alpha: 0.35),
-                        shape: BoxShape.circle,
-                      ),
-                      child: const Icon(Icons.arrow_back_rounded, color: Colors.white),
-                    ),
-                  ),
-
-                  SizedBox(height: 20 * s),
-
-                  Text(
-                    "Nice, you've\ncompleted the\nexercise!",
-                    style: TextStyle(
-                      color: Colors.white,
-                      fontSize: 28 * s,
-                      fontWeight: FontWeight.w900,
-                      height: 1.05,
-                    ),
-                  ),
-
-                  SizedBox(height: 14 * s),
-
-                  Container(
-                    padding: EdgeInsets.symmetric(horizontal: 14 * s, vertical: 10 * s),
-                    decoration: BoxDecoration(
-                      color: Colors.white.withValues(alpha: 0.88),
-                      borderRadius: BorderRadius.circular(10 * s),
-                    ),
-                    child: Text(
-                      workout.title,
-                      style: TextStyle(
-                        color: _ink,
-                        fontSize: 14 * s,
-                        fontWeight: FontWeight.w900,
-                      ),
-                    ),
-                  ),
-
-                  SizedBox(height: 18 * s),
-
-                  // stats card
-                  Container(
-                    padding: EdgeInsets.all(14 * s),
-                    decoration: BoxDecoration(
-                      color: Colors.white.withValues(alpha: 0.94),
-                      borderRadius: BorderRadius.circular(14 * s),
-                    ),
-                    child: Row(
-                      children: [
-                        Expanded(
-                          child: _StatBox(
-                            s: s,
-                            label: 'Repetitions',
-                            value: plan.isTimed ? '-' : '$repsLastSet',
-                          ),
-                        ),
-                        SizedBox(width: 10 * s),
-                        Expanded(
-                          child: _StatBox(
-                            s: s,
-                            label: 'Sets',
-                            value: '${plan.sets}',
-                          ),
-                        ),
-                        SizedBox(width: 10 * s),
-                        Expanded(
-                          child: _StatBox(
-                            s: s,
-                            label: 'Time',
-                            value: _fmt(elapsedSeconds),
-                            valueColor: _ink
-                          ),
-                        ),
-                      ],
-                    ),
-                  ),
-
-                  SizedBox(height: 14 * s),
-
-                  // placeholder area like your screenshot
-                  Container(
-                    width: double.infinity,
-                    padding: EdgeInsets.all(16 * s),
-                    decoration: BoxDecoration(
-                      color: Colors.white.withValues(alpha: 0.90),
-                      borderRadius: BorderRadius.circular(14 * s),
-                    ),
-                    child: Text(
-                      'Exercise Summary\n\n'
-                      '• Form score (coming soon)\n'
-                      '• Accuracy / depth / tempo metrics (optional)\n'
-                      '• Tips based on common mistakes',
-                      style: TextStyle(
-                        color: Colors.black.withValues(alpha: 0.75),
-                        fontSize: 13 * s,
-                        height: 1.35,
-                        fontWeight: FontWeight.w700,
-                      ),
-                    ),
-                  ),
-
-                  SizedBox(height: 18 * s),
-
-                  // Next button
-                  InkWell(
-                    onTap: () => Navigator.pushNamedAndRemoveUntil(context, '/home', (_) => false),
+                    onTap: () => Navigator.popUntil(context, (r) => r.isFirst),
                     borderRadius: BorderRadius.circular(16 * s),
                     child: Container(
                       height: 54 * s,
@@ -1073,8 +1311,8 @@ class ExerciseSummaryScreen extends StatelessWidget {
                 ],
               ),
             ),
-          ],
-        ),
+          ),
+        ],
       ),
     );
   }
@@ -1125,9 +1363,53 @@ class _StatBox extends StatelessWidget {
     );
   }
 }
+// -------------------------
+// Jumping Jacks Counter
+// -------------------------
+class _JumpingJacksCounter {
+  int reps = 0;
+  bool _wasOpen = false;
+
+  void reset() {
+    reps = 0;
+    _wasOpen = false;
+  }
+
+  bool update(Pose pose) {
+    final lm = pose.landmarks;
+    final ls = lm[PoseLandmarkType.leftShoulder];
+    final rs = lm[PoseLandmarkType.rightShoulder];
+    final lw = lm[PoseLandmarkType.leftWrist];
+    final rw = lm[PoseLandmarkType.rightWrist];
+    final la = lm[PoseLandmarkType.leftAnkle];
+    final ra = lm[PoseLandmarkType.rightAnkle];
+    final lh = lm[PoseLandmarkType.leftHip];
+    final rh = lm[PoseLandmarkType.rightHip];
+
+    if ([ls, rs, lw, rw, la, ra, lh, rh].any((e) => e == null)) return false;
+
+    final shoulderY = (ls!.y + rs!.y) / 2.0;
+    final armsUp = (lw!.y < shoulderY - 10) && (rw!.y < shoulderY - 10);
+
+    final hipWidth = (lh!.x - rh!.x).abs();
+    final ankleWidth = (la!.x - ra!.x).abs();
+    final legsApart = ankleWidth > hipWidth * 1.35;
+
+    final openNow = armsUp && legsApart;
+
+    bool counted = false;
+    if (_wasOpen && !openNow) {
+      reps += 1;
+      counted = true;
+    }
+
+    _wasOpen = openNow;
+    return counted;
+  }
+}
 
 // -------------------------
-// small helpers
+// helpers
 // -------------------------
 int _secondsFromTimerLabel(String label) {
   final t = label.trim().toLowerCase();

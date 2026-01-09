@@ -1,6 +1,6 @@
 import 'dart:async';
 import 'dart:io';
-import 'dart:ui'; // ✅ for BackdropFilter blur
+import 'dart:ui';
 
 import 'package:camera/camera.dart';
 import 'package:flutter/material.dart';
@@ -76,16 +76,47 @@ class _SetupModeScreenState extends State<SetupModeScreen> {
     try {
       _controller?.stopImageStream();
     } catch (_) {}
-    _controller?.dispose();
+    try {
+      _controller?.dispose();
+    } catch (_) {}
 
-    _poseDetector?.close();
+    try {
+      _poseDetector?.close();
+    } catch (_) {}
+
     super.dispose();
+  }
+
+  // -------------------------
+  // ActivityLevel parsing (String? -> enum)
+  // -------------------------
+  ActivityLevel _parseActivityLevel(String? raw) {
+    final s = (raw ?? '').trim();
+    if (s.isEmpty) return ActivityLevel.sedentary;
+
+    // handles: "ActivityLevel.sedentary", "sedentary", "Sedentary",
+    // "Lightly Active", "lightlyActive", etc.
+    final lower = s.toLowerCase();
+    final key = (lower.contains('.') ? lower.split('.').last : lower)
+        .replaceAll(RegExp(r'\s+'), '');
+
+    switch (key) {
+      case 'sedentary':
+        return ActivityLevel.sedentary;
+      case 'lightlyactive':
+        return ActivityLevel.lightlyActive;
+      case 'moderatelyactive':
+        return ActivityLevel.moderatelyActive;
+      case 'veryactive':
+        return ActivityLevel.veryActive;
+      default:
+        return ActivityLevel.sedentary;
+    }
   }
 
   // -------------------------
   // Camera init + pose stream
   // -------------------------
-
   Future<void> _initCamera() async {
     try {
       final perm = await Permission.camera.request();
@@ -175,7 +206,6 @@ class _SetupModeScreenState extends State<SetupModeScreen> {
   // -------------------------
   // Countdown + navigation
   // -------------------------
-
   void _startCountdown({required int seconds}) {
     _countdownTimer?.cancel();
     _countdown = seconds;
@@ -201,51 +231,50 @@ class _SetupModeScreenState extends State<SetupModeScreen> {
   }
 
   Future<void> _goToExercise() async {
-  final state = AppStateScope.of(context);
+    final state = AppStateScope.of(context);
 
-  final plan = WorkoutPlan.forWorkout(
-    title: widget.workout.title,
-    activityLevel: state.activityLevel,
-  );
+    final level = _parseActivityLevel(state.activityLevel);
 
-  // ✅ IMPORTANT: release camera BEFORE opening ExerciseScreen
-  final old = _controller;
-  _controller = null;
+    final plan = WorkoutPlan.recommended(
+      workoutTitle: widget.workout.title,
+      level: level,
+    );
 
-  try {
-    await old?.stopImageStream();
-  } catch (_) {}
+    final old = _controller;
+    _controller = null;
 
-  try {
-    await old?.dispose();
-  } catch (_) {}
+    try {
+      await old?.stopImageStream();
+    } catch (_) {}
 
-  // (optional) also stop detector early (dispose will still call close)
-  try {
-    _poseDetector?.close();
-  } catch (_) {}
+    try {
+      await old?.dispose();
+    } catch (_) {}
 
-  // ✅ give Android time to release camera (MIUI needs this)
-  await Future.delayed(const Duration(milliseconds: 250));
+    // (optional) stop detector early (dispose still closes too)
+    try {
+      await _poseDetector?.close();
+    } catch (_) {}
+    _poseDetector = null;
 
-  if (!mounted) return;
+    await Future.delayed(const Duration(milliseconds: 250));
 
-  Navigator.pushReplacement(
-    context,
-    MaterialPageRoute(
-      builder: (_) => ExerciseScreen(
-        workout: widget.workout,
-        plan: plan,
+    if (!mounted) return;
+
+    Navigator.pushReplacement(
+      context,
+      MaterialPageRoute(
+        builder: (_) => ExerciseScreen(
+          workout: widget.workout,
+          plan: plan,
+        ),
       ),
-    ),
-  );
-}
-
+    );
+  }
 
   // -------------------------
   // Camera -> MLKit InputImage
   // -------------------------
-
   static const Map<DeviceOrientation, int> _orientations = {
     DeviceOrientation.portraitUp: 0,
     DeviceOrientation.landscapeLeft: 90,
@@ -301,7 +330,6 @@ class _SetupModeScreenState extends State<SetupModeScreen> {
   // -------------------------
   // Checklist evaluation
   // -------------------------
-
   bool _isSquat(String title) => title.toLowerCase().contains('squat');
   bool _isJumpingJack(String title) =>
       title.toLowerCase().contains('jump') || title.toLowerCase().contains('jack');
@@ -424,7 +452,6 @@ class _SetupModeScreenState extends State<SetupModeScreen> {
   // -------------------------
   // UI
   // -------------------------
-
   Widget _buildCameraWithOverlay() {
     final controller = _controller;
     if (controller == null || !controller.value.isInitialized) {
@@ -644,7 +671,6 @@ class _SetupModeScreenState extends State<SetupModeScreen> {
 // -------------------------
 // Checklist models + UI
 // -------------------------
-
 class SetupChecklist {
   const SetupChecklist({required this.items});
   final List<SetupItem> items;
@@ -684,7 +710,6 @@ class _ChecklistCard extends StatelessWidget {
         child: Container(
           padding: EdgeInsets.all(16 * s),
           decoration: BoxDecoration(
-            // ✅ transparent glass background
             color: Colors.black.withValues(alpha: 0.45),
             borderRadius: BorderRadius.circular(16 * s),
             border: Border.all(
@@ -763,9 +788,7 @@ class _ChecklistCard extends StatelessWidget {
                                   fontSize: 15 * s,
                                   fontWeight: FontWeight.w900,
                                   height: 1.25,
-                                  color: it.ok
-                                      ? Colors.white.withValues(alpha: 0.92)
-                                      : Colors.white.withValues(alpha: 0.92),
+                                  color: Colors.white.withValues(alpha: 0.92),
                                 ),
                               ),
                             ),
@@ -785,7 +808,6 @@ class _ChecklistCard extends StatelessWidget {
 // -------------------------
 // Pose painter (white dots/lines)
 // -------------------------
-
 class _PosePainter extends CustomPainter {
   _PosePainter({
     required this.poses,

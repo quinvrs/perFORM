@@ -58,7 +58,6 @@ class _MyAppState extends State<MyApp> {
       child: MaterialApp(
         debugShowCheckedModeBanner: false,
 
-        // ✅ handle routes that REQUIRE arguments
         onGenerateRoute: (settings) {
           // /setup_mode expects Workout
           if (settings.name == '/setup_mode') {

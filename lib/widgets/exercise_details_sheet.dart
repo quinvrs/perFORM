@@ -12,9 +12,9 @@ Future<void> showExerciseDetailsSheet(
 }) async {
   final state = AppStateScope.of(context);
 
-  final plan = WorkoutPlan.forWorkout(
-    title: workout.title,
-    activityLevel: state.activityLevel,
+  final plan = WorkoutPlan.recommended(
+    workoutTitle: workout.title,
+    level: parseActivityLevel(state.activityLevel), // ✅ FIX
   );
 
   await showModalBottomSheet(
@@ -112,7 +112,7 @@ class _ExerciseDetailsSheetState extends State<_ExerciseDetailsSheet> {
                   ),
                 ),
 
-                // ✅ Thumbnail (no embed)
+                // Thumbnail (no embed)
                 Padding(
                   padding: EdgeInsets.symmetric(horizontal: 18 * s),
                   child: AspectRatio(
@@ -122,7 +122,6 @@ class _ExerciseDetailsSheetState extends State<_ExerciseDetailsSheet> {
                       child: Stack(
                         fit: StackFit.expand,
                         children: [
-                          // Use YouTube thumbnail if we have ID, else fallback asset
                           if (ytId != null)
                             Image.network(
                               'https://img.youtube.com/vi/$ytId/hqdefault.jpg',
@@ -138,10 +137,8 @@ class _ExerciseDetailsSheetState extends State<_ExerciseDetailsSheet> {
                               fit: BoxFit.cover,
                             ),
 
-                          // dark overlay
                           Container(color: Colors.black.withValues(alpha: 0.15)),
 
-                          // play icon
                           Center(
                             child: Container(
                               width: 64 * s,
@@ -158,7 +155,6 @@ class _ExerciseDetailsSheetState extends State<_ExerciseDetailsSheet> {
                             ),
                           ),
 
-                          // tap to open YouTube
                           Material(
                             color: Colors.transparent,
                             child: InkWell(
@@ -181,24 +177,23 @@ class _ExerciseDetailsSheetState extends State<_ExerciseDetailsSheet> {
                       child: Container(
                         height: 46 * s,
                         decoration: BoxDecoration(
-                          color: _BottomStartButton._ink, 
+                          color: _BottomStartButton._ink,
                           borderRadius: BorderRadius.circular(999),
                         ),
                         alignment: Alignment.center,
                         child: Row(
                           mainAxisSize: MainAxisSize.min,
                           children: [
-                            // ✅ YouTube icon (red play look using icon + color)
                             Icon(
                               Icons.play_circle_fill_rounded,
                               size: 22 * s,
-                              color: _BottomStartButton._yellow, 
+                              color: _BottomStartButton._yellow,
                             ),
                             SizedBox(width: 8 * s),
                             Text(
                               'YOUTUBE',
                               style: TextStyle(
-                                color: _BottomStartButton._yellow, 
+                                color: _BottomStartButton._yellow,
                                 fontSize: 12 * s,
                                 fontWeight: FontWeight.w900,
                                 letterSpacing: 0.8,
@@ -250,7 +245,6 @@ class _ExerciseDetailsSheetState extends State<_ExerciseDetailsSheet> {
 
                 SizedBox(height: 10 * s),
 
-                // content
                 Expanded(
                   child: SingleChildScrollView(
                     padding: EdgeInsets.fromLTRB(18 * s, 6 * s, 18 * s, 24 * s),
@@ -262,7 +256,6 @@ class _ExerciseDetailsSheetState extends State<_ExerciseDetailsSheet> {
                   ),
                 ),
 
-                // pinned start button
                 _BottomStartButton(
                   s: s,
                   onTap: widget.onStartExercise,
@@ -277,7 +270,6 @@ class _ExerciseDetailsSheetState extends State<_ExerciseDetailsSheet> {
 }
 
 Future<void> _openYoutube(Uri url) async {
-  // Prefer external app (YouTube), fallback browser
   await launchUrl(url, mode: LaunchMode.externalApplication);
 }
 
@@ -391,10 +383,16 @@ class _TabAnimation extends StatelessWidget {
       children: [
         _SectionRow(s: s, left: 'SETS', right: '${plan.sets}', leftColor: _blue),
         SizedBox(height: 8 * s),
-        if (plan.isTimed)
-          _SectionRow(s: s, left: 'TIMER / SET', right: plan.timerLabel, leftColor: _blue)
-        else
-          _SectionRow(s: s, left: 'REPS / SET', right: '${plan.reps}', leftColor: _blue),
+
+        // ✅ For timed workouts, show BOTH TIMER and REPS info
+        if (plan.isTimed) ...[
+          _SectionRow(s: s, left: 'TIMER PER SET', right: plan.timerLabel, leftColor: _blue),
+          SizedBox(height: 8 * s),
+          _SectionRow(s: s, left: 'REPS', right: 'COUNTED LIVE', leftColor: _blue),
+        ] else ...[
+          _SectionRow(s: s, left: 'REPS PER SET', right: '${plan.reps}', leftColor: _blue),
+        ],
+
         SizedBox(height: 12 * s),
         Text(
           'Preview',
@@ -447,9 +445,9 @@ class _TabMuscle extends StatelessWidget {
         _SectionRow(s: s, left: 'SETS', right: '${plan.sets}', leftColor: _blue),
         SizedBox(height: 8 * s),
         if (plan.isTimed)
-          _SectionRow(s: s, left: 'TIMER / SET', right: plan.timerLabel, leftColor: _blue)
+          _SectionRow(s: s, left: 'TIMER PER SET', right: plan.timerLabel, leftColor: _blue)
         else
-          _SectionRow(s: s, left: 'REPS / SET', right: '${plan.reps}', leftColor: _blue),
+          _SectionRow(s: s, left: 'REPS PER SET', right: '${plan.reps}', leftColor: _blue),
 
         SizedBox(height: 14 * s),
         Text(
@@ -550,9 +548,9 @@ class _TabHowTo extends StatelessWidget {
         _SectionRow(s: s, left: 'SETS', right: '${plan.sets}', leftColor: _blue),
         SizedBox(height: 8 * s),
         if (plan.isTimed)
-          _SectionRow(s: s, left: 'TIMER / SET', right: plan.timerLabel, leftColor: _blue)
+          _SectionRow(s: s, left: 'TIMER PER SET', right: plan.timerLabel, leftColor: _blue)
         else
-          _SectionRow(s: s, left: 'REPS / SET', right: '${plan.reps}', leftColor: _blue),
+          _SectionRow(s: s, left: 'REPS PER SET', right: '${plan.reps}', leftColor: _blue),
 
         SizedBox(height: 14 * s),
         Text(
@@ -684,6 +682,7 @@ class _SectionRow extends StatelessWidget {
     );
   }
 }
+
 
 /// ---- helpers ----
 
