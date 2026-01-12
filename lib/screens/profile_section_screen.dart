@@ -74,7 +74,10 @@ class _ProfileSectionScreenState extends State<ProfileSectionScreen> {
           decoration: InputDecoration(hintText: 'Enter value ($suffix)'),
         ),
         actions: [
-          TextButton(onPressed: () => Navigator.pop(ctx), child: const Text('Cancel')),
+          TextButton(
+            onPressed: () => Navigator.pop(ctx),
+            child: const Text('Cancel'),
+          ),
           TextButton(
             onPressed: () {
               final v = double.tryParse(ctrl.text.trim());
@@ -93,7 +96,10 @@ class _ProfileSectionScreenState extends State<ProfileSectionScreen> {
 
   Future<void> _pickAvatar() async {
     final picker = ImagePicker();
-    final x = await picker.pickImage(source: ImageSource.gallery, imageQuality: 85);
+    final x = await picker.pickImage(
+      source: ImageSource.gallery,
+      imageQuality: 85,
+    );
     if (!mounted) return;
     if (x == null) return;
 
@@ -111,7 +117,7 @@ class _ProfileSectionScreenState extends State<ProfileSectionScreen> {
   }
 
   // -------------------------------------------------------------
-  // NEW: Logic to confirm and delete workout history
+  // Logic to confirm and delete workout history
   // -------------------------------------------------------------
   void _confirmClearData() {
     showDialog(
@@ -130,7 +136,8 @@ class _ProfileSectionScreenState extends State<ProfileSectionScreen> {
             onPressed: () async {
               Navigator.pop(ctx); // close dialog
               final state = AppStateScope.of(context);
-              await state.clearAllWorkouts(); // Calls AppState -> DatabaseHelper
+              await state
+                  .clearAllWorkouts(); // Calls AppState -> DatabaseHelper
 
               if (mounted) {
                 ScaffoldMessenger.of(context).showSnackBar(
@@ -138,7 +145,61 @@ class _ProfileSectionScreenState extends State<ProfileSectionScreen> {
                 );
               }
             },
-            child: const Text('Erase Data', style: TextStyle(color: Colors.red, fontWeight: FontWeight.bold)),
+            child: const Text(
+              'Erase Data',
+              style: TextStyle(color: Colors.red, fontWeight: FontWeight.bold),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  // -------------------------------------------------------------
+  // NEW: Logic to Delete Profile & Reset App
+  // -------------------------------------------------------------
+  void _confirmDeleteProfile() {
+    showDialog(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: const Text(
+          'Delete Profile?',
+          style: TextStyle(color: Colors.red),
+        ),
+        content: const Text(
+          'This will permanently delete EVERYTHING:\n\n'
+          '• Your Name & Stats\n'
+          '• Your Workout History\n'
+          '• Your Streaks\n\n'
+          'The app will reset to the Welcome screen. This cannot be undone.',
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx),
+            child: const Text('Cancel', style: TextStyle(color: _ink)),
+          ),
+          TextButton(
+            onPressed: () async {
+              Navigator.pop(ctx); // Close dialog
+
+              // 1. Delete data
+              final state = AppStateScope.of(context);
+              await state.deleteProfile();
+
+              if (!mounted) return;
+
+              // 2. Navigate to Welcome Screen (Restart App Flow)
+              // This removes all previous routes so user can't go back
+              Navigator.pushNamedAndRemoveUntil(
+                context,
+                '/welcome',
+                (route) => false,
+              );
+            },
+            child: const Text(
+              'Delete Forever',
+              style: TextStyle(color: Colors.red, fontWeight: FontWeight.bold),
+            ),
           ),
         ],
       ),
@@ -167,7 +228,8 @@ class _ProfileSectionScreenState extends State<ProfileSectionScreen> {
     final s = size.width / 375.0;
     final kb = MediaQuery.viewInsetsOf(context).bottom;
 
-    final avatarWidget = (_avatarPath != null && File(_avatarPath!).existsSync())
+    final avatarWidget =
+        (_avatarPath != null && File(_avatarPath!).existsSync())
         ? ClipOval(
             child: Image.file(
               File(_avatarPath!),
@@ -185,7 +247,9 @@ class _ProfileSectionScreenState extends State<ProfileSectionScreen> {
             ),
             alignment: Alignment.center,
             child: Text(
-              (_nameCtrl.text.trim().isEmpty ? 'U' : _nameCtrl.text.trim()[0].toUpperCase()),
+              (_nameCtrl.text.trim().isEmpty
+                  ? 'U'
+                  : _nameCtrl.text.trim()[0].toUpperCase()),
               style: TextStyle(
                 color: _ink,
                 fontSize: 28 * s,
@@ -202,7 +266,12 @@ class _ProfileSectionScreenState extends State<ProfileSectionScreen> {
         child: Stack(
           children: [
             SingleChildScrollView(
-              padding: EdgeInsets.fromLTRB(24 * s, 16 * s, 24 * s, (120 * s) + kb),
+              padding: EdgeInsets.fromLTRB(
+                24 * s,
+                16 * s,
+                24 * s,
+                (120 * s) + kb,
+              ),
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
@@ -211,7 +280,11 @@ class _ProfileSectionScreenState extends State<ProfileSectionScreen> {
                     children: [
                       InkWell(
                         onTap: () => Navigator.pop(context),
-                        child: Icon(Icons.arrow_back_rounded, color: _ink, size: 26 * s),
+                        child: Icon(
+                          Icons.arrow_back_rounded,
+                          color: _ink,
+                          size: 26 * s,
+                        ),
                       ),
                       SizedBox(width: 12 * s),
                       Text(
@@ -242,7 +315,9 @@ class _ProfileSectionScreenState extends State<ProfileSectionScreen> {
                                 await showModalBottomSheet(
                                   context: context,
                                   shape: RoundedRectangleBorder(
-                                    borderRadius: BorderRadius.vertical(top: Radius.circular(18 * s)),
+                                    borderRadius: BorderRadius.vertical(
+                                      top: Radius.circular(18 * s),
+                                    ),
                                   ),
                                   builder: (_) => SafeArea(
                                     child: Padding(
@@ -251,7 +326,9 @@ class _ProfileSectionScreenState extends State<ProfileSectionScreen> {
                                         mainAxisSize: MainAxisSize.min,
                                         children: [
                                           ListTile(
-                                            leading: const Icon(Icons.photo_library_outlined),
+                                            leading: const Icon(
+                                              Icons.photo_library_outlined,
+                                            ),
                                             title: const Text('Choose photo'),
                                             onTap: () async {
                                               Navigator.pop(context);
@@ -260,7 +337,9 @@ class _ProfileSectionScreenState extends State<ProfileSectionScreen> {
                                           ),
                                           if (_avatarPath != null)
                                             ListTile(
-                                              leading: const Icon(Icons.delete_outline),
+                                              leading: const Icon(
+                                                Icons.delete_outline,
+                                              ),
                                               title: const Text('Remove photo'),
                                               onTap: () {
                                                 Navigator.pop(context);
@@ -279,9 +358,16 @@ class _ProfileSectionScreenState extends State<ProfileSectionScreen> {
                                 decoration: BoxDecoration(
                                   color: _yellow,
                                   shape: BoxShape.circle,
-                                  border: Border.all(color: Colors.white, width: 2),
+                                  border: Border.all(
+                                    color: Colors.white,
+                                    width: 2,
+                                  ),
                                 ),
-                                child: Icon(Icons.edit, size: 16 * s, color: _ink),
+                                child: Icon(
+                                  Icons.edit,
+                                  size: 16 * s,
+                                  color: _ink,
+                                ),
                               ),
                             ),
                           ),
@@ -307,33 +393,77 @@ class _ProfileSectionScreenState extends State<ProfileSectionScreen> {
                   // name
                   Text(
                     'Name',
-                    style: TextStyle(color: _ink, fontSize: 16 * s, fontWeight: FontWeight.w800, fontFamily: 'DM Sans'),
+                    style: TextStyle(
+                      color: _ink,
+                      fontSize: 16 * s,
+                      fontWeight: FontWeight.w800,
+                      fontFamily: 'DM Sans',
+                    ),
                   ),
                   SizedBox(height: 10 * s),
                   TextField(
                     controller: _nameCtrl,
-                    style: TextStyle(color: _ink, fontSize: 16 * s, fontFamily: 'DM Sans', fontWeight: FontWeight.w600),
+                    style: TextStyle(
+                      color: _ink,
+                      fontSize: 16 * s,
+                      fontFamily: 'DM Sans',
+                      fontWeight: FontWeight.w600,
+                    ),
                     decoration: InputDecoration(
                       hintText: 'Enter your name',
                       filled: true,
                       fillColor: Colors.white,
-                      contentPadding: EdgeInsets.symmetric(horizontal: 14 * s, vertical: 14 * s),
-                      border: OutlineInputBorder(borderRadius: BorderRadius.circular(16 * s), borderSide: const BorderSide(color: _mutedBorder)),
-                      enabledBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(16 * s), borderSide: const BorderSide(color: _mutedBorder)),
-                      focusedBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(16 * s), borderSide: const BorderSide(color: _ink, width: 1.5)),
+                      contentPadding: EdgeInsets.symmetric(
+                        horizontal: 14 * s,
+                        vertical: 14 * s,
+                      ),
+                      border: OutlineInputBorder(
+                        borderRadius: BorderRadius.circular(16 * s),
+                        borderSide: const BorderSide(color: _mutedBorder),
+                      ),
+                      enabledBorder: OutlineInputBorder(
+                        borderRadius: BorderRadius.circular(16 * s),
+                        borderSide: const BorderSide(color: _mutedBorder),
+                      ),
+                      focusedBorder: OutlineInputBorder(
+                        borderRadius: BorderRadius.circular(16 * s),
+                        borderSide: const BorderSide(color: _ink, width: 1.5),
+                      ),
                     ),
                   ),
 
                   SizedBox(height: 22 * s),
 
                   // gender
-                  Text('Gender', style: TextStyle(color: _ink, fontSize: 16 * s, fontWeight: FontWeight.w800, fontFamily: 'DM Sans')),
+                  Text(
+                    'Gender',
+                    style: TextStyle(
+                      color: _ink,
+                      fontSize: 16 * s,
+                      fontWeight: FontWeight.w800,
+                      fontFamily: 'DM Sans',
+                    ),
+                  ),
                   SizedBox(height: 10 * s),
                   Row(
                     children: [
-                      Expanded(child: _ChoiceChip(s: s, label: 'Male', selected: _gender == Gender.male, onTap: () => setState(() => _gender = Gender.male))),
+                      Expanded(
+                        child: _ChoiceChip(
+                          s: s,
+                          label: 'Male',
+                          selected: _gender == Gender.male,
+                          onTap: () => setState(() => _gender = Gender.male),
+                        ),
+                      ),
                       SizedBox(width: 10 * s),
-                      Expanded(child: _ChoiceChip(s: s, label: 'Female', selected: _gender == Gender.female, onTap: () => setState(() => _gender = Gender.female))),
+                      Expanded(
+                        child: _ChoiceChip(
+                          s: s,
+                          label: 'Female',
+                          selected: _gender == Gender.female,
+                          onTap: () => setState(() => _gender = Gender.female),
+                        ),
+                      ),
                     ],
                   ),
 
@@ -341,45 +471,135 @@ class _ProfileSectionScreenState extends State<ProfileSectionScreen> {
 
                   // height + weight
                   _SliderBlock(
-                    title: 'Height', valueText: '${_heightCm.round()}cm', minText: '50cm', maxText: '200cm', min: 50, max: 200, value: _heightCm, scale: s,
+                    title: 'Height',
+                    valueText: '${_heightCm.round()}cm',
+                    minText: '50cm',
+                    maxText: '200cm',
+                    min: 50,
+                    max: 200,
+                    value: _heightCm,
+                    scale: s,
                     onChanged: (v) => setState(() => _heightCm = v),
-                    onValueTap: () => _editNumberDialog(title: 'Edit Height', current: _heightCm, min: 50, max: 200, suffix: 'cm', onSave: (v) => setState(() => _heightCm = v)),
+                    onValueTap: () => _editNumberDialog(
+                      title: 'Edit Height',
+                      current: _heightCm,
+                      min: 50,
+                      max: 200,
+                      suffix: 'cm',
+                      onSave: (v) => setState(() => _heightCm = v),
+                    ),
                   ),
 
                   SizedBox(height: 18 * s),
 
                   _SliderBlock(
-                    title: 'Weight', valueText: '${_weightKg.round()}kg', minText: '20kg', maxText: '200kg', min: 20, max: 200, value: _weightKg, scale: s,
+                    title: 'Weight',
+                    valueText: '${_weightKg.round()}kg',
+                    minText: '20kg',
+                    maxText: '200kg',
+                    min: 20,
+                    max: 200,
+                    value: _weightKg,
+                    scale: s,
                     onChanged: (v) => setState(() => _weightKg = v),
-                    onValueTap: () => _editNumberDialog(title: 'Edit Weight', current: _weightKg, min: 20, max: 200, suffix: 'kg', onSave: (v) => setState(() => _weightKg = v)),
+                    onValueTap: () => _editNumberDialog(
+                      title: 'Edit Weight',
+                      current: _weightKg,
+                      min: 20,
+                      max: 200,
+                      suffix: 'kg',
+                      onSave: (v) => setState(() => _weightKg = v),
+                    ),
                   ),
 
                   SizedBox(height: 22 * s),
 
                   // goal
-                  Text('Main Goal', style: TextStyle(color: _ink, fontSize: 16 * s, fontWeight: FontWeight.w800, fontFamily: 'DM Sans')),
+                  Text(
+                    'Main Goal',
+                    style: TextStyle(
+                      color: _ink,
+                      fontSize: 16 * s,
+                      fontWeight: FontWeight.w800,
+                      fontFamily: 'DM Sans',
+                    ),
+                  ),
                   SizedBox(height: 10 * s),
-                  _GoalTile(s: s, title: 'Lose Weight', icon: Icons.monitor_weight_outlined, selected: _selectedGoal == 'Lose Weight', onTap: () => setState(() => _selectedGoal = 'Lose Weight')),
+                  _GoalTile(
+                    s: s,
+                    title: 'Lose Weight',
+                    icon: Icons.monitor_weight_outlined,
+                    selected: _selectedGoal == 'Lose Weight',
+                    onTap: () => setState(() => _selectedGoal = 'Lose Weight'),
+                  ),
                   SizedBox(height: 10 * s),
-                  _GoalTile(s: s, title: 'Build Muscle', icon: Icons.fitness_center_rounded, selected: _selectedGoal == 'Build Muscle', onTap: () => setState(() => _selectedGoal = 'Build Muscle')),
+                  _GoalTile(
+                    s: s,
+                    title: 'Build Muscle',
+                    icon: Icons.fitness_center_rounded,
+                    selected: _selectedGoal == 'Build Muscle',
+                    onTap: () => setState(() => _selectedGoal = 'Build Muscle'),
+                  ),
                   SizedBox(height: 10 * s),
-                  _GoalTile(s: s, title: 'Keep Fit', icon: Icons.favorite_border_rounded, selected: _selectedGoal == 'Keep Fit', onTap: () => setState(() => _selectedGoal = 'Keep Fit')),
+                  _GoalTile(
+                    s: s,
+                    title: 'Keep Fit',
+                    icon: Icons.favorite_border_rounded,
+                    selected: _selectedGoal == 'Keep Fit',
+                    onTap: () => setState(() => _selectedGoal = 'Keep Fit'),
+                  ),
 
                   SizedBox(height: 22 * s),
 
                   // activity
-                  Text('Activity Level', style: TextStyle(color: _ink, fontSize: 16 * s, fontWeight: FontWeight.w800, fontFamily: 'DM Sans')),
+                  Text(
+                    'Activity Level',
+                    style: TextStyle(
+                      color: _ink,
+                      fontSize: 16 * s,
+                      fontWeight: FontWeight.w800,
+                      fontFamily: 'DM Sans',
+                    ),
+                  ),
                   SizedBox(height: 10 * s),
-                  _ActivityTile(s: s, emoji: '🪑', title: 'Sedentary', selected: _selectedActivity == 'Sedentary', onTap: () => setState(() => _selectedActivity = 'Sedentary')),
+                  _ActivityTile(
+                    s: s,
+                    emoji: '🪑',
+                    title: 'Sedentary',
+                    selected: _selectedActivity == 'Sedentary',
+                    onTap: () =>
+                        setState(() => _selectedActivity = 'Sedentary'),
+                  ),
                   SizedBox(height: 10 * s),
-                  _ActivityTile(s: s, emoji: '🚶', title: 'Lightly active', selected: _selectedActivity == 'Lightly active', onTap: () => setState(() => _selectedActivity = 'Lightly active')),
+                  _ActivityTile(
+                    s: s,
+                    emoji: '🚶',
+                    title: 'Lightly active',
+                    selected: _selectedActivity == 'Lightly active',
+                    onTap: () =>
+                        setState(() => _selectedActivity = 'Lightly active'),
+                  ),
                   SizedBox(height: 10 * s),
-                  _ActivityTile(s: s, emoji: '🏃', title: 'Moderately active', selected: _selectedActivity == 'Moderately active', onTap: () => setState(() => _selectedActivity = 'Moderately active')),
+                  _ActivityTile(
+                    s: s,
+                    emoji: '🏃',
+                    title: 'Moderately active',
+                    selected: _selectedActivity == 'Moderately active',
+                    onTap: () =>
+                        setState(() => _selectedActivity = 'Moderately active'),
+                  ),
                   SizedBox(height: 10 * s),
-                  _ActivityTile(s: s, emoji: '🥵', title: 'Very active', selected: _selectedActivity == 'Very active', onTap: () => setState(() => _selectedActivity = 'Very active')),
+                  _ActivityTile(
+                    s: s,
+                    emoji: '🥵',
+                    title: 'Very active',
+                    selected: _selectedActivity == 'Very active',
+                    onTap: () =>
+                        setState(() => _selectedActivity = 'Very active'),
+                  ),
 
                   // -------------------------------------------------------------
-                  // NEW: Clear History Button
+                  // Clear History Button
                   // -------------------------------------------------------------
                   SizedBox(height: 32 * s),
                   Center(
@@ -387,11 +607,18 @@ class _ProfileSectionScreenState extends State<ProfileSectionScreen> {
                       onTap: _confirmClearData,
                       borderRadius: BorderRadius.circular(12),
                       child: Padding(
-                        padding: EdgeInsets.symmetric(vertical: 12 * s, horizontal: 16 * s),
+                        padding: EdgeInsets.symmetric(
+                          vertical: 12 * s,
+                          horizontal: 16 * s,
+                        ),
                         child: Row(
                           mainAxisSize: MainAxisSize.min,
                           children: [
-                            Icon(Icons.delete_forever_rounded, color: Colors.red[700], size: 20 * s),
+                            Icon(
+                              Icons.delete_forever_rounded,
+                              color: Colors.red[700],
+                              size: 20 * s,
+                            ),
                             SizedBox(width: 8 * s),
                             Text(
                               'Clear Workout History',
@@ -407,7 +634,45 @@ class _ProfileSectionScreenState extends State<ProfileSectionScreen> {
                       ),
                     ),
                   ),
-                  SizedBox(height: 10 * s), // Extra padding at bottom
+
+                  // -------------------------------------------------------------
+                  // NEW: Delete Profile Button
+                  // -------------------------------------------------------------
+                  SizedBox(height: 12 * s), // Small gap
+                  Center(
+                    child: InkWell(
+                      onTap: _confirmDeleteProfile,
+                      borderRadius: BorderRadius.circular(12),
+                      child: Padding(
+                        padding: EdgeInsets.symmetric(
+                          vertical: 12 * s,
+                          horizontal: 16 * s,
+                        ),
+                        child: Row(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            Icon(
+                              Icons.person_off_rounded,
+                              color: Colors.red[900],
+                              size: 20 * s,
+                            ),
+                            SizedBox(width: 8 * s),
+                            Text(
+                              'Delete Profile & Reset App',
+                              style: TextStyle(
+                                color: Colors.red[900],
+                                fontSize: 14 * s,
+                                fontWeight: FontWeight.w700,
+                                fontFamily: 'DM Sans',
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ),
+                  ),
+
+                  SizedBox(height: 30 * s), // Extra padding at bottom
                 ],
               ),
             ),
@@ -450,8 +715,8 @@ class _ProfileSectionScreenState extends State<ProfileSectionScreen> {
   }
 }
 
-// ... [Existing _ChoiceChip, _SliderBlock, _GoalTile, _ActivityTile classes] ...
-// (I did not modify the helper widgets below, they remain exactly as they were in your code)
+// ... [Helper widgets below are unchanged] ...
+
 class _ChoiceChip extends StatelessWidget {
   const _ChoiceChip({
     required this.s,
@@ -547,7 +812,10 @@ class _SliderBlock extends StatelessWidget {
               onTap: onValueTap,
               borderRadius: BorderRadius.circular(8),
               child: Padding(
-                padding: EdgeInsets.symmetric(horizontal: 6 * scale, vertical: 2 * scale),
+                padding: EdgeInsets.symmetric(
+                  horizontal: 6 * scale,
+                  vertical: 2 * scale,
+                ),
                 child: Text(
                   valueText,
                   style: TextStyle(
@@ -584,8 +852,22 @@ class _SliderBlock extends StatelessWidget {
           child: Row(
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
-              Text(minText, style: TextStyle(color: _ink, fontSize: 12 * scale, fontFamily: 'DM Sans')),
-              Text(maxText, style: TextStyle(color: _ink, fontSize: 12 * scale, fontFamily: 'DM Sans')),
+              Text(
+                minText,
+                style: TextStyle(
+                  color: _ink,
+                  fontSize: 12 * scale,
+                  fontFamily: 'DM Sans',
+                ),
+              ),
+              Text(
+                maxText,
+                style: TextStyle(
+                  color: _ink,
+                  fontSize: 12 * scale,
+                  fontFamily: 'DM Sans',
+                ),
+              ),
             ],
           ),
         ),
@@ -633,10 +915,16 @@ class _GoalTile extends StatelessWidget {
             Expanded(
               child: Text(
                 title,
-                style: TextStyle(color: _ink, fontSize: 14 * s, fontFamily: 'DM Sans', fontWeight: FontWeight.w600),
+                style: TextStyle(
+                  color: _ink,
+                  fontSize: 14 * s,
+                  fontFamily: 'DM Sans',
+                  fontWeight: FontWeight.w600,
+                ),
               ),
             ),
-            if (selected) Icon(Icons.check_circle_rounded, size: 18 * s, color: _ink),
+            if (selected)
+              Icon(Icons.check_circle_rounded, size: 18 * s, color: _ink),
           ],
         ),
       ),
@@ -683,10 +971,16 @@ class _ActivityTile extends StatelessWidget {
             Expanded(
               child: Text(
                 title,
-                style: TextStyle(color: _ink, fontSize: 14 * s, fontFamily: 'DM Sans', fontWeight: FontWeight.w600),
+                style: TextStyle(
+                  color: _ink,
+                  fontSize: 14 * s,
+                  fontFamily: 'DM Sans',
+                  fontWeight: FontWeight.w600,
+                ),
               ),
             ),
-            if (selected) Icon(Icons.check_circle_rounded, size: 18 * s, color: _ink),
+            if (selected)
+              Icon(Icons.check_circle_rounded, size: 18 * s, color: _ink),
           ],
         ),
       ),

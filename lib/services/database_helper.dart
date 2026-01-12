@@ -102,4 +102,13 @@ class DatabaseHelper {
     final db = await instance.database;
     await db.delete('history'); // Deletes all rows in the history table
   }
+  
+  Future<void> deleteEverything() async {
+    final db = await instance.database;
+    // Transaction ensures both delete or neither does (safety)
+    await db.transaction((txn) async {
+      await txn.delete('profile');
+      await txn.delete('history');
+    });
+  }
 }

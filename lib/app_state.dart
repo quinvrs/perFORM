@@ -304,6 +304,24 @@ class AppState extends ChangeNotifier {
     // 3. Update UI (Home Screen stats will become 0 immediately)
     notifyListeners();
   }
+  
+  Future<void> deleteProfile() async {
+    // 1. Wipe Database
+    await DatabaseHelper.instance.deleteEverything();
+
+    // 2. Reset Local State to Defaults
+    _name = '';
+    _gender = null;
+    _heightCm = 180;
+    _weightKg = 80;
+    _avatarPath = null;
+    _mainGoal = null;
+    _activityLevel = null;
+    _workoutRecords.clear();
+
+    // 3. Notify listeners (although we will navigate away immediately)
+    notifyListeners();
+  }
 }
 
 class AppStateScope extends InheritedNotifier<AppState> {
