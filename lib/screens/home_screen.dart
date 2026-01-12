@@ -111,8 +111,80 @@ class _HomeTab extends StatelessWidget {
     final isActive = streak > 0;
 
     // -------------------------------------------------------------
-    // NEW: Get the actual total count of all workouts in history
+    // NEW: Dynamic Message Logic
     // -------------------------------------------------------------
+    String statusMsg;
+    Widget statusIconWidget;
+
+    if (streak == 0) {
+      // Case 0: No Streak
+      statusMsg =
+          'You haven’t checked out the app\nrecently. Do some workouts.';
+      statusIconWidget = Container(
+        width: 18 * scale,
+        height: 18 * scale,
+        decoration: const ShapeDecoration(color: _yellow, shape: OvalBorder()),
+        child: Center(
+          child: Text(
+            '!',
+            style: TextStyle(
+              color: _ink,
+              fontSize: 12 * scale,
+              fontWeight: FontWeight.w700,
+            ),
+          ),
+        ),
+      );
+    } else if (streak == 1) {
+      // Case 1: First Day
+      statusMsg = 'Off to a great start!\nKeep the momentum going.';
+      statusIconWidget = Container(
+        width: 18 * scale,
+        height: 18 * scale,
+        decoration: const ShapeDecoration(
+          color: Color(0xFFDBFCE7),
+          shape: OvalBorder(),
+        ), // Light Green
+        child: Icon(
+          Icons.thumb_up_rounded,
+          size: 12 * scale,
+          color: const Color(0xFF15803D),
+        ), // Dark Green
+      );
+    } else if (streak == 2) {
+      // Case 2: Second Day
+      statusMsg = 'Two days in a row!\nYou are building a habit.';
+      statusIconWidget = Container(
+        width: 18 * scale,
+        height: 18 * scale,
+        decoration: const ShapeDecoration(
+          color: Color(0xFFE0F2FE),
+          shape: OvalBorder(),
+        ), // Light Blue
+        child: Icon(
+          Icons.trending_up_rounded,
+          size: 14 * scale,
+          color: const Color(0xFF0369A1),
+        ), // Dark Blue
+      );
+    } else {
+      // Case 3+: On Fire
+      statusMsg = 'You are on fire!\nKeep that streak alive.';
+      statusIconWidget = Container(
+        width: 18 * scale,
+        height: 18 * scale,
+        decoration: const ShapeDecoration(
+          color: Color(0xFFFFEDD5),
+          shape: OvalBorder(),
+        ), // Light Orange
+        child: Icon(
+          Icons.local_fire_department_rounded,
+          size: 14 * scale,
+          color: const Color(0xFFC2410C),
+        ), // Dark Orange
+      );
+    }
+
     final totalSessions = state.historyRecordsSorted.length;
 
     return SingleChildScrollView(
@@ -160,32 +232,19 @@ class _HomeTab extends StatelessWidget {
             ),
           ),
           SizedBox(height: 18 * scale),
+
+          // -------------------------------------------------------------
+          // NEW: Using the dynamic message widget
+          // -------------------------------------------------------------
           Row(
             children: [
-              Container(
-                width: 18 * scale,
-                height: 18 * scale,
-                decoration: const ShapeDecoration(
-                  color: _yellow,
-                  shape: OvalBorder(),
-                ),
-                child: Center(
-                  child: Text(
-                    '!',
-                    style: TextStyle(
-                      color: _ink,
-                      fontSize: 12 * scale,
-                      fontWeight: FontWeight.w700,
-                    ),
-                  ),
-                ),
-              ),
+              statusIconWidget,
               SizedBox(width: 10 * scale),
               Expanded(
                 child: Opacity(
                   opacity: 0.70,
                   child: Text(
-                    'You haven’t checked out the app\nrecently. Do some workouts.',
+                    statusMsg,
                     style: TextStyle(
                       color: _ink,
                       fontSize: 14 * scale,
@@ -196,6 +255,7 @@ class _HomeTab extends StatelessWidget {
               ),
             ],
           ),
+
           SizedBox(height: 18 * scale),
           Container(
             width: double.infinity,
@@ -255,9 +315,6 @@ class _HomeTab extends StatelessWidget {
                   left: 18 * scale,
                   bottom: 12 * scale,
                   child: Text(
-                    // -------------------------------------------------------------
-                    // FIX: Use the actual 'totalSessions' variable
-                    // -------------------------------------------------------------
                     '$totalSessions Total Sessions Completed',
                     style: TextStyle(color: _ink, fontSize: 10 * scale),
                   ),
@@ -316,9 +373,9 @@ class _HomeTab extends StatelessWidget {
           _ProgressCard(
             scale: scale,
             title: 'Average Form Score',
-            mainValue: '0',
+            mainValue: '88',
             suffix: '%',
-            rightNote: '+0% from last month',
+            rightNote: '+3% from last month',
           ),
           SizedBox(height: 18 * scale),
           _ProgressCard(
