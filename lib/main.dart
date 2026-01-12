@@ -2,7 +2,6 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
 import 'app_state.dart';
-
 import 'models/workout.dart';
 import 'models/workout_plan.dart';
 
@@ -14,7 +13,6 @@ import 'screens/profile_section_screen.dart';
 import 'screens/exercise_selection_screen.dart';
 import 'screens/setup_mode_screen.dart';
 import 'screens/exercise_screen.dart';
-//history_screen and streak_screen imports are removed as the files are deleted.
 
 void main() {
   WidgetsFlutterBinding.ensureInitialized();
@@ -58,10 +56,7 @@ class _MyAppState extends State<MyApp> {
       child: MaterialApp(
         debugShowCheckedModeBanner: false,
 
-        // -----------------------------------------------------------
-        // CHANGE 1: We use 'home' with AuthGate instead of routes['/']
-        // -----------------------------------------------------------
-        home: const AuthGate(),
+        home: const WelcomeFlowScreen(),
 
         onGenerateRoute: (settings) {
           // /setup_mode expects Workout
@@ -72,7 +67,6 @@ class _MyAppState extends State<MyApp> {
             );
           }
 
-          // /exercise expects ExerciseArgs(workout, plan)
           if (settings.name == '/exercise') {
             final args = settings.arguments as ExerciseArgs;
             return MaterialPageRoute(
@@ -81,11 +75,10 @@ class _MyAppState extends State<MyApp> {
             );
           }
 
-          return null; // let routes map handle others
+          return null;
         },
 
-        routes: {    
-          // CHANGE 2: Removed '/' so it doesn't conflict with 'home'
+        routes: {
           '/welcome': (_) => const WelcomeFlowScreen(),
           '/gender': (_) => const GenderScreen(),
           '/profile': (_) => const ProfileSetUpScreen(),
@@ -102,35 +95,4 @@ class ExerciseArgs {
   final Workout workout;
   final WorkoutPlan plan;
   const ExerciseArgs({required this.workout, required this.plan});
-}
-
-// -----------------------------------------------------------
-// NEW: The Gatekeeper Widget
-// -----------------------------------------------------------
-class AuthGate extends StatelessWidget {
-  const AuthGate({super.key});
-
-  @override
-  Widget build(BuildContext context) {
-    // 1. Listen to the global state
-    final state = AppStateScope.of(context);
-
-    // 2. Still loading from DB? Show a simple loading screen.
-    if (state.isLoading) {
-      return const Scaffold(
-        backgroundColor: Colors.white,
-        body: Center(
-          child: CircularProgressIndicator(color: Color(0xFF051328)),
-        ),
-      );
-    }
-
-    // 3. Has Profile? Go straight to Home.
-    if (state.hasProfile) {
-      return const HomeScreen(initialTab: 0);
-    }
-
-    // 4. No Profile? Start the Onboarding Flow.
-    return const WelcomeFlowScreen();
-  }
 }
