@@ -54,7 +54,7 @@ class DatabaseHelper {
     if (existing.isNotEmpty) {
       await db.update('profile', row, where: 'id = ?', whereArgs: [1]);
     } else {
-      row['id'] = 1; 
+      row['id'] = 1;
       await db.insert('profile', row);
     }
   }
@@ -76,18 +76,14 @@ class DatabaseHelper {
     required double formScore,
   }) async {
     final db = await instance.database;
-    await db.insert(
-      'history',
-      {
-        'dateKey': dateKey,
-        'type': type,
-        'reps': reps,
-        'sets': sets,
-        'duration': duration,
-        'formScore': formScore,
-      },
-      conflictAlgorithm: ConflictAlgorithm.ignore,
-    );
+    await db.insert('history', {
+      'dateKey': dateKey,
+      'type': type,
+      'reps': reps,
+      'sets': sets,
+      'duration': duration,
+      'formScore': formScore,
+    }, conflictAlgorithm: ConflictAlgorithm.ignore);
   }
 
   // Delete specific entry
@@ -99,6 +95,11 @@ class DatabaseHelper {
   // Get All
   Future<List<Map<String, dynamic>>> getAllWorkouts() async {
     final db = await instance.database;
-    return await db.query('history'); 
+    return await db.query('history');
+  }
+
+  Future<void> clearHistory() async {
+    final db = await instance.database;
+    await db.delete('history'); // Deletes all rows in the history table
   }
 }

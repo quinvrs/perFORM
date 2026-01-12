@@ -33,7 +33,6 @@ class _ProfileSectionScreenState extends State<ProfileSectionScreen> {
     super.initState();
 
     // preload from AppState
-    // (can't call AppStateScope.of(context) in initState directly)
     WidgetsBinding.instance.addPostFrameCallback((_) {
       final state = AppStateScope.of(context);
 
@@ -109,6 +108,41 @@ class _ProfileSectionScreenState extends State<ProfileSectionScreen> {
     setState(() => _avatarPath = null);
     final state = AppStateScope.of(context);
     state.setAvatarPath(null);
+  }
+
+  // -------------------------------------------------------------
+  // NEW: Logic to confirm and delete workout history
+  // -------------------------------------------------------------
+  void _confirmClearData() {
+    showDialog(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: const Text('Clear Workout History?'),
+        content: const Text(
+          'This will permanently delete all your streaks, reps, and sessions.\n\nYour profile settings (name, weight, etc.) will NOT be deleted.',
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx),
+            child: const Text('Cancel', style: TextStyle(color: _ink)),
+          ),
+          TextButton(
+            onPressed: () async {
+              Navigator.pop(ctx); // close dialog
+              final state = AppStateScope.of(context);
+              await state.clearAllWorkouts(); // Calls AppState -> DatabaseHelper
+
+              if (mounted) {
+                ScaffoldMessenger.of(context).showSnackBar(
+                  const SnackBar(content: Text('All workout history erased.')),
+                );
+              }
+            },
+            child: const Text('Erase Data', style: TextStyle(color: Colors.red, fontWeight: FontWeight.bold)),
+          ),
+        ],
+      ),
+    );
   }
 
   void _saveAll() {
@@ -273,203 +307,107 @@ class _ProfileSectionScreenState extends State<ProfileSectionScreen> {
                   // name
                   Text(
                     'Name',
-                    style: TextStyle(
-                      color: _ink,
-                      fontSize: 16 * s,
-                      fontWeight: FontWeight.w800,
-                      fontFamily: 'DM Sans',
-                    ),
+                    style: TextStyle(color: _ink, fontSize: 16 * s, fontWeight: FontWeight.w800, fontFamily: 'DM Sans'),
                   ),
                   SizedBox(height: 10 * s),
                   TextField(
                     controller: _nameCtrl,
-                    style: TextStyle(
-                      color: _ink,
-                      fontSize: 16 * s,
-                      fontFamily: 'DM Sans',
-                      fontWeight: FontWeight.w600,
-                    ),
+                    style: TextStyle(color: _ink, fontSize: 16 * s, fontFamily: 'DM Sans', fontWeight: FontWeight.w600),
                     decoration: InputDecoration(
                       hintText: 'Enter your name',
                       filled: true,
                       fillColor: Colors.white,
                       contentPadding: EdgeInsets.symmetric(horizontal: 14 * s, vertical: 14 * s),
-                      border: OutlineInputBorder(
-                        borderRadius: BorderRadius.circular(16 * s),
-                        borderSide: const BorderSide(color: _mutedBorder),
-                      ),
-                      enabledBorder: OutlineInputBorder(
-                        borderRadius: BorderRadius.circular(16 * s),
-                        borderSide: const BorderSide(color: _mutedBorder),
-                      ),
-                      focusedBorder: OutlineInputBorder(
-                        borderRadius: BorderRadius.circular(16 * s),
-                        borderSide: const BorderSide(color: _ink, width: 1.5),
-                      ),
+                      border: OutlineInputBorder(borderRadius: BorderRadius.circular(16 * s), borderSide: const BorderSide(color: _mutedBorder)),
+                      enabledBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(16 * s), borderSide: const BorderSide(color: _mutedBorder)),
+                      focusedBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(16 * s), borderSide: const BorderSide(color: _ink, width: 1.5)),
                     ),
                   ),
 
                   SizedBox(height: 22 * s),
 
-                  // gender (NO "other" here)
-                  Text(
-                    'Gender',
-                    style: TextStyle(
-                      color: _ink,
-                      fontSize: 16 * s,
-                      fontWeight: FontWeight.w800,
-                      fontFamily: 'DM Sans',
-                    ),
-                  ),
+                  // gender
+                  Text('Gender', style: TextStyle(color: _ink, fontSize: 16 * s, fontWeight: FontWeight.w800, fontFamily: 'DM Sans')),
                   SizedBox(height: 10 * s),
                   Row(
                     children: [
-                      Expanded(
-                        child: _ChoiceChip(
-                          s: s,
-                          label: 'Male',
-                          selected: _gender == Gender.male,
-                          onTap: () => setState(() => _gender = Gender.male),
-                        ),
-                      ),
+                      Expanded(child: _ChoiceChip(s: s, label: 'Male', selected: _gender == Gender.male, onTap: () => setState(() => _gender = Gender.male))),
                       SizedBox(width: 10 * s),
-                      Expanded(
-                        child: _ChoiceChip(
-                          s: s,
-                          label: 'Female',
-                          selected: _gender == Gender.female,
-                          onTap: () => setState(() => _gender = Gender.female),
-                        ),
-                      ),
+                      Expanded(child: _ChoiceChip(s: s, label: 'Female', selected: _gender == Gender.female, onTap: () => setState(() => _gender = Gender.female))),
                     ],
                   ),
 
                   SizedBox(height: 22 * s),
 
-                  // height + weight (clickable right value)
+                  // height + weight
                   _SliderBlock(
-                    title: 'Height',
-                    valueText: '${_heightCm.round()}cm',
-                    minText: '50cm',
-                    maxText: '200cm',
-                    min: 50,
-                    max: 200,
-                    value: _heightCm,
-                    scale: s,
+                    title: 'Height', valueText: '${_heightCm.round()}cm', minText: '50cm', maxText: '200cm', min: 50, max: 200, value: _heightCm, scale: s,
                     onChanged: (v) => setState(() => _heightCm = v),
-                    onValueTap: () => _editNumberDialog(
-                      title: 'Edit Height',
-                      current: _heightCm,
-                      min: 50,
-                      max: 200,
-                      suffix: 'cm',
-                      onSave: (v) => setState(() => _heightCm = v),
-                    ),
+                    onValueTap: () => _editNumberDialog(title: 'Edit Height', current: _heightCm, min: 50, max: 200, suffix: 'cm', onSave: (v) => setState(() => _heightCm = v)),
                   ),
 
                   SizedBox(height: 18 * s),
 
                   _SliderBlock(
-                    title: 'Weight',
-                    valueText: '${_weightKg.round()}kg',
-                    minText: '20kg',
-                    maxText: '200kg',
-                    min: 20,
-                    max: 200,
-                    value: _weightKg,
-                    scale: s,
+                    title: 'Weight', valueText: '${_weightKg.round()}kg', minText: '20kg', maxText: '200kg', min: 20, max: 200, value: _weightKg, scale: s,
                     onChanged: (v) => setState(() => _weightKg = v),
-                    onValueTap: () => _editNumberDialog(
-                      title: 'Edit Weight',
-                      current: _weightKg,
-                      min: 20,
-                      max: 200,
-                      suffix: 'kg',
-                      onSave: (v) => setState(() => _weightKg = v),
-                    ),
+                    onValueTap: () => _editNumberDialog(title: 'Edit Weight', current: _weightKg, min: 20, max: 200, suffix: 'kg', onSave: (v) => setState(() => _weightKg = v)),
                   ),
 
                   SizedBox(height: 22 * s),
 
                   // goal
-                  Text(
-                    'Main Goal',
-                    style: TextStyle(
-                      color: _ink,
-                      fontSize: 16 * s,
-                      fontWeight: FontWeight.w800,
-                      fontFamily: 'DM Sans',
-                    ),
-                  ),
+                  Text('Main Goal', style: TextStyle(color: _ink, fontSize: 16 * s, fontWeight: FontWeight.w800, fontFamily: 'DM Sans')),
                   SizedBox(height: 10 * s),
-                  _GoalTile(
-                    s: s,
-                    title: 'Lose Weight',
-                    icon: Icons.monitor_weight_outlined,
-                    selected: _selectedGoal == 'Lose Weight',
-                    onTap: () => setState(() => _selectedGoal = 'Lose Weight'),
-                  ),
+                  _GoalTile(s: s, title: 'Lose Weight', icon: Icons.monitor_weight_outlined, selected: _selectedGoal == 'Lose Weight', onTap: () => setState(() => _selectedGoal = 'Lose Weight')),
                   SizedBox(height: 10 * s),
-                  _GoalTile(
-                    s: s,
-                    title: 'Build Muscle',
-                    icon: Icons.fitness_center_rounded,
-                    selected: _selectedGoal == 'Build Muscle',
-                    onTap: () => setState(() => _selectedGoal = 'Build Muscle'),
-                  ),
+                  _GoalTile(s: s, title: 'Build Muscle', icon: Icons.fitness_center_rounded, selected: _selectedGoal == 'Build Muscle', onTap: () => setState(() => _selectedGoal = 'Build Muscle')),
                   SizedBox(height: 10 * s),
-                  _GoalTile(
-                    s: s,
-                    title: 'Keep Fit',
-                    icon: Icons.favorite_border_rounded,
-                    selected: _selectedGoal == 'Keep Fit',
-                    onTap: () => setState(() => _selectedGoal = 'Keep Fit'),
-                  ),
+                  _GoalTile(s: s, title: 'Keep Fit', icon: Icons.favorite_border_rounded, selected: _selectedGoal == 'Keep Fit', onTap: () => setState(() => _selectedGoal = 'Keep Fit')),
 
                   SizedBox(height: 22 * s),
 
                   // activity
-                  Text(
-                    'Activity Level',
-                    style: TextStyle(
-                      color: _ink,
-                      fontSize: 16 * s,
-                      fontWeight: FontWeight.w800,
-                      fontFamily: 'DM Sans',
+                  Text('Activity Level', style: TextStyle(color: _ink, fontSize: 16 * s, fontWeight: FontWeight.w800, fontFamily: 'DM Sans')),
+                  SizedBox(height: 10 * s),
+                  _ActivityTile(s: s, emoji: '🪑', title: 'Sedentary', selected: _selectedActivity == 'Sedentary', onTap: () => setState(() => _selectedActivity = 'Sedentary')),
+                  SizedBox(height: 10 * s),
+                  _ActivityTile(s: s, emoji: '🚶', title: 'Lightly active', selected: _selectedActivity == 'Lightly active', onTap: () => setState(() => _selectedActivity = 'Lightly active')),
+                  SizedBox(height: 10 * s),
+                  _ActivityTile(s: s, emoji: '🏃', title: 'Moderately active', selected: _selectedActivity == 'Moderately active', onTap: () => setState(() => _selectedActivity = 'Moderately active')),
+                  SizedBox(height: 10 * s),
+                  _ActivityTile(s: s, emoji: '🥵', title: 'Very active', selected: _selectedActivity == 'Very active', onTap: () => setState(() => _selectedActivity = 'Very active')),
+
+                  // -------------------------------------------------------------
+                  // NEW: Clear History Button
+                  // -------------------------------------------------------------
+                  SizedBox(height: 32 * s),
+                  Center(
+                    child: InkWell(
+                      onTap: _confirmClearData,
+                      borderRadius: BorderRadius.circular(12),
+                      child: Padding(
+                        padding: EdgeInsets.symmetric(vertical: 12 * s, horizontal: 16 * s),
+                        child: Row(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            Icon(Icons.delete_forever_rounded, color: Colors.red[700], size: 20 * s),
+                            SizedBox(width: 8 * s),
+                            Text(
+                              'Clear Workout History',
+                              style: TextStyle(
+                                color: Colors.red[700],
+                                fontSize: 14 * s,
+                                fontWeight: FontWeight.w700,
+                                fontFamily: 'DM Sans',
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
                     ),
                   ),
-                  SizedBox(height: 10 * s),
-                  _ActivityTile(
-                    s: s,
-                    emoji: '🪑',
-                    title: 'Sedentary',
-                    selected: _selectedActivity == 'Sedentary',
-                    onTap: () => setState(() => _selectedActivity = 'Sedentary'),
-                  ),
-                  SizedBox(height: 10 * s),
-                  _ActivityTile(
-                    s: s,
-                    emoji: '🚶',
-                    title: 'Lightly active',
-                    selected: _selectedActivity == 'Lightly active',
-                    onTap: () => setState(() => _selectedActivity = 'Lightly active'),
-                  ),
-                  SizedBox(height: 10 * s),
-                  _ActivityTile(
-                    s: s,
-                    emoji: '🏃',
-                    title: 'Moderately active',
-                    selected: _selectedActivity == 'Moderately active',
-                    onTap: () => setState(() => _selectedActivity = 'Moderately active'),
-                  ),
-                  SizedBox(height: 10 * s),
-                  _ActivityTile(
-                    s: s,
-                    emoji: '🥵',
-                    title: 'Very active',
-                    selected: _selectedActivity == 'Very active',
-                    onTap: () => setState(() => _selectedActivity = 'Very active'),
-                  ),
+                  SizedBox(height: 10 * s), // Extra padding at bottom
                 ],
               ),
             ),
@@ -512,8 +450,8 @@ class _ProfileSectionScreenState extends State<ProfileSectionScreen> {
   }
 }
 
-// ---------- small UI helpers ----------
-
+// ... [Existing _ChoiceChip, _SliderBlock, _GoalTile, _ActivityTile classes] ...
+// (I did not modify the helper widgets below, they remain exactly as they were in your code)
 class _ChoiceChip extends StatelessWidget {
   const _ChoiceChip({
     required this.s,

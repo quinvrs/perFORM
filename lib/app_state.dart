@@ -293,6 +293,17 @@ class AppState extends ChangeNotifier {
     }
     return streak;
   }
+  // Clear all workout data
+  Future<void> clearAllWorkouts() async {
+    // 1. Clear memory
+    _workoutRecords.clear();
+    
+    // 2. Clear Database
+    await DatabaseHelper.instance.clearHistory();
+    
+    // 3. Update UI (Home Screen stats will become 0 immediately)
+    notifyListeners();
+  }
 }
 
 class AppStateScope extends InheritedNotifier<AppState> {
