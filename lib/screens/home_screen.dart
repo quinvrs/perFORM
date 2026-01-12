@@ -111,13 +111,12 @@ class _HomeTab extends StatelessWidget {
     final isActive = streak > 0;
 
     // -------------------------------------------------------------
-    // NEW: Dynamic Message Logic
+    // 1. Dynamic Message Logic
     // -------------------------------------------------------------
     String statusMsg;
     Widget statusIconWidget;
 
     if (streak == 0) {
-      // Case 0: No Streak
       statusMsg =
           'You haven’t checked out the app\nrecently. Do some workouts.';
       statusIconWidget = Container(
@@ -136,7 +135,6 @@ class _HomeTab extends StatelessWidget {
         ),
       );
     } else if (streak == 1) {
-      // Case 1: First Day
       statusMsg = 'Off to a great start!\nKeep the momentum going.';
       statusIconWidget = Container(
         width: 18 * scale,
@@ -144,15 +142,14 @@ class _HomeTab extends StatelessWidget {
         decoration: const ShapeDecoration(
           color: Color(0xFFDBFCE7),
           shape: OvalBorder(),
-        ), // Light Green
+        ),
         child: Icon(
           Icons.thumb_up_rounded,
           size: 12 * scale,
           color: const Color(0xFF15803D),
-        ), // Dark Green
+        ),
       );
     } else if (streak == 2) {
-      // Case 2: Second Day
       statusMsg = 'Two days in a row!\nYou are building a habit.';
       statusIconWidget = Container(
         width: 18 * scale,
@@ -160,15 +157,14 @@ class _HomeTab extends StatelessWidget {
         decoration: const ShapeDecoration(
           color: Color(0xFFE0F2FE),
           shape: OvalBorder(),
-        ), // Light Blue
+        ),
         child: Icon(
           Icons.trending_up_rounded,
           size: 14 * scale,
           color: const Color(0xFF0369A1),
-        ), // Dark Blue
+        ),
       );
     } else {
-      // Case 3+: On Fire
       statusMsg = 'You are on fire!\nKeep that streak alive.';
       statusIconWidget = Container(
         width: 18 * scale,
@@ -176,16 +172,32 @@ class _HomeTab extends StatelessWidget {
         decoration: const ShapeDecoration(
           color: Color(0xFFFFEDD5),
           shape: OvalBorder(),
-        ), // Light Orange
+        ),
         child: Icon(
           Icons.local_fire_department_rounded,
           size: 14 * scale,
           color: const Color(0xFFC2410C),
-        ), // Dark Orange
+        ),
       );
     }
 
     final totalSessions = state.historyRecordsSorted.length;
+
+    // -------------------------------------------------------------
+    // 2. Calculate Real Average Form Score
+    // -------------------------------------------------------------
+    double totalScore = 0;
+    int scoredCount = 0;
+
+    for (final record in state.historyRecordsSorted) {
+      // Only count if score > 0 (to ignore manual entries with 0 score)
+      if (record.formScore > 0) {
+        totalScore += record.formScore;
+        scoredCount++;
+      }
+    }
+
+    final avgScore = scoredCount == 0 ? 0 : (totalScore / scoredCount).round();
 
     return SingleChildScrollView(
       padding: EdgeInsets.fromLTRB(24 * scale, 18 * scale, 24 * scale, navPad),
@@ -232,10 +244,6 @@ class _HomeTab extends StatelessWidget {
             ),
           ),
           SizedBox(height: 18 * scale),
-
-          // -------------------------------------------------------------
-          // NEW: Using the dynamic message widget
-          // -------------------------------------------------------------
           Row(
             children: [
               statusIconWidget,
@@ -255,7 +263,6 @@ class _HomeTab extends StatelessWidget {
               ),
             ],
           ),
-
           SizedBox(height: 18 * scale),
           Container(
             width: double.infinity,
@@ -373,9 +380,10 @@ class _HomeTab extends StatelessWidget {
           _ProgressCard(
             scale: scale,
             title: 'Average Form Score',
-            mainValue: '88',
+            mainValue: '$avgScore', // <--- NOW USING THE CALCULATED VARIABLE
             suffix: '%',
-            rightNote: '+3% from last month',
+            rightNote:
+                '', // Removed static "+3%" since we aren't calculating that yet
           ),
           SizedBox(height: 18 * scale),
           _ProgressCard(
