@@ -567,7 +567,6 @@ class _StreakTab extends StatelessWidget {
                     final done = state.isWorkoutDay(date);
                     return InkWell(
                       borderRadius: BorderRadius.circular(10 * scale),
-                      onTap: () => state.toggleWorkoutDay(date),
                       child: Container(
                         decoration: BoxDecoration(
                           color: done
