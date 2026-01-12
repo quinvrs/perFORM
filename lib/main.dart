@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 
 import 'app_state.dart';
 
@@ -13,8 +14,7 @@ import 'screens/profile_section_screen.dart';
 import 'screens/exercise_selection_screen.dart';
 import 'screens/setup_mode_screen.dart';
 import 'screens/exercise_screen.dart';
-import 'screens/streak_screen.dart';
-import 'screens/history_screen.dart';
+//history_screen and streak_screen imports are removed as the files are deleted.
 
 void main() {
   WidgetsFlutterBinding.ensureInitialized();
@@ -58,6 +58,11 @@ class _MyAppState extends State<MyApp> {
       child: MaterialApp(
         debugShowCheckedModeBanner: false,
 
+        // -----------------------------------------------------------
+        // CHANGE 1: We use 'home' with AuthGate instead of routes['/']
+        // -----------------------------------------------------------
+        home: const AuthGate(),
+
         onGenerateRoute: (settings) {
           // /setup_mode expects Workout
           if (settings.name == '/setup_mode') {
@@ -71,26 +76,22 @@ class _MyAppState extends State<MyApp> {
           if (settings.name == '/exercise') {
             final args = settings.arguments as ExerciseArgs;
             return MaterialPageRoute(
-              builder: (_) => ExerciseScreen(
-                workout: args.workout,
-                plan: args.plan,
-              ),
+              builder: (_) =>
+                  ExerciseScreen(workout: args.workout, plan: args.plan),
             );
           }
 
           return null; // let routes map handle others
         },
 
-        routes: {
-          '/': (_) => const WelcomeFlowScreen(),
+        routes: {    
+          // CHANGE 2: Removed '/' so it doesn't conflict with 'home'
+          '/welcome': (_) => const WelcomeFlowScreen(),
           '/gender': (_) => const GenderScreen(),
           '/profile': (_) => const ProfileSetUpScreen(),
           '/home': (_) => const HomeScreen(initialTab: 0),
           '/profile_section': (_) => const ProfileSectionScreen(),
-          '/streak': (_) => const StreakScreen(),
-          '/history': (_) => const HistoryScreen(),
           '/exercise_select': (_) => const ExerciseSelectionScreen(),
-
         },
       ),
     );
@@ -101,4 +102,35 @@ class ExerciseArgs {
   final Workout workout;
   final WorkoutPlan plan;
   const ExerciseArgs({required this.workout, required this.plan});
+}
+
+// -----------------------------------------------------------
+// NEW: The Gatekeeper Widget
+// -----------------------------------------------------------
+class AuthGate extends StatelessWidget {
+  const AuthGate({super.key});
+
+  @override
+  Widget build(BuildContext context) {
+    // 1. Listen to the global state
+    final state = AppStateScope.of(context);
+
+    // 2. Still loading from DB? Show a simple loading screen.
+    if (state.isLoading) {
+      return const Scaffold(
+        backgroundColor: Colors.white,
+        body: Center(
+          child: CircularProgressIndicator(color: Color(0xFF051328)),
+        ),
+      );
+    }
+
+    // 3. Has Profile? Go straight to Home.
+    if (state.hasProfile) {
+      return const HomeScreen(initialTab: 0);
+    }
+
+    // 4. No Profile? Start the Onboarding Flow.
+    return const WelcomeFlowScreen();
+  }
 }

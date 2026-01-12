@@ -2,7 +2,6 @@ import 'package:sqflite/sqflite.dart';
 import 'package:path/path.dart';
 
 class DatabaseHelper {
-  // Singleton pattern (isa lang dapat ang database instance)
   static final DatabaseHelper instance = DatabaseHelper._init();
   static Database? _database;
 
@@ -22,7 +21,7 @@ class DatabaseHelper {
   }
 
   Future<void> _createDB(Database db, int version) async {
-    // 1. Table para sa User Profile
+    // 1. Profile Table
     await db.execute('''
       CREATE TABLE profile (
         id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -33,31 +32,33 @@ class DatabaseHelper {
       )
     ''');
 
-    // 2. Table para sa Workout History (Dates lang ang kailangan natin ngayon)
+    // 2. History Table (Updated with metrics)
     await db.execute('''
       CREATE TABLE history (
-        dateKey TEXT PRIMARY KEY
+        dateKey TEXT PRIMARY KEY,
+        type TEXT,
+        reps INTEGER,
+        sets INTEGER,
+        duration TEXT,
+        formScore REAL
       )
     ''');
   }
 
   // --- CRUD OPERATIONS ---
 
-  // Save Profile (Update if exists, Insert if not)
   Future<void> saveProfile(Map<String, dynamic> row) async {
     final db = await instance.database;
-    // Check if profile exists (id = 1)
     final existing = await db.query('profile', where: 'id = ?', whereArgs: [1]);
 
     if (existing.isNotEmpty) {
       await db.update('profile', row, where: 'id = ?', whereArgs: [1]);
     } else {
-      row['id'] = 1; // Force ID 1 since single user lang tayo
+      row['id'] = 1; 
       await db.insert('profile', row);
     }
   }
 
-  // Get Profile
   Future<Map<String, dynamic>?> getProfile() async {
     final db = await instance.database;
     final maps = await db.query('profile', where: 'id = ?', whereArgs: [1]);
@@ -65,26 +66,39 @@ class DatabaseHelper {
     return null;
   }
 
-  // Add Workout Date
-  Future<void> insertWorkoutDate(String dateKey) async {
+  // Insert with ALL Metrics
+  Future<void> insertWorkout({
+    required String dateKey,
+    required String type,
+    required int reps,
+    required int sets,
+    required String duration,
+    required double formScore,
+  }) async {
     final db = await instance.database;
     await db.insert(
       'history',
-      {'dateKey': dateKey},
-      conflictAlgorithm: ConflictAlgorithm.ignore, // Ignore if already saved
+      {
+        'dateKey': dateKey,
+        'type': type,
+        'reps': reps,
+        'sets': sets,
+        'duration': duration,
+        'formScore': formScore,
+      },
+      conflictAlgorithm: ConflictAlgorithm.ignore,
     );
   }
 
-  // Remove Workout Date
-  Future<void> deleteWorkoutDate(String dateKey) async {
+  // Delete specific entry
+  Future<void> deleteWorkout(String dateKey) async {
     final db = await instance.database;
     await db.delete('history', where: 'dateKey = ?', whereArgs: [dateKey]);
   }
 
-  // Get All Workout Dates
-  Future<List<String>> getAllWorkoutDates() async {
+  // Get All
+  Future<List<Map<String, dynamic>>> getAllWorkouts() async {
     final db = await instance.database;
-    final result = await db.query('history');
-    return result.map((json) => json['dateKey'] as String).toList();
+    return await db.query('history'); 
   }
 }

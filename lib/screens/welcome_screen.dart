@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import '../app_state.dart';
 
 class WelcomeFlowScreen extends StatefulWidget {
   const WelcomeFlowScreen({super.key});
@@ -14,17 +15,38 @@ class _WelcomeFlowScreenState extends State<WelcomeFlowScreen> {
   static const double _textGroupY = 0.20;
   static const double _coreRectTightenPx = 0;
 
-  static const _frames = <({
-    Alignment align,
-    double scale,
-    double bgOpacity,
-    double uiOpacity,
-  })>[
-    (align: Alignment(-0.85, -0.85), scale: 0.22, bgOpacity: 0.0, uiOpacity: 0.0),
-    (align: Alignment(0.0, -0.05), scale: 0.35, bgOpacity: 0.0, uiOpacity: 0.0),
-    (align: Alignment(0.0, -0.05), scale: 0.55, bgOpacity: 0.0, uiOpacity: 0.0),
-    (align: Alignment(0.0, -0.05), scale: 0.55, bgOpacity: 1.0, uiOpacity: 0.0),
-    (align: Alignment(0.0, _finalIconY), scale: 1.0, bgOpacity: 1.0, uiOpacity: 1.0),
+  static const _frames =
+      <({Alignment align, double scale, double bgOpacity, double uiOpacity})>[
+    (
+      align: Alignment(-0.85, -0.85),
+      scale: 0.22,
+      bgOpacity: 0.0,
+      uiOpacity: 0.0,
+    ),
+    (
+      align: Alignment(0.0, -0.05),
+      scale: 0.35,
+      bgOpacity: 0.0,
+      uiOpacity: 0.0,
+    ),
+    (
+      align: Alignment(0.0, -0.05),
+      scale: 0.55,
+      bgOpacity: 0.0,
+      uiOpacity: 0.0,
+    ),
+    (
+      align: Alignment(0.0, -0.05),
+      scale: 0.55,
+      bgOpacity: 1.0,
+      uiOpacity: 0.0,
+    ),
+    (
+      align: Alignment(0.0, _finalIconY),
+      scale: 1.0,
+      bgOpacity: 1.0,
+      uiOpacity: 1.0,
+    ),
   ];
 
   static const _bounce = Duration(milliseconds: 180);
@@ -52,7 +74,26 @@ class _WelcomeFlowScreenState extends State<WelcomeFlowScreen> {
     await Future.delayed(const Duration(milliseconds: 120));
     if (!mounted) return;
 
-    Navigator.pushReplacementNamed(context, '/gender');
+    final state = AppStateScope.of(context);
+
+    // -----------------------------------------------------------
+    // FIX: Use 'isLoading' instead of '!loaded'
+    // -----------------------------------------------------------
+    if (state.isLoading) {
+      var waited = 0;
+      while (state.isLoading && waited < 2000) {
+        await Future.delayed(const Duration(milliseconds: 100));
+        waited += 100;
+        if (!mounted) return;
+      }
+    }
+
+    // Since AuthGate handles the Profile check, if we are here,
+    // it usually means we need to set up.
+    // However, we keep this check just in case.
+    final target = state.hasProfile ? '/home' : '/gender';
+    
+    Navigator.pushReplacementNamed(context, target);
   }
 
   @override
@@ -67,8 +108,8 @@ class _WelcomeFlowScreenState extends State<WelcomeFlowScreen> {
     final logoH = 201 * s;
 
     return Scaffold(
-      backgroundColor: Colors.white, 
-      body: SizedBox.expand( 
+      backgroundColor: Colors.white,
+      body: SizedBox.expand(
         child: Stack(
           children: [
             // Base white
