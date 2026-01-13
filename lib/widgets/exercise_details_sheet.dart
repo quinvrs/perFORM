@@ -59,6 +59,8 @@ class _ExerciseDetailsSheetState extends State<_ExerciseDetailsSheet> {
   VideoPlayerController? _vid;
   bool _vidReady = false;
   bool _vidError = false;
+  bool _started = false;     
+  bool _pendingPlay = false;  
 
   @override
   void initState() {
@@ -68,9 +70,18 @@ class _ExerciseDetailsSheetState extends State<_ExerciseDetailsSheet> {
     if (asset != null) {
       _vid = VideoPlayerController.asset(asset)
         ..setLooping(true)
-        ..initialize().then((_) {
+        ..initialize().then((_) async {
           if (!mounted) return;
-          setState(() => _vidReady = true);
+          _vidReady = true;
+
+          // If user already tapped while initializing, play as soon as ready
+          if (_pendingPlay) {
+            _pendingPlay = false;
+            _started = true;
+            await _vid!.play();
+            }
+
+          setState(() {});
         }).catchError((_) {
           if (!mounted) return;
           setState(() => _vidError = true);
@@ -143,7 +154,7 @@ class _ExerciseDetailsSheetState extends State<_ExerciseDetailsSheet> {
                   ),
                 ),
 
-                // Offline video preview (asset) — replaces thumbnail
+                // Poster (YouTube thumbnail) -> plays OFFLINE asset video when tapped
                 Padding(
                   padding: EdgeInsets.symmetric(horizontal: 18 * s),
                   child: AspectRatio(
@@ -153,7 +164,23 @@ class _ExerciseDetailsSheetState extends State<_ExerciseDetailsSheet> {
                       child: Stack(
                         fit: StackFit.expand,
                         children: [
-                          if (_vidReady && _vid != null && !_vidError)
+          // --- Poster image (shown before first play OR if video fails) ---
+                          if (!_started || !_vidReady || _vid == null || _vidError)
+                            (ytId != null)
+                                ? Image.network(
+                                    'https://img.youtube.com/vi/$ytId/hqdefault.jpg',
+                                    fit: BoxFit.cover,
+                                    errorBuilder: (_, _, _) => Image.asset(
+                                      _imageFor(title),
+                                      fit: BoxFit.cover,
+                                    ),
+                                  )
+                                : Image.asset(
+                                    _imageFor(title),
+                                    fit: BoxFit.cover,
+                                  )
+                          else
+                            // --- Actual offline video (after first play) ---
                             FittedBox(
                               fit: BoxFit.cover,
                               child: SizedBox(
@@ -161,51 +188,64 @@ class _ExerciseDetailsSheetState extends State<_ExerciseDetailsSheet> {
                                 height: _vid!.value.size.height,
                                 child: VideoPlayer(_vid!),
                               ),
-                            )
-                          else
-                            Image.asset(
-                              _imageFor(title),
-                              fit: BoxFit.cover,
                             ),
-
                           // subtle overlay
                           Container(color: Colors.black.withValues(alpha: 0.10)),
 
-                          // loading spinner when initializing
+                          // loading spinner if still initializing
                           if (_vid != null && !_vidReady && !_vidError)
                             const Center(child: CircularProgressIndicator()),
 
-                          // play/pause overlay (only if ready)
-                          if (_vidReady && _vid != null && !_vidError)
-                            Center(
-                              child: Container(
-                                width: 64 * s,
-                                height: 64 * s,
-                                decoration: BoxDecoration(
-                                  color: Colors.black.withValues(alpha: 0.45),
-                                  shape: BoxShape.circle,
-                                ),
-                                child: Icon(
-                                  _vid!.value.isPlaying
-                                      ? Icons.pause_rounded
-                                      : Icons.play_arrow_rounded,
-                                  color: Colors.white,
-                                  size: 40 * s,
-                                ),
+                          // play/pause icon overlay
+                          Center(
+                            child: Container(
+                              width: 64 * s,
+                              height: 64 * s,
+                              decoration: BoxDecoration(
+                                color: Colors.black.withValues(alpha: 0.45),
+                                shape: BoxShape.circle,
+                              ),
+                              child: Icon(
+                                (_started && _vid != null && _vidReady && !_vidError && _vid!.value.isPlaying)
+                                    ? Icons.pause_rounded
+                                    : Icons.play_arrow_rounded,
+                                color: Colors.white,
+                                size: 40 * s,
                               ),
                             ),
+                          ),
 
-                          // tap to play/pause
+                          // tap behavior: play offline video (NOT YouTube)
                           Material(
                             color: Colors.transparent,
                             child: InkWell(
-                              onTap: (_vidReady && _vid != null && !_vidError)
-                                  ? () {
-                                      setState(() {
-                                        _vid!.value.isPlaying ? _vid!.pause() : _vid!.play();
-                                      });
-                                    }
-                                  : null,
+                              onTap: () async {
+                                if (_vid == null || _vidError) return;
+
+                                // first tap: switch from poster -> video and play
+                                if (!_started) {
+                                  setState(() => _started = true);
+
+                                  if (_vidReady) {
+                                    await _vid!.play();
+                                    if (mounted) setState(() {});
+                                  } else {
+                                    // user tapped before init finished; play when ready
+                                    setState(() => _pendingPlay = true);
+                                  }
+                                  return;
+                                }
+
+                                // subsequent taps: toggle play/pause
+                                if (_vidReady) {
+                                  if (_vid!.value.isPlaying) {
+                                    await _vid!.pause();
+                                  } else {
+                                    await _vid!.play();
+                                  }
+                                  if (mounted) setState(() {});
+                                }
+                              },
                             ),
                           ),
                         ],
