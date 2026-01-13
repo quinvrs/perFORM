@@ -1,3 +1,5 @@
+// ignore_for_file: curly_braces_in_flow_control_structures
+
 import 'dart:async';
 import 'dart:io';
 import 'dart:typed_data';
@@ -48,7 +50,16 @@ class _ExerciseScreenState extends State<ExerciseScreen> {
   Size? _imgSize;
   Size? _canvasSize;
 
-  // session timer (top-right)
+  // ✅ UI throttle (keeps UI responsive)
+  int _lastUiMs = 0;
+  bool _canUpdateUi([int minDeltaMs = 80]) {
+    final now = DateTime.now().millisecondsSinceEpoch;
+    if (now - _lastUiMs < minDeltaMs) return false;
+    _lastUiMs = now;
+    return true;
+  }
+
+  // session timer
   int _elapsed = 0;
   Timer? _elapsedTimer;
   bool _elapsedFrozen = false;
@@ -157,7 +168,7 @@ class _ExerciseScreenState extends State<ExerciseScreen> {
 
     _setTimer = Timer.periodic(const Duration(seconds: 1), (t) {
       if (!mounted) return;
-      if (_phase != _Phase.active) return; // freeze during rest/setup/continue
+      if (_phase != _Phase.active) return;
       setState(() => _setRemaining--);
 
       if (_setRemaining <= 0) {
@@ -178,7 +189,6 @@ class _ExerciseScreenState extends State<ExerciseScreen> {
       _repCounter = RepCounter.squat();
     }
 
-    // prepare set timer value (but don't start unless requested)
     if (widget.plan.isTimed) {
       _setRemaining = _secondsFromTimerLabel(widget.plan.timerLabel);
       if (startTimedTimer) _startSetIfTimed();
@@ -244,17 +254,12 @@ class _ExerciseScreenState extends State<ExerciseScreen> {
   void _continueNextSet() {
     if (_phase != _Phase.continueNext) return;
 
-    // freeze session timer while in setup (like you wanted)
     _freezeElapsedTimer();
-
-    // stop any leftover countdown
     _stopCountdown();
 
-    // reset checklist UI
     _checklist = SetupChecklist.empty();
     _allReady = false;
 
-    // reset reps now so next set starts clean
     _resetForNextSet(startTimedTimer: false);
 
     setState(() => _phase = _Phase.setup);
@@ -263,7 +268,6 @@ class _ExerciseScreenState extends State<ExerciseScreen> {
   // -------------------------
   // Setup-mode replication
   // -------------------------
-
   void _startCountdown({required int seconds}) {
     _countdownTimer?.cancel();
     _countdown = seconds;
@@ -295,7 +299,6 @@ class _ExerciseScreenState extends State<ExerciseScreen> {
       return;
     }
 
-    // Start timers again
     _startElapsedTimer();
 
     setState(() {
@@ -303,7 +306,6 @@ class _ExerciseScreenState extends State<ExerciseScreen> {
       _phase = _Phase.active;
     });
 
-    // start timed set timer only when active
     if (widget.plan.isTimed) _startSetIfTimed();
   }
 
@@ -342,7 +344,6 @@ class _ExerciseScreenState extends State<ExerciseScreen> {
         la != null &&
         ra != null;
 
-    // effective width/height depending on rotation
     final effW = (rotation == InputImageRotation.rotation90deg ||
             rotation == InputImageRotation.rotation270deg)
         ? imageSize.height
@@ -353,7 +354,6 @@ class _ExerciseScreenState extends State<ExerciseScreen> {
         ? imageSize.width
         : imageSize.height;
 
-    // distance (body height fraction)
     bool distanceOk = false;
     if (fullBodyVisible) {
       final topY = [ls.y, rs.y].reduce((a, b) => a < b ? a : b);
@@ -363,7 +363,6 @@ class _ExerciseScreenState extends State<ExerciseScreen> {
       distanceOk = frac >= 0.55 && frac <= 0.92;
     }
 
-    // enough side space
     bool spaceOk = false;
     if (fullBodyVisible && lw != null && rw != null) {
       final xs = <double>[ls.x, rs.x, lh.x, rh.x, la.x, ra.x, lw.x, rw.x];
@@ -372,14 +371,12 @@ class _ExerciseScreenState extends State<ExerciseScreen> {
       spaceOk = (minX > 0.04 * effW) && (maxX < 0.96 * effW);
     }
 
-    // centered
     bool centeredOk = false;
     if (fullBodyVisible) {
       final cx = (ls.x + rs.x + lh.x + rh.x) / 4.0;
       centeredOk = ((cx - effW / 2).abs() / effW) <= 0.20;
     }
 
-    // facing via shoulder width fraction
     bool frontFacingOk = false;
     bool sideFacingOk = false;
     if (ls != null && rs != null) {
@@ -391,7 +388,7 @@ class _ExerciseScreenState extends State<ExerciseScreen> {
     if (_isSquat(title)) {
       return SetupChecklist(
         items: [
-          SetupItem('Stand 6–8 feet from the camera', distanceOk),
+          SetupItem('Stand 4–6 feet from the camera', distanceOk),
           SetupItem('Ensure that the full body is visible', fullBodyVisible),
           SetupItem('Position yourself side-facing to the camera', sideFacingOk),
           SetupItem('Keep enough space for your arms and legs', spaceOk),
@@ -402,7 +399,7 @@ class _ExerciseScreenState extends State<ExerciseScreen> {
     if (_isJumpingJack(title)) {
       return SetupChecklist(
         items: [
-          SetupItem('Stand 6–8 feet from the camera', distanceOk),
+          SetupItem('Stand 4–6 feet from the camera', distanceOk),
           SetupItem('Ensure that the full body is visible', fullBodyVisible),
           SetupItem('Face the camera directly', frontFacingOk),
           SetupItem(
@@ -415,7 +412,7 @@ class _ExerciseScreenState extends State<ExerciseScreen> {
 
     return SetupChecklist(
       items: [
-        SetupItem('Stand 6–8 feet from the camera', distanceOk),
+        SetupItem('Stand 4–6 feet from the camera', distanceOk),
         SetupItem('Ensure that the full body is visible', fullBodyVisible),
         SetupItem('Keep enough space for your arms and legs', spaceOk),
       ],
@@ -425,7 +422,6 @@ class _ExerciseScreenState extends State<ExerciseScreen> {
   // -------------------------
   // Camera init + pose stream
   // -------------------------
-
   Future<void> _initCamera() async {
     try {
       await Future.delayed(const Duration(milliseconds: 300));
@@ -453,7 +449,9 @@ class _ExerciseScreenState extends State<ExerciseScreen> {
           chosen,
           ResolutionPreset.medium,
           enableAudio: false,
-          imageFormatGroup: Platform.isAndroid ? ImageFormatGroup.nv21 : ImageFormatGroup.bgra8888,
+          imageFormatGroup: Platform.isAndroid
+              ? ImageFormatGroup.nv21
+              : ImageFormatGroup.bgra8888,
         );
         _controller = ctrl;
         _initFuture = ctrl.initialize();
@@ -467,7 +465,9 @@ class _ExerciseScreenState extends State<ExerciseScreen> {
           chosen,
           ResolutionPreset.medium,
           enableAudio: false,
-          imageFormatGroup: Platform.isAndroid ? ImageFormatGroup.yuv420 : ImageFormatGroup.bgra8888,
+          imageFormatGroup: Platform.isAndroid
+              ? ImageFormatGroup.yuv420
+              : ImageFormatGroup.bgra8888,
         );
         _controller = ctrl;
         _initFuture = ctrl.initialize();
@@ -477,10 +477,15 @@ class _ExerciseScreenState extends State<ExerciseScreen> {
       _selectedCamera = chosen;
 
       await _controller!.startImageStream((CameraImage image) async {
-        if (_isDetecting) return;
-        _isDetecting = true;
-
         try {
+          if (_isDetecting) return;
+          _isDetecting = true;
+
+          final phaseNow = _phase;
+          final shouldProcess =
+              (phaseNow == _Phase.setup || phaseNow == _Phase.active);
+          if (!shouldProcess) return;
+
           final detector = _poseDetector;
           if (detector == null) return;
 
@@ -488,9 +493,14 @@ class _ExerciseScreenState extends State<ExerciseScreen> {
           if (inputImage == null) return;
 
           final poses = await detector.processImage(inputImage);
-          if (mounted) setState(() => _poses = poses);
 
-          if (_phase == _Phase.setup) {
+          if (mounted && _canUpdateUi()) {
+            setState(() => _poses = poses);
+          } else {
+            _poses = poses;
+          }
+
+          if (phaseNow == _Phase.setup) {
             final c = _buildChecklist(
               poses: poses,
               imageSize: _imgSize,
@@ -500,37 +510,35 @@ class _ExerciseScreenState extends State<ExerciseScreen> {
 
             final ready = c.allMet;
 
-            // if readiness breaks during countdown -> stop countdown
             if (_countdown > 0 && !ready) _stopCountdown();
-
-            // if became ready and not counting down -> start countdown
             if (_countdown == 0 && ready) _startCountdown(seconds: _setupCountdownSeconds);
 
-            if (mounted) {
+            if (mounted && _canUpdateUi(120)) {
               setState(() {
                 _checklist = c;
                 _allReady = ready;
               });
+            } else {
+              _checklist = c;
+              _allReady = ready;
             }
             return;
           }
 
-          if (_phase != _Phase.active) return;
+          if (phaseNow != _Phase.active) return;
           if (poses.isEmpty) return;
 
-          // Jumping Jacks: count reps even if timed
           if (_isJumpingJacks) {
-            // Need camera + mapping context for robust detection
             if (_imgSize == null || _imgRotation == null || _selectedCamera == null) return;
 
-          final canvasSize = _canvasSize ??
-              (() {
-                final previewSize = _controller?.value.previewSize;
-                if (previewSize == null) return null;
-                return Size(previewSize.height, previewSize.width);
-              })();
+            final canvasSize = _canvasSize ??
+                (() {
+                  final previewSize = _controller?.value.previewSize;
+                  if (previewSize == null) return null;
+                  return Size(previewSize.height, previewSize.width);
+                })();
 
-          if (canvasSize == null) return;
+            if (canvasSize == null) return;
 
             final had = _jjCounter.update(
               pose: poses.first,
@@ -541,24 +549,26 @@ class _ExerciseScreenState extends State<ExerciseScreen> {
             );
 
             if (had || _jjCounter.reps != _reps) {
-              if (mounted) setState(() => _reps = _jjCounter.reps);
+              final next = _jjCounter.reps;
+              if (mounted && _canUpdateUi()) setState(() => _reps = next);
+              else _reps = next;
             }
             return;
           }
 
-// Squats: reps-based only
-            final hadRep = _repCounter.update(poses.first);
-            if (hadRep) {
-              final newReps = _repCounter.reps;
-              if (mounted) setState(() => _reps = newReps);
+          // squats
+          final hadRep = _repCounter.update(poses.first);
+          if (hadRep) {
+            final newReps = _repCounter.reps;
+            if (mounted && _canUpdateUi()) setState(() => _reps = newReps);
+            else _reps = newReps;
 
-              if (_reps >= widget.plan.reps) {
-                _completeSet();
-              }
+            if (_reps >= widget.plan.reps) {
+              _completeSet();
             }
-          
+          }
         } catch (e, st) {
-          debugPrint('Exercise pose error: $e\n$st');
+          debugPrint('ImageStream ERROR: $e\n$st');
         } finally {
           _isDetecting = false;
         }
@@ -640,10 +650,15 @@ class _ExerciseScreenState extends State<ExerciseScreen> {
   // Summary nav
   // -------------------------
   Future<void> _viewExerciseSummary() async {
+    debugPrint('NAV: _viewExerciseSummary()');
     _freezeElapsedTimer();
 
-    final state = AppStateScope.of(context);
-    await Future.sync(() => state.setWorkoutDay(DateTime.now(), true));
+    try {
+      final state = AppStateScope.of(context);
+      await Future.sync(() => state.setWorkoutDay(DateTime.now(), true));
+    } catch (e, st) {
+      debugPrint('setWorkoutDay ERROR: $e\n$st');
+    }
 
     _commitSetRepsOnce();
 
@@ -680,79 +695,72 @@ class _ExerciseScreenState extends State<ExerciseScreen> {
   // -------------------------
   // UI
   // -------------------------
+  Widget _buildCameraWithOverlay() {
+    final controller = _controller;
+    if (controller == null || !controller.value.isInitialized) {
+      return const Center(child: CircularProgressIndicator());
+    }
 
- Widget _buildCameraWithOverlay() {
-  final controller = _controller;
-  if (controller == null || !controller.value.isInitialized) {
-    return const Center(child: CircularProgressIndicator());
-  }
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        final screenAspect = constraints.maxWidth / constraints.maxHeight;
 
-  return LayoutBuilder(
-    builder: (context, constraints) {
-      final screenAspect = constraints.maxWidth / constraints.maxHeight;
+        final previewAspect = controller.value.aspectRatio;
+        final portraitPreviewAspect = 1 / previewAspect;
 
-      // camera plugin gives landscape-ish aspect for portrait preview
-      final previewAspect = controller.value.aspectRatio;
-      final portraitPreviewAspect = 1 / previewAspect;
+        final rawScale = math.max(
+          screenAspect / portraitPreviewAspect,
+          portraitPreviewAspect / screenAspect,
+        );
+        final scale = rawScale.clamp(1.0, 1.6);
 
-      // cover scale, clamped (same as your SetupModeScreen fix)
-      final rawScale = math.max(
-        screenAspect / portraitPreviewAspect,
-        portraitPreviewAspect / screenAspect,
-      );
-      final scale = rawScale.clamp(1.0, 1.6);
+        final boxW = constraints.maxWidth;
+        final boxH = constraints.maxHeight;
 
-      // compute the actual on-screen size of the AspectRatio box (before scaling)
-      final boxW = constraints.maxWidth;
-      final boxH = constraints.maxHeight;
+        double paintW, paintH;
+        if (boxW / boxH > portraitPreviewAspect) {
+          paintH = boxH;
+          paintW = boxH * portraitPreviewAspect;
+        } else {
+          paintW = boxW;
+          paintH = boxW / portraitPreviewAspect;
+        }
+        _canvasSize = Size(paintW, paintH);
 
-      double paintW, paintH;
-      if (boxW / boxH > portraitPreviewAspect) {
-        // screen is wider → height matches, width follows aspect
-        paintH = boxH;
-        paintW = boxH * portraitPreviewAspect;
-      } else {
-        // screen is narrower → width matches, height follows aspect
-        paintW = boxW;
-        paintH = boxW / portraitPreviewAspect;
-      }
-      _canvasSize = Size(paintW, paintH);
-
-      return ClipRect(
-        child: Transform.scale(
-          scale: scale.toDouble(),
-          alignment: Alignment.center,
-          child: Center(
-            child: AspectRatio(
-              aspectRatio: portraitPreviewAspect,
-              child: Stack(
-                fit: StackFit.expand,
-                children: [
-                  CameraPreview(controller),
-                  if (_imgSize != null && _imgRotation != null && _selectedCamera != null)
-                    IgnorePointer(
-                      child: RepaintBoundary(
-                        child: CustomPaint(
-                          painter: _PosePainter(
-                            poses: _poses,
-                            imageSize: _imgSize!,
-                            rotation: _imgRotation!,
-                            isFrontCamera:
-                                _selectedCamera!.lensDirection == CameraLensDirection.front,
+        return ClipRect(
+          child: Transform.scale(
+            scale: scale.toDouble(),
+            alignment: Alignment.center,
+            child: Center(
+              child: AspectRatio(
+                aspectRatio: portraitPreviewAspect,
+                child: Stack(
+                  fit: StackFit.expand,
+                  children: [
+                    CameraPreview(controller),
+                    if (_imgSize != null && _imgRotation != null && _selectedCamera != null)
+                      IgnorePointer(
+                        child: RepaintBoundary(
+                          child: CustomPaint(
+                            painter: _PosePainter(
+                              poses: _poses,
+                              imageSize: _imgSize!,
+                              rotation: _imgRotation!,
+                              isFrontCamera:
+                                  _selectedCamera!.lensDirection == CameraLensDirection.front,
+                            ),
                           ),
                         ),
                       ),
-                    ),
-                ],
+                  ],
+                ),
               ),
             ),
           ),
-        ),
-      );
-    },
-  );
-}
-
+        );
+      },
+    );
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -920,6 +928,9 @@ class _ExerciseScreenState extends State<ExerciseScreen> {
   }
 }
 
+// ============================
+// Bottom Card
+// ============================
 class _BottomWorkoutCard extends StatefulWidget {
   const _BottomWorkoutCard({
     required this.s,
@@ -956,7 +967,7 @@ class _BottomWorkoutCard extends StatefulWidget {
 
   final VoidCallback onSkipRest;
   final VoidCallback onContinue;
-  final VoidCallback onViewSummary;
+  final Future<void> Function() onViewSummary;
 
   static const _cardBg = Color(0xFFEFEFF3);
   static const _ink = Color(0xFF051328);
@@ -1194,7 +1205,19 @@ class _BottomWorkoutCardState extends State<_BottomWorkoutCard>
             SizedBox(height: 4 * s),
             _PrimaryYellowButton(s: s, label: 'Continue', onTap: widget.onContinue),
             SizedBox(height: 10 * s),
-            _DarkButton(s: s, label: 'Mark workout done', onTap: widget.onViewSummary),
+            _DarkButton(
+              s: s,
+              label: 'Mark Workout Done',
+              onTap: () {
+                () async {
+                  try {
+                    await widget.onViewSummary();
+                  } catch (e, st) {
+                    debugPrint('Mark Done ERROR: $e\n$st');
+                  }
+                }();
+              },
+            ),
             SizedBox(height: 10 * s),
             Text(
               'Set ${widget.setIndex + 1}/${widget.setsTotal}',
@@ -1214,7 +1237,19 @@ class _BottomWorkoutCardState extends State<_BottomWorkoutCard>
               ),
             ),
             SizedBox(height: 10 * s),
-            _DarkButton(s: s, label: 'View Exercise Summary', onTap: widget.onViewSummary),
+            _DarkButton(
+              s: s,
+              label: 'View Exercise Summary',
+              onTap: () {
+                () async {
+                  try {
+                    await widget.onViewSummary();
+                  } catch (e, st) {
+                    debugPrint('Summary ERROR: $e\n$st');
+                  }
+                }();
+              },
+            ),
           ],
         ],
       ),
@@ -1222,6 +1257,9 @@ class _BottomWorkoutCardState extends State<_BottomWorkoutCard>
   }
 }
 
+// ============================
+// Buttons
+// ============================
 class _DarkButton extends StatelessWidget {
   const _DarkButton({
     required this.s,
@@ -1237,9 +1275,12 @@ class _DarkButton extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return InkWell(
-      onTap: onTap,
-      borderRadius: BorderRadius.circular(14 * s),
+    return GestureDetector(
+      behavior: HitTestBehavior.opaque,
+      onTap: () {
+        debugPrint('TAP: $label');
+        onTap();
+      },
       child: Container(
         height: 46 * s,
         width: double.infinity,
@@ -1277,9 +1318,9 @@ class _PrimaryYellowButton extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return InkWell(
+    return GestureDetector(
+      behavior: HitTestBehavior.opaque,
       onTap: onTap,
-      borderRadius: BorderRadius.circular(16 * s),
       child: Container(
         height: 52 * s,
         width: double.infinity,
@@ -1303,7 +1344,7 @@ class _PrimaryYellowButton extends StatelessWidget {
 }
 
 // ---------------------------------------
-// Checklist models + UI (same feel as SetupModeScreen)
+// Checklist models + UI
 // ---------------------------------------
 class SetupChecklist {
   const SetupChecklist({required this.items});
@@ -1403,9 +1444,7 @@ class _ChecklistCard extends StatelessWidget {
                               width: 28 * s,
                               height: 28 * s,
                               decoration: BoxDecoration(
-                                color: it.ok
-                                    ? const Color(0xFF00C951)
-                                    : const Color(0xFFE53935),
+                                color: it.ok ? const Color(0xFF00C951) : const Color(0xFFE53935),
                                 shape: BoxShape.circle,
                               ),
                               child: Icon(
@@ -1440,7 +1479,7 @@ class _ChecklistCard extends StatelessWidget {
 }
 
 // ---------------------------------------
-// Pose overlay painter (white dots + lines)
+// Pose overlay painter
 // ---------------------------------------
 class _PosePainter extends CustomPainter {
   _PosePainter({
@@ -1720,9 +1759,9 @@ class ExerciseSummaryScreen extends StatelessWidget {
                       ),
                     ),
                   ),
-                  InkWell(
+                  GestureDetector(
+                    behavior: HitTestBehavior.opaque,
                     onTap: () => Navigator.popUntil(context, (r) => r.isFirst),
-                    borderRadius: BorderRadius.circular(16 * s),
                     child: Container(
                       height: 54 * s,
                       width: double.infinity,
@@ -1796,7 +1835,6 @@ class _StatBox extends StatelessWidget {
     );
   }
 }
-
 
 // -------------------------
 // helpers
