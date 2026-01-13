@@ -152,7 +152,8 @@ class _HomeTab extends StatelessWidget {
     Widget statusIconWidget;
 
     if (streak == 0) {
-      statusMsg = 'You haven’t checked out the app\nrecently. Do some workouts.';
+      statusMsg =
+          'You haven’t checked out the app\nrecently. Do some workouts.';
       statusIconWidget = _StatusIcon(
         scale: scale,
         color: const Color(0xFFFFF9C4),
@@ -216,13 +217,15 @@ class _HomeTab extends StatelessWidget {
     }
 
     final avgScore = scoredCount == 0 ? 0 : (totalScore / scoredCount).round();
-    final avgReps =
-        totalSessions == 0 ? 0 : (totalRepsAllTime / totalSessions).round();
+    final avgReps = totalSessions == 0
+        ? 0
+        : (totalRepsAllTime / totalSessions).round();
 
     // streak motivation
     final milestone = _nextMilestone(streak);
-    final progressToMilestone =
-        milestone == 0 ? 0.0 : (streak / milestone).clamp(0.0, 1.0);
+    final progressToMilestone = milestone == 0
+        ? 0.0
+        : (streak / milestone).clamp(0.0, 1.0);
 
     return SingleChildScrollView(
       padding: EdgeInsets.fromLTRB(24 * scale, 18 * scale, 24 * scale, navPad),
@@ -371,10 +374,13 @@ class _HomeTab extends StatelessWidget {
                               child: ClipRRect(
                                 borderRadius: BorderRadius.circular(999),
                                 child: LinearProgressIndicator(
-                                  value: (streak == 0) ? 0 : progressToMilestone,
+                                  value: (streak == 0)
+                                      ? 0
+                                      : progressToMilestone,
                                   minHeight: 7 * scale,
-                                  backgroundColor:
-                                      Colors.black.withValues(alpha: 0.06),
+                                  backgroundColor: Colors.black.withValues(
+                                    alpha: 0.06,
+                                  ),
                                   valueColor: AlwaysStoppedAnimation<Color>(
                                     isActive
                                         ? accentColor
@@ -420,7 +426,9 @@ class _HomeTab extends StatelessWidget {
                         ),
                         child: Icon(
                           Icons.local_fire_department_rounded,
-                          color: isActive ? accentColor : const Color(0xFFBFC4CC),
+                          color: isActive
+                              ? accentColor
+                              : const Color(0xFFBFC4CC),
                           size: 34 * scale,
                         ),
                       ),
@@ -678,19 +686,19 @@ class _StreakTab extends StatelessWidget {
   }
 
   static String _monthName(int m) => [
-        'January',
-        'February',
-        'March',
-        'April',
-        'May',
-        'June',
-        'July',
-        'August',
-        'September',
-        'October',
-        'November',
-        'December',
-      ][m - 1];
+    'January',
+    'February',
+    'March',
+    'April',
+    'May',
+    'June',
+    'July',
+    'August',
+    'September',
+    'October',
+    'November',
+    'December',
+  ][m - 1];
 }
 
 class _MetricCard extends StatelessWidget {
@@ -781,6 +789,9 @@ class _MetricCard extends StatelessWidget {
   }
 }
 
+// -------------------------------------------------------------
+// UPDATED HISTORY TAB: CALCULATES DURATION INSTEAD OF REPS
+// -------------------------------------------------------------
 class _HistoryTab extends StatelessWidget {
   const _HistoryTab({required this.scale, required this.navPad});
   final double scale, navPad;
@@ -799,18 +810,45 @@ class _HistoryTab extends StatelessWidget {
     final state = AppStateScope.of(context);
     final records = state.historyRecordsSorted;
 
-    final totalReps = records.fold<int>(0, (sum, r) => sum + r.reps);
-
+    // --- NEW LOGIC: Calculate Total Duration (parsing HH:MM:SS or MM:SS) ---
+    int totalSeconds = 0;
     double totalForm = 0;
     int count = 0;
+
     for (final r in records) {
       if (r.formScore > 0) {
         totalForm += r.formScore;
         count++;
       }
+
+      // Parse Duration
+      final parts = r.duration.split(':');
+      if (parts.length == 3) {
+        // HH:MM:SS
+        totalSeconds +=
+            (int.tryParse(parts[0]) ?? 0) * 3600 +
+            (int.tryParse(parts[1]) ?? 0) * 60 +
+            (int.tryParse(parts[2]) ?? 0);
+      } else if (parts.length == 2) {
+        // MM:SS
+        totalSeconds +=
+            (int.tryParse(parts[0]) ?? 0) * 60 + (int.tryParse(parts[1]) ?? 0);
+      }
     }
+
     final avgForm = count == 0 ? 0 : (totalForm / count).round();
     final formColor = _formTint(avgForm);
+
+    // Format Duration Text
+    String durationText;
+    if (totalSeconds >= 3600) {
+      int h = totalSeconds ~/ 3600;
+      int m = (totalSeconds % 3600) ~/ 60;
+      durationText = '${h}h ${m}m';
+    } else {
+      int m = totalSeconds ~/ 60;
+      durationText = (totalSeconds > 0 && m == 0) ? '< 1m' : '${m}m';
+    }
 
     return SingleChildScrollView(
       padding: EdgeInsets.fromLTRB(24 * scale, 24 * scale, 24 * scale, navPad),
@@ -848,10 +886,10 @@ class _HistoryTab extends StatelessWidget {
                 child: _HistoryStatCard(
                   scale: scale,
                   accent: const Color(0xFF537892),
-                  icon: Icons.bolt,
-                  title: 'Total Reps',
-                  value: '$totalReps',
-                  unit: 'reps',
+                  icon: Icons.timer_outlined, // Changed Icon to Timer
+                  title: 'Total\nDuration', // Changed Title
+                  value: durationText, // Changed Value
+                  unit: 'time', // Changed Unit
                 ),
               ),
             ],
@@ -874,6 +912,7 @@ class _HistoryTab extends StatelessWidget {
             Column(
               children: [
                 for (final record in records.take(20)) ...[
+                  // Unchanged: We pass formTint just as your existing card expects
                   _WorkoutCard(
                     scale: scale,
                     record: record,
@@ -1042,7 +1081,9 @@ class _HistoryStatCard extends StatelessWidget {
                 child: Text(
                   unit,
                   style: TextStyle(
-                    color: unit == '%' ? accent : accent.withValues(alpha: 0.70),
+                    color: unit == '%'
+                        ? accent
+                        : accent.withValues(alpha: 0.70),
                     fontSize: 14 * scale,
                     fontWeight: FontWeight.w600,
                   ),
@@ -1132,7 +1173,11 @@ class _WorkoutCard extends StatelessWidget {
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
               _MiniStat(scale: scale, value: '${record.reps}', label: 'Reps'),
-              _MiniStat(scale: scale, value: record.duration, label: 'Duration'),
+              _MiniStat(
+                scale: scale,
+                value: record.duration,
+                label: 'Duration',
+              ),
               _MiniStat(scale: scale, value: '${record.sets}', label: 'Sets'),
             ],
           ),
