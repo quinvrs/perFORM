@@ -1690,8 +1690,15 @@ class _ExerciseSummaryScreenState extends State<ExerciseSummaryScreen> {
     return dd.subtract(Duration(days: diff));
   }
 
-  // If your AppState stores completed days as keys like "yyyy-mm-dd",
-  // this will work. If your key format differs, adjust _dayKey.
+  int _weekOfMonthMonday(DateTime d) {
+  final firstDay = DateTime(d.year, d.month, 1);
+  final firstWeekStart = _startOfWeekMonday(firstDay);
+  final thisWeekStart = _startOfWeekMonday(d);
+
+  final diffDays = thisWeekStart.difference(firstWeekStart).inDays;
+  return (diffDays ~/ 7) + 1;
+}
+
   String _dayKey(DateTime d) {
     final y = d.year.toString().padLeft(4, '0');
     final m = d.month.toString().padLeft(2, '0');
@@ -1723,6 +1730,7 @@ class _ExerciseSummaryScreenState extends State<ExerciseSummaryScreen> {
     final now = DateTime.now();
     final weekStart = _startOfWeekMonday(now);
     final doneThisWeek = _weekCount(state, weekStart);
+    final weekNo = _weekOfMonthMonday(now);
 
     return Scaffold(
       backgroundColor: const Color(0xFF0F1A28),
@@ -1863,12 +1871,11 @@ class _ExerciseSummaryScreenState extends State<ExerciseSummaryScreen> {
                                     ),
                                   ],
                                 ),
-
-                                // ✅ weekly calendar (matches your screenshot vibe)
+                                
                                 SizedBox(height: 14 * s),
                                 _WeeklyProgressRow(
                                   s: s,
-                                  title: 'Week 1', // you can compute week number later if needed
+                                  title: 'Week $weekNo', // you can compute week number later if needed
                                   doneText: '$doneThisWeek/7',
                                   startOfWeek: weekStart,
                                   isDone: (d) => _didWorkoutOn(state, d),
