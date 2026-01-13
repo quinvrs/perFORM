@@ -116,17 +116,17 @@ class WorkoutPlan {
   // Tables (NOT const -> no invalid_constant)
   // -------------------------
   static final Map<ActivityLevel, _RepsRec> _squats = {
-    ActivityLevel.sedentary: const _RepsRec(reps: 6, sets: 2, restSeconds: 60),
-    ActivityLevel.lightlyActive: const _RepsRec(reps: 8, sets: 3, restSeconds: 45),
-    ActivityLevel.moderatelyActive: const _RepsRec(reps: 10, sets: 3, restSeconds: 30),
-    ActivityLevel.veryActive: const _RepsRec(reps: 12, sets: 4, restSeconds: 25),
+    ActivityLevel.sedentary: const _RepsRec(reps: 6, sets: 2, restSeconds: 90),
+    ActivityLevel.lightlyActive: const _RepsRec(reps: 8, sets: 3, restSeconds: 75),
+    ActivityLevel.moderatelyActive: const _RepsRec(reps: 10, sets: 3, restSeconds: 75),
+    ActivityLevel.veryActive: const _RepsRec(reps: 12, sets: 4, restSeconds: 60),
   };
 
   static final Map<ActivityLevel, _TimedRec> _jj = {
     ActivityLevel.sedentary: const _TimedRec(timeSeconds: 30, sets: 2, restSeconds: 45),
     ActivityLevel.lightlyActive: const _TimedRec(timeSeconds: 45, sets: 3, restSeconds: 30),
     ActivityLevel.moderatelyActive: const _TimedRec(timeSeconds: 60, sets: 3, restSeconds: 30),
-    ActivityLevel.veryActive: const _TimedRec(timeSeconds: 90, sets: 4, restSeconds: 25),
+    ActivityLevel.veryActive: const _TimedRec(timeSeconds: 90, sets: 4, restSeconds: 30),
   };
 
   // -------------------------
