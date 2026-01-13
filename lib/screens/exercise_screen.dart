@@ -17,6 +17,7 @@ import '../models/workout_plan.dart';
 import '../app_state.dart';
 import '../services/rep_counter_squats.dart';
 import '../services/rep_counter_jumping_jacks.dart';
+import '../services/tts_service.dart';
 
 enum _Phase { setup, active, rest, continueNext, finished }
 
@@ -36,6 +37,14 @@ class ExerciseScreen extends StatefulWidget {
 
 class _ExerciseScreenState extends State<ExerciseScreen> {
   static const _bgDark = Color.fromARGB(255, 18, 32, 47);
+
+  //added tts service
+  final TtsService _tts = TtsService.I;
+
+  int _lastSpokenCountdown = -1;
+  int _lastSpokenRep = 0;
+  bool _spokenWorkoutComplete = false;
+  bool _spokenRest = false;
 
   CameraController? _controller;
   Future<void>? _initFuture;
@@ -102,6 +111,8 @@ class _ExerciseScreenState extends State<ExerciseScreen> {
   void initState() {
     super.initState();
 
+    _tts.init();
+
     _restSecondsDefault = widget.plan.restSeconds;
     _restRemaining = _restSecondsDefault;
 
@@ -122,6 +133,8 @@ class _ExerciseScreenState extends State<ExerciseScreen> {
 
   @override
   void dispose() {
+    unawaited(TtsService.I.stop());
+
     _elapsedTimer?.cancel();
     _setTimer?.cancel();
     _restTimer?.cancel();
@@ -171,6 +184,8 @@ class _ExerciseScreenState extends State<ExerciseScreen> {
       if (_phase != _Phase.active) return;
       setState(() => _setRemaining--);
 
+      _speakFinalFiveSecondsIfNeeded();
+
       if (_setRemaining <= 0) {
         t.cancel();
         _setTimer = null;
@@ -181,6 +196,8 @@ class _ExerciseScreenState extends State<ExerciseScreen> {
 
   void _resetForNextSet({bool startTimedTimer = false}) {
     _reps = 0;
+    _lastSpokenRep = 0;
+    _lastSpokenCountdown = -1;
     _setCommitted = false;
 
     if (_isJumpingJacks) {
@@ -192,6 +209,24 @@ class _ExerciseScreenState extends State<ExerciseScreen> {
     if (widget.plan.isTimed) {
       _setRemaining = _secondsFromTimerLabel(widget.plan.timerLabel);
       if (startTimedTimer) _startSetIfTimed();
+    }
+  }
+
+    void _speakFinalFiveSecondsIfNeeded() {
+    if (!widget.plan.isTimed) return;
+    if (_phase != _Phase.active) return;
+
+    final r = _setRemaining;
+
+    // Only speak for 5..1
+    if (r <= 5 && r >= 1 && r != _lastSpokenCountdown) {
+      _lastSpokenCountdown = r;
+      _tts.speak('$r');
+    }
+
+    // Reset guard once we're not in the final 5 window anymore
+    if (r > 5) {
+      _lastSpokenCountdown = -1;
     }
   }
 
@@ -212,8 +247,13 @@ class _ExerciseScreenState extends State<ExerciseScreen> {
       _restTimer = null;
       _countdownTimer?.cancel();
       _countdownTimer = null;
-
       _freezeElapsedTimer();
+
+      if(!_spokenWorkoutComplete) {
+        _spokenWorkoutComplete = true;
+        _tts.speak('Workout complete. Well done!');
+      }
+
       setState(() => _phase = _Phase.finished);
       return;
     }
@@ -223,6 +263,11 @@ class _ExerciseScreenState extends State<ExerciseScreen> {
 
     _restRemaining = _restSecondsDefault;
     setState(() => _phase = _Phase.rest);
+
+    if (!_spokenRest) {
+      _spokenRest = true;
+      unawaited(TtsService.I.speak('Please Take a rest!'));
+    }
 
     _restTimer?.cancel();
     _restTimer = Timer.periodic(const Duration(seconds: 1), (t) {
@@ -242,6 +287,7 @@ class _ExerciseScreenState extends State<ExerciseScreen> {
   void _skipRest() {
     _restTimer?.cancel();
     _restTimer = null;
+    unawaited(TtsService.I.stop());
 
     _freezeElapsedTimer();
 
@@ -256,6 +302,7 @@ class _ExerciseScreenState extends State<ExerciseScreen> {
 
     _freezeElapsedTimer();
     _stopCountdown();
+    _spokenRest = false;
 
     _checklist = SetupChecklist.empty();
     _allReady = false;
@@ -563,6 +610,11 @@ class _ExerciseScreenState extends State<ExerciseScreen> {
             if (mounted && _canUpdateUi()) setState(() => _reps = newReps);
             else _reps = newReps;
 
+            if (!_isJumpingJacks && newReps > _lastSpokenRep) {
+              _lastSpokenRep = newReps;
+              _tts.speak('$newReps');
+            }
+
             if (_reps >= widget.plan.reps) {
               _completeSet();
             }
@@ -652,6 +704,11 @@ class _ExerciseScreenState extends State<ExerciseScreen> {
   Future<void> _viewExerciseSummary() async {
     debugPrint('NAV: _viewExerciseSummary()');
     _freezeElapsedTimer();
+
+    if (!_spokenWorkoutComplete) {
+      _spokenWorkoutComplete = true;
+      await TtsService.I.speak('Workout Complete. Well done!');
+    }
 
     try {
       final state = AppStateScope.of(context);
