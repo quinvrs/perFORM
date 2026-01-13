@@ -1,12 +1,15 @@
 # Corerect
 
-A new final project for the subject Application Development and Emerging Technologies.
+A final project for the subject Application Development and Emerging Technologies.
 
-## Proponent
-Antoc, John Loyd 
-Guioguio, Kenneth
-Reyes, Quinverly
-Sumo, John Windrei
+## Group 3 Project Proponents
+[Antoc, John Loyd](https://github.com/JLA35)
+
+[Guioguio, Kenneth](https://github.com/k3nn-g)
+
+[Reyes, Quinverly](https://github.com/quinvrs)
+
+[Sumo, John Windrei](https://github.com/JDRAyCS)
 
 ### Project Overview
 

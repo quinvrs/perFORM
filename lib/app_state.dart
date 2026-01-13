@@ -207,6 +207,18 @@ class AppState extends ChangeNotifier {
     }
   }
 
+/// Backward-compatible: returns unique YYYY-MM-DD keys for days with workouts.
+List<String> get workoutDayKeys {
+  final set = <String>{};
+  for (final r in _workoutRecords) {
+    final k = r.dateKey;
+    if (k.length >= 10) set.add(k.substring(0, 10)); // YYYY-MM-DD
+  }
+  final list = set.toList();
+  list.sort(); // optional: ascending
+  return list;
+}
+
   /// Saves workout with ALL metrics
   Future<void> setWorkoutDay(
     DateTime d, 
