@@ -1,7 +1,6 @@
 import 'package:flutter/material.dart';
 
 import 'app_state.dart';
-
 import 'models/workout.dart';
 import 'models/workout_plan.dart';
 
@@ -13,8 +12,6 @@ import 'screens/profile_section_screen.dart';
 import 'screens/exercise_selection_screen.dart';
 import 'screens/setup_mode_screen.dart';
 import 'screens/exercise_screen.dart';
-import 'screens/streak_screen.dart';
-import 'screens/history_screen.dart';
 
 void main() {
   WidgetsFlutterBinding.ensureInitialized();
@@ -58,6 +55,8 @@ class _MyAppState extends State<MyApp> {
       child: MaterialApp(
         debugShowCheckedModeBanner: false,
 
+        home: const WelcomeFlowScreen(),
+
         onGenerateRoute: (settings) {
           // /setup_mode expects Workout
           if (settings.name == '/setup_mode') {
@@ -67,30 +66,24 @@ class _MyAppState extends State<MyApp> {
             );
           }
 
-          // /exercise expects ExerciseArgs(workout, plan)
           if (settings.name == '/exercise') {
             final args = settings.arguments as ExerciseArgs;
             return MaterialPageRoute(
-              builder: (_) => ExerciseScreen(
-                workout: args.workout,
-                plan: args.plan,
-              ),
+              builder: (_) =>
+                  ExerciseScreen(workout: args.workout, plan: args.plan),
             );
           }
 
-          return null; // let routes map handle others
+          return null;
         },
 
         routes: {
-          '/': (_) => const WelcomeFlowScreen(),
+          '/welcome': (_) => const WelcomeFlowScreen(),
           '/gender': (_) => const GenderScreen(),
           '/profile': (_) => const ProfileSetUpScreen(),
           '/home': (_) => const HomeScreen(initialTab: 0),
           '/profile_section': (_) => const ProfileSectionScreen(),
-          '/streak': (_) => const StreakScreen(),
-          '/history': (_) => const HistoryScreen(),
           '/exercise_select': (_) => const ExerciseSelectionScreen(),
-
         },
       ),
     );
