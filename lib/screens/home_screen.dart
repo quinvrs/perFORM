@@ -104,6 +104,7 @@ class _HomeTab extends StatelessWidget {
   static const _yellowProgress = Color(0xFFECC051);
 
   static Color _avgScoreTint(int score) {
+    if (score <= 0) return const Color(0xFF6B7280); // gray for 0%
     if (score < 40) return const Color(0xFFDC2626); // red
     if (score < 80) return const Color(0xFFF97316); // orange
     return const Color(0xFF16A34A); // green
@@ -1006,6 +1007,17 @@ class _WorkoutCard extends StatelessWidget {
   final double scale;
   final WorkoutRecord record;
 
+    static Color _formTint(double score) {
+    if (score <= 0) return const Color(0xFF6B7280); // gray
+    if (score < 40) return const Color(0xFFDC2626); // red
+    if (score < 80) return const Color(0xFFF97316); // orange
+    return const Color(0xFF16A34A); // green
+  }
+
+  static String _formLabel(double score) {
+  return '${score.toInt()}% Form';
+}
+
   @override
   Widget build(BuildContext context) {
     final date = record.dateTime;
@@ -1042,23 +1054,28 @@ class _WorkoutCard extends StatelessWidget {
                 ),
               ),
               const Spacer(),
-              Container(
-                padding: EdgeInsets.symmetric(
-                  horizontal: 10 * scale,
-                  vertical: 4 * scale,
-                ),
-                decoration: BoxDecoration(
-                  color: const Color(0xFFDBFCE7),
-                  borderRadius: BorderRadius.circular(50),
-                ),
-                child: Text(
-                  // FIX: Display actual Form Score
-                  '${record.formScore.toInt()}% Form',
-                  style: TextStyle(
-                    color: const Color(0xFF3C926C),
-                    fontSize: 10 * scale,
-                  ),
-                ),
+              Builder(
+                builder: (_) {
+                  final c = _formTint(record.formScore);
+                  return Container(
+                    padding: EdgeInsets.symmetric(
+                      horizontal: 10 * scale,
+                      vertical: 4 * scale,
+                    ),
+                    decoration: BoxDecoration(
+                      color: c.withValues(alpha: 0.14), // same tinted/opacity feel
+                      borderRadius: BorderRadius.circular(50),
+                    ),
+                    child: Text(
+                      _formLabel(record.formScore),
+                      style: TextStyle(
+                        color: c,
+                        fontSize: 10 * scale,
+                        fontWeight: FontWeight.w600,
+                      ),
+                    ),
+                  );
+                },
               ),
             ],
           ),
