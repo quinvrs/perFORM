@@ -43,6 +43,7 @@ class _ExerciseScreenState extends State<ExerciseScreen> {
 
   int _lastSpokenCountdown = -1;
   int _lastSpokenRestCountdown = -1;
+  int _lastSpokenSetupCountdown = -1;
   int _lastSpokenRep = 0;
   bool _spokenWorkoutComplete = false;
   bool _spokenRest = false;
@@ -348,9 +349,19 @@ class _ExerciseScreenState extends State<ExerciseScreen> {
     _countdownTimer?.cancel();
     _countdown = seconds;
 
+    _lastSpokenSetupCountdown = -1;
+
+    unawaited(TtsService.I.speak('$_countdown'));
+    _lastSpokenSetupCountdown = _countdown;
+
     _countdownTimer = Timer.periodic(const Duration(seconds: 1), (t) {
       if (!mounted) return;
       setState(() => _countdown--);
+
+      if (_countdown >= 1 && _countdown <= seconds && _countdown != _lastSpokenSetupCountdown) {
+        _lastSpokenSetupCountdown = _countdown;
+        unawaited(TtsService.I.speak('$_countdown'));
+      }
 
       if (_countdown <= 0) {
         t.cancel();
@@ -557,11 +568,6 @@ class _ExerciseScreenState extends State<ExerciseScreen> {
           if (_isDetecting) return;
           _isDetecting = true;
 
-          final phaseNow = _phase;
-          final shouldProcess =
-              (phaseNow == _Phase.setup || phaseNow == _Phase.active);
-          if (!shouldProcess) return;
-
           final detector = _poseDetector;
           if (detector == null) return;
 
@@ -575,6 +581,8 @@ class _ExerciseScreenState extends State<ExerciseScreen> {
           } else {
             _poses = poses;
           }
+
+          final phaseNow = _phase;
 
           if (phaseNow == _Phase.setup) {
             final c = _buildChecklist(
