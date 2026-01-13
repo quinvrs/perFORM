@@ -454,7 +454,7 @@ class _SetupModeScreenState extends State<SetupModeScreen> {
 
     return SetupChecklist(
       items: [
-        SetupItem('Stand 6–8 feet from the camera', distanceOk),
+        SetupItem('Stand 4–6 feet from the camera', distanceOk),
         SetupItem('Ensure that the full body is visible', fullBodyVisible),
         SetupItem('Keep enough space for your arms and legs', spaceOk),
       ],
