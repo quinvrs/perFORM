@@ -100,6 +100,14 @@ class _HomeTab extends StatelessWidget {
   static const _yellow = Color(0xFFFEF9C2);
   static const _streakAccent = Color(0xFFECC051);
   static const _muted = Color(0xFF797B7F);
+    // Progress colors
+  static const _yellowProgress = Color(0xFFECC051);
+
+  static Color _avgScoreTint(int score) {
+    if (score < 40) return const Color(0xFFDC2626); // red
+    if (score < 80) return const Color(0xFFF97316); // orange
+    return const Color(0xFF16A34A); // green
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -377,21 +385,24 @@ class _HomeTab extends StatelessWidget {
             ),
           ),
           SizedBox(height: 14 * scale),
-          _ProgressCard(
-            scale: scale,
-            title: 'Average Form Score',
-            mainValue: '$avgScore', // <--- NOW USING THE CALCULATED VARIABLE
-            suffix: '%',
-            rightNote:
-                '', // Removed static "+3%" since we aren't calculating that yet
-          ),
-          SizedBox(height: 18 * scale),
-          _ProgressCard(
-            scale: scale,
-            title: 'Weekly Session',
-            mainValue: '$weekly',
-            suffix: 'sessions',
-            rightNote: '',
+          Row(
+            children: [
+              _ProgressMetricCard(
+                scale: scale,
+                title: 'Average Form Score',
+                value: '$avgScore',
+                suffix: '%',
+                tint: _avgScoreTint(avgScore),
+              ),
+              SizedBox(width: 14 * scale),
+              _ProgressMetricCard(
+                scale: scale,
+                title: 'Weekly Session',
+                value: '$weekly',
+                suffix: 'sessions',
+                tint: _yellowProgress,
+              ),
+            ],
           ),
         ],
       ),
@@ -428,84 +439,86 @@ class _ProfileAvatar extends StatelessWidget {
   }
 }
 
-class _ProgressCard extends StatelessWidget {
-  const _ProgressCard({
+class _ProgressMetricCard extends StatelessWidget {
+  const _ProgressMetricCard({
     required this.scale,
     required this.title,
-    required this.mainValue,
-    required this.suffix,
-    required this.rightNote,
+    required this.value,
+    required this.tint,
+    this.suffix,
   });
+
   final double scale;
   final String title;
-  final String mainValue;
-  final String suffix;
-  final String rightNote;
+  final String value;
+  final String? suffix;
+  final Color tint;
+
   static const _ink = Color(0xFF051328);
-  static const _muted = Color(0xFF797B7F);
 
   @override
   Widget build(BuildContext context) {
-    return Container(
-      width: double.infinity,
-      height: 84 * scale,
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(10 * scale),
-        boxShadow: [
-          BoxShadow(
-            color: const Color(0xFF000000).withAlpha(26),
-            blurRadius: 6,
-            offset: const Offset(0, 2),
-          ),
-        ],
-      ),
-      child: Padding(
+    return Expanded(
+      child: Container(
+        height: 120 * scale,
         padding: EdgeInsets.fromLTRB(
-          16 * scale,
+          14 * scale,
           12 * scale,
-          16 * scale,
+          14 * scale,
           12 * scale,
+        ),
+        decoration: BoxDecoration(
+          color: tint.withValues(alpha: 0.12), // <- same “opacity/tint” look
+          borderRadius: BorderRadius.circular(16 * scale),
         ),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             Text(
               title,
+              maxLines: 2,
+              overflow: TextOverflow.ellipsis,
               style: TextStyle(
-                color: Colors.black,
-                fontSize: 16 * scale,
-                fontWeight: FontWeight.w400,
+                color: tint,
+                fontSize: 12 * scale,
+                fontWeight: FontWeight.w700,
+                height: 1.10,
               ),
             ),
             const Spacer(),
-            Row(
-              crossAxisAlignment: CrossAxisAlignment.end,
-              children: [
-                Text(
-                  mainValue,
-                  style: TextStyle(
-                    color: _ink,
-                    fontSize: 32 * scale,
-                    fontWeight: FontWeight.w700,
-                    height: 1.0,
-                  ),
-                ),
-                SizedBox(width: 8 * scale),
-                Padding(
-                  padding: EdgeInsets.only(bottom: 6 * scale),
-                  child: Text(
-                    suffix,
-                    style: TextStyle(color: _muted, fontSize: 10 * scale),
-                  ),
-                ),
-                const Spacer(),
-                if (rightNote.isNotEmpty)
+            FittedBox(
+              fit: BoxFit.scaleDown,
+              alignment: Alignment.bottomLeft,
+              child: Row(
+                crossAxisAlignment: CrossAxisAlignment.end,
+                children: [
                   Text(
-                    rightNote,
-                    style: TextStyle(color: _muted, fontSize: 10 * scale),
+                    value,
+                    style: TextStyle(
+                      color: tint,
+                      fontSize: 36 * scale,
+                      fontWeight: FontWeight.w800,
+                      height: 1.0,
+                      fontFamily: 'DM Sans',
+                    ),
                   ),
-              ],
+                  if (suffix != null) ...[
+                    SizedBox(width: 6 * scale),
+                    Padding(
+                      padding: EdgeInsets.only(bottom: 8 * scale),
+                      child: Text(
+                        suffix!,
+                        style: TextStyle(
+                          color: _ink.withValues(alpha: 0.65),
+                          fontSize: 12 * scale,
+                          height: 1.0,
+                          fontFamily: 'DM Sans',
+                        ),
+                      ),
+                    ),
+                  ],
+                ],
+              ),
             ),
           ],
         ),
