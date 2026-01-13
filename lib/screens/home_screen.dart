@@ -518,17 +518,33 @@ class _StatusIcon extends StatelessWidget {
   }
 }
 
-class _StreakTab extends StatelessWidget {
+// -------------------------------------------------------------
+// UPDATED STREAK TAB: BOUNDED NAVIGATION
+// -------------------------------------------------------------
+class _StreakTab extends StatefulWidget {
   const _StreakTab({required this.scale, required this.navPad});
   final double scale, navPad;
 
+  @override
+  State<_StreakTab> createState() => _StreakTabState();
+}
+
+class _StreakTabState extends State<_StreakTab> {
   static const _ink = Color(0xFF051328);
   static const _gold = Color(0xFFECC051);
 
-  // calendar intensity colors
+  // Calendar intensity colors
   static const _greenLight = Color(0xFF42D678);
   static const _greenMid = Color(0xFF16A34A);
   static const _greenDark = Color(0xFF14532D);
+
+  late DateTime _focusedDate;
+
+  @override
+  void initState() {
+    super.initState();
+    _focusedDate = DateTime.now();
+  }
 
   Color _getDailyColor(int count) {
     if (count == 0) return const Color(0xFFEDEFF3);
@@ -537,49 +553,93 @@ class _StreakTab extends StatelessWidget {
     return _greenDark;
   }
 
+  // --- NAVIGATION BOUNDS ---
+
+  // You can only go back if the year is reasonable (e.g., > 2020)
+  bool get _canGoBack {
+    return _focusedDate.year > 2020;
+  }
+
+  // You can only go forward if you aren't already viewing the future
+  bool get _canGoForward {
+    final now = DateTime.now();
+    // Allow going up to 1 month ahead of current month
+    final maxFuture = DateTime(now.year, now.month + 1);
+    return _focusedDate.isBefore(maxFuture);
+  }
+
+  void _prevMonth() {
+    if (!_canGoBack) return;
+    setState(() {
+      // Step: Jump 3 months back
+      _focusedDate = DateTime(_focusedDate.year, _focusedDate.month - 3);
+    });
+  }
+
+  void _nextMonth() {
+    if (!_canGoForward) return;
+    setState(() {
+      // Step: Jump 1 month forward
+      _focusedDate = DateTime(_focusedDate.year, _focusedDate.month + 1);
+    });
+  }
+
+  bool _isFuture(DateTime day) {
+    final now = DateTime.now();
+    final today = DateTime(now.year, now.month, now.day);
+    return day.isAfter(today);
+  }
+
   @override
   Widget build(BuildContext context) {
     final state = AppStateScope.of(context);
-    final now = DateTime.now();
-    final year = now.year, month = now.month;
+
+    final year = _focusedDate.year;
+    final month = _focusedDate.month;
 
     final daysInMonth = DateTime(year, month + 1, 0).day;
-    final offset = DateTime(year, month, 1).weekday % 7;
+    final firstDayOfMonth = DateTime(year, month, 1);
+    final offset = firstDayOfMonth.weekday % 7;
     final totalCells = ((offset + daysInMonth + 6) ~/ 7) * 7;
 
     final streak = state.currentStreak;
     final weekly = state.weeklySessions();
 
     return SingleChildScrollView(
-      padding: EdgeInsets.fromLTRB(24 * scale, 24 * scale, 24 * scale, navPad),
+      padding: EdgeInsets.fromLTRB(
+        24 * widget.scale,
+        24 * widget.scale,
+        24 * widget.scale,
+        widget.navPad,
+      ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           SizedBox(
-            height: 40 * scale,
+            height: 40 * widget.scale,
             child: Center(
               child: Text(
                 'Activity Calendar',
                 style: TextStyle(
                   color: _ink,
-                  fontSize: 20 * scale,
+                  fontSize: 20 * widget.scale,
                   fontWeight: FontWeight.w800,
                 ),
               ),
             ),
           ),
-          SizedBox(height: 18 * scale),
+          SizedBox(height: 18 * widget.scale),
           Row(
             children: [
               _MetricCard(
-                scale: scale,
+                scale: widget.scale,
                 title: 'Streak',
                 value: '$streak',
                 tint: _gold,
               ),
-              SizedBox(width: 14 * scale),
+              SizedBox(width: 14 * widget.scale),
               _MetricCard(
-                scale: scale,
+                scale: widget.scale,
                 title: 'Weekly\nSessions',
                 value: '$weekly',
                 suffix: 'sessions',
@@ -587,15 +647,16 @@ class _StreakTab extends StatelessWidget {
               ),
             ],
           ),
-          SizedBox(height: 18 * scale),
+          SizedBox(height: 18 * widget.scale),
+
           Container(
-            padding: EdgeInsets.all(16 * scale),
+            padding: EdgeInsets.all(16 * widget.scale),
             decoration: BoxDecoration(
               color: Colors.white,
-              borderRadius: BorderRadius.circular(10 * scale),
+              borderRadius: BorderRadius.circular(10 * widget.scale),
               boxShadow: [
                 BoxShadow(
-                  color: const Color(0xFF000000).withAlpha(20),
+                  color: const Color(0xFF000000).withValues(alpha: 0.08),
                   blurRadius: 8,
                   offset: const Offset(0, 2),
                 ),
@@ -604,15 +665,57 @@ class _StreakTab extends StatelessWidget {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Text(
-                  '${_monthName(month)} $year',
-                  style: TextStyle(
-                    color: Colors.black,
-                    fontSize: 16 * scale,
-                    fontWeight: FontWeight.w800,
-                  ),
+                // Header Row
+                Row(
+                  children: [
+                    // Left Arrow (Hidden if limit reached)
+                    Opacity(
+                      opacity: _canGoBack ? 1.0 : 0.0,
+                      child: InkWell(
+                        onTap: _canGoBack ? _prevMonth : null,
+                        borderRadius: BorderRadius.circular(50),
+                        child: Padding(
+                          padding: EdgeInsets.all(4 * widget.scale),
+                          child: Icon(
+                            Icons.chevron_left_rounded,
+                            color: _ink,
+                            size: 24 * widget.scale,
+                          ),
+                        ),
+                      ),
+                    ),
+
+                    SizedBox(width: 8 * widget.scale),
+                    Text(
+                      '${_monthName(month)} $year',
+                      style: TextStyle(
+                        color: Colors.black,
+                        fontSize: 16 * widget.scale,
+                        fontWeight: FontWeight.w800,
+                      ),
+                    ),
+                    const Spacer(),
+
+                    // Right Arrow (Hidden if limit reached)
+                    Opacity(
+                      opacity: _canGoForward ? 1.0 : 0.0,
+                      child: InkWell(
+                        onTap: _canGoForward ? _nextMonth : null,
+                        borderRadius: BorderRadius.circular(50),
+                        child: Padding(
+                          padding: EdgeInsets.all(4 * widget.scale),
+                          child: Icon(
+                            Icons.chevron_right_rounded,
+                            color: _ink,
+                            size: 24 * widget.scale,
+                          ),
+                        ),
+                      ),
+                    ),
+                  ],
                 ),
-                SizedBox(height: 12 * scale),
+                SizedBox(height: 12 * widget.scale),
+
                 Row(
                   children: const ['S', 'M', 'T', 'W', 'T', 'F', 'S']
                       .map(
@@ -623,6 +726,7 @@ class _StreakTab extends StatelessWidget {
                               style: TextStyle(
                                 color: Color(0xFF797B7F),
                                 fontSize: 12,
+                                fontWeight: FontWeight.w600,
                               ),
                             ),
                           ),
@@ -630,7 +734,8 @@ class _StreakTab extends StatelessWidget {
                       )
                       .toList(),
                 ),
-                SizedBox(height: 10 * scale),
+                SizedBox(height: 10 * widget.scale),
+
                 GridView.builder(
                   shrinkWrap: true,
                   physics: const NeverScrollableScrollPhysics(),
@@ -641,28 +746,47 @@ class _StreakTab extends StatelessWidget {
                     crossAxisSpacing: 8,
                   ),
                   itemBuilder: (context, i) {
-                    if (i < offset || (i - offset + 1) > daysInMonth) {
+                    if (i < offset || (i - offset + 1) > daysInMonth)
                       return const SizedBox.shrink();
-                    }
                     final day = i - offset + 1;
-
                     final currentDay = DateTime(year, month, day);
-                    final workoutCount = state.historyRecordsSorted.where((r) {
-                      final d = r.dateTime;
-                      return d.year == currentDay.year &&
-                          d.month == currentDay.month &&
-                          d.day == currentDay.day;
-                    }).length;
 
-                    final bg = _getDailyColor(workoutCount);
-                    final fg = workoutCount > 0
-                        ? Colors.white
-                        : const Color(0xFF797B7F);
+                    final isFuture = _isFuture(currentDay);
+
+                    final workoutCount = isFuture
+                        ? 0
+                        : state.historyRecordsSorted.where((r) {
+                            final d = r.dateTime;
+                            return d.year == currentDay.year &&
+                                d.month == currentDay.month &&
+                                d.day == currentDay.day;
+                          }).length;
+
+                    Color bg;
+                    Color fg;
+
+                    if (isFuture) {
+                      bg = Colors.white;
+                      fg = const Color(0xFFE0E0E0); // Gray text for future
+                    } else {
+                      bg = _getDailyColor(workoutCount);
+                      fg = workoutCount > 0
+                          ? Colors.white
+                          : const Color(0xFF797B7F);
+                    }
+
+                    final isToday =
+                        DateTime.now().year == year &&
+                        DateTime.now().month == month &&
+                        DateTime.now().day == day;
 
                     return Container(
                       decoration: BoxDecoration(
                         color: bg,
-                        borderRadius: BorderRadius.circular(10 * scale),
+                        borderRadius: BorderRadius.circular(10 * widget.scale),
+                        border: isToday
+                            ? Border.all(color: _ink, width: 1.5)
+                            : null,
                       ),
                       child: Center(
                         child: Text(
@@ -670,7 +794,7 @@ class _StreakTab extends StatelessWidget {
                           style: TextStyle(
                             color: fg,
                             fontWeight: FontWeight.w700,
-                            fontSize: 12 * scale,
+                            fontSize: 12 * widget.scale,
                           ),
                         ),
                       ),
@@ -685,7 +809,7 @@ class _StreakTab extends StatelessWidget {
     );
   }
 
-  static String _monthName(int m) => [
+  String _monthName(int m) => [
     'January',
     'February',
     'March',
