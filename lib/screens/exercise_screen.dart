@@ -59,7 +59,7 @@ class _ExerciseScreenState extends State<ExerciseScreen> {
   Size? _imgSize;
   Size? _canvasSize;
 
-  // ✅ UI throttle (keeps UI responsive)
+  // UI throttle (keeps UI responsive)
   int _lastUiMs = 0;
   bool _canUpdateUi([int minDeltaMs = 80]) {
     final now = DateTime.now().millisecondsSinceEpoch;
@@ -83,6 +83,9 @@ class _ExerciseScreenState extends State<ExerciseScreen> {
   int _reps = 0; // reps for current set
   int _totalReps = 0; // total reps across sets
   bool _setCommitted = false;
+
+  int _setsCompleted = 0;
+  bool _setCountedForCurrent = false;
 
   // timed-set support
   Timer? _setTimer;
@@ -199,6 +202,7 @@ class _ExerciseScreenState extends State<ExerciseScreen> {
     _lastSpokenRep = 0;
     _lastSpokenCountdown = -1;
     _setCommitted = false;
+    _setCountedForCurrent = false;
 
     if (_isJumpingJacks) {
       _jjCounter.reset();
@@ -234,6 +238,11 @@ class _ExerciseScreenState extends State<ExerciseScreen> {
     if (_setCommitted) return;
     _totalReps += _reps;
     _setCommitted = true;
+
+    if (!_setCountedForCurrent) {
+    _setsCompleted += 1;
+    _setCountedForCurrent = true;
+    }
   }
 
   void _completeSet() {
@@ -712,7 +721,17 @@ class _ExerciseScreenState extends State<ExerciseScreen> {
 
     try {
       final state = AppStateScope.of(context);
-      await Future.sync(() => state.setWorkoutDay(DateTime.now(), true));
+
+      await state.setWorkoutDay(
+        DateTime.now(),
+        true,
+        type: widget.workout.title,
+        reps: _totalReps,
+        sets: _setsCompleted,
+        duration: _fmt(_elapsed), // you store duration as String in DB
+        formScore: 0.0, // or your computed score
+      );
+
     } catch (e, st) {
       debugPrint('setWorkoutDay ERROR: $e\n$st');
     }
@@ -744,6 +763,7 @@ class _ExerciseScreenState extends State<ExerciseScreen> {
           plan: widget.plan,
           elapsedSeconds: _elapsed,
           totalReps: _totalReps,
+          setsCompleted: _setsCompleted,
         ),
       ),
     );
@@ -1635,26 +1655,74 @@ class _PosePainter extends CustomPainter {
 // ============================
 // Exercise Summary Screen
 // ============================
-class ExerciseSummaryScreen extends StatelessWidget {
+class ExerciseSummaryScreen extends StatefulWidget {
   const ExerciseSummaryScreen({
     super.key,
     required this.workout,
     required this.plan,
     required this.elapsedSeconds,
     required this.totalReps,
+    required this.setsCompleted,
   });
 
   final Workout workout;
   final WorkoutPlan plan;
   final int elapsedSeconds;
   final int totalReps;
+  final int setsCompleted;
 
+  @override
+  State<ExerciseSummaryScreen> createState() => _ExerciseSummaryScreenState();
+}
+
+class _ExerciseSummaryScreenState extends State<ExerciseSummaryScreen> {
   static const _ink = Color(0xFF051328);
   static const _yellow = Color(0xFFFEF9C2);
+  static const _card = Color(0xFFEFEFF3);
+  static const _green = Color(0xFF22C55E);
+
+  // ---- week helpers ----
+  DateTime _dateOnly(DateTime d) => DateTime(d.year, d.month, d.day);
+
+  DateTime _startOfWeekMonday(DateTime d) {
+    final dd = _dateOnly(d);
+    final diff = (dd.weekday - DateTime.monday) % 7;
+    return dd.subtract(Duration(days: diff));
+  }
+
+  // If your AppState stores completed days as keys like "yyyy-mm-dd",
+  // this will work. If your key format differs, adjust _dayKey.
+  String _dayKey(DateTime d) {
+    final y = d.year.toString().padLeft(4, '0');
+    final m = d.month.toString().padLeft(2, '0');
+    final day = d.day.toString().padLeft(2, '0');
+    return '$y-$m-$day';
+  }
+
+  bool _didWorkoutOn(AppState state, DateTime d) {
+    // ✅ Update this line if your AppState uses a different field name:
+    // common patterns: Set<String> workoutDayKeys; Map<String,bool> workoutDays;
+    final key = _dayKey(d);
+    final keys = state.workoutDayKeys; // <-- must exist in your AppState
+    return keys.contains(key);
+  }
+
+  int _weekCount(AppState state, DateTime start) {
+    int c = 0;
+    for (int i = 0; i < 7; i++) {
+      if (_didWorkoutOn(state, start.add(Duration(days: i)))) c++;
+    }
+    return c;
+  }
 
   @override
   Widget build(BuildContext context) {
     final s = MediaQuery.sizeOf(context).width / 375.0;
+    final state = AppStateScope.of(context);
+
+    final now = DateTime.now();
+    final weekStart = _startOfWeekMonday(now);
+    final doneThisWeek = _weekCount(state, weekStart);
 
     return Scaffold(
       backgroundColor: const Color(0xFF0F1A28),
@@ -1714,6 +1782,8 @@ class ExerciseSummaryScreen extends StatelessWidget {
                             ),
                           ),
                           SizedBox(height: 12 * s),
+
+                          // workout name pill
                           Container(
                             padding: EdgeInsets.symmetric(
                               horizontal: 14 * s,
@@ -1736,7 +1806,7 @@ class ExerciseSummaryScreen extends StatelessWidget {
                                 SizedBox(width: 10 * s),
                                 Expanded(
                                   child: Text(
-                                    workout.title,
+                                    widget.workout.title,
                                     style: TextStyle(
                                       color: Colors.white.withValues(alpha: 0.95),
                                       fontSize: 14 * s,
@@ -1748,6 +1818,8 @@ class ExerciseSummaryScreen extends StatelessWidget {
                             ),
                           ),
                           SizedBox(height: 16 * s),
+
+                          // stats card
                           Container(
                             padding: EdgeInsets.all(14 * s),
                             decoration: BoxDecoration(
@@ -1761,36 +1833,57 @@ class ExerciseSummaryScreen extends StatelessWidget {
                                 )
                               ],
                             ),
-                            child: Row(
+                            child: Column(
                               children: [
-                                Expanded(
-                                  child: _StatBox(
-                                    s: s,
-                                    label: 'Repetitions',
-                                    value: '$totalReps',
-                                  ),
+                                Row(
+                                  children: [
+                                    Expanded(
+                                      child: _StatBox(
+                                        s: s,
+                                        label: 'Repetitions',
+                                        value: '${widget.totalReps}',
+                                      ),
+                                    ),
+                                    SizedBox(width: 10 * s),
+                                    Expanded(
+                                      child: _StatBox(
+                                        s: s,
+                                        label: 'Sets',
+                                        value: '${widget.setsCompleted}', // ✅ actual sets done
+                                      ),
+                                    ),
+                                    SizedBox(width: 10 * s),
+                                    Expanded(
+                                      child: _StatBox(
+                                        s: s,
+                                        label: 'Time',
+                                        value: _fmt(widget.elapsedSeconds),
+                                        valueColor: _ink,
+                                      ),
+                                    ),
+                                  ],
                                 ),
-                                SizedBox(width: 10 * s),
-                                Expanded(
-                                  child: _StatBox(
-                                    s: s,
-                                    label: 'Sets',
-                                    value: '${plan.sets}',
-                                  ),
-                                ),
-                                SizedBox(width: 10 * s),
-                                Expanded(
-                                  child: _StatBox(
-                                    s: s,
-                                    label: 'Time',
-                                    value: _fmt(elapsedSeconds),
-                                    valueColor: _ink,
-                                  ),
+
+                                // ✅ weekly calendar (matches your screenshot vibe)
+                                SizedBox(height: 14 * s),
+                                _WeeklyProgressRow(
+                                  s: s,
+                                  title: 'Week 1', // you can compute week number later if needed
+                                  doneText: '$doneThisWeek/7',
+                                  startOfWeek: weekStart,
+                                  isDone: (d) => _didWorkoutOn(state, d),
+                                  ink: _ink,
+                                  card: _card,
+                                  green: _green,
+                                  yellow: _yellow,
                                 ),
                               ],
                             ),
                           ),
+
                           SizedBox(height: 14 * s),
+
+                          // placeholder summary box (your original)
                           Container(
                             width: double.infinity,
                             padding: EdgeInsets.all(16 * s),
@@ -1811,14 +1904,16 @@ class ExerciseSummaryScreen extends StatelessWidget {
                               ),
                             ),
                           ),
+
                           SizedBox(height: 18 * s),
                         ],
                       ),
                     ),
                   ),
-                  GestureDetector(
-                    behavior: HitTestBehavior.opaque,
+
+                  InkWell(
                     onTap: () => Navigator.popUntil(context, (r) => r.isFirst),
+                    borderRadius: BorderRadius.circular(16 * s),
                     child: Container(
                       height: 54 * s,
                       width: double.infinity,
@@ -1843,6 +1938,129 @@ class ExerciseSummaryScreen extends StatelessWidget {
           ),
         ],
       ),
+    );
+  }
+}
+
+class _WeeklyProgressRow extends StatelessWidget {
+  const _WeeklyProgressRow({
+    required this.s,
+    required this.title,
+    required this.doneText,
+    required this.startOfWeek,
+    required this.isDone,
+    required this.ink,
+    required this.card,
+    required this.green,
+    required this.yellow,
+  });
+
+  final double s;
+  final String title;
+  final String doneText;
+  final DateTime startOfWeek;
+  final bool Function(DateTime day) isDone;
+
+  final Color ink;
+  final Color card;
+  final Color green;
+  final Color yellow;
+
+  @override
+  Widget build(BuildContext context) {
+    final days = List.generate(7, (i) => startOfWeek.add(Duration(days: i)));
+
+    return Container(
+      padding: EdgeInsets.fromLTRB(12 * s, 10 * s, 12 * s, 10 * s),
+      decoration: BoxDecoration(
+        color: card.withValues(alpha: 0.75),
+        borderRadius: BorderRadius.circular(14 * s),
+      ),
+      child: Column(
+        children: [
+          Row(
+            children: [
+              Text(
+                title,
+                style: TextStyle(
+                  color: ink,
+                  fontSize: 14 * s,
+                  fontWeight: FontWeight.w900,
+                ),
+              ),
+              const Spacer(),
+              Text(
+                doneText,
+                style: TextStyle(
+                  color: ink.withValues(alpha: 0.85),
+                  fontSize: 14 * s,
+                  fontWeight: FontWeight.w900,
+                ),
+              ),
+            ],
+          ),
+          SizedBox(height: 10 * s),
+          Row(
+            children: [
+              for (int i = 0; i < 7; i++) ...[
+                _DayDot(
+                  s: s,
+                  dayNumber: '${i + 1}',
+                  done: isDone(days[i]),
+                  ink: ink,
+                  green: green,
+                ),
+                if (i != 6) SizedBox(width: 8 * s),
+              ],
+              const Spacer(),
+              Icon(Icons.emoji_events_rounded, color: ink.withValues(alpha: 0.55), size: 20 * s),
+            ],
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _DayDot extends StatelessWidget {
+  const _DayDot({
+    required this.s,
+    required this.dayNumber,
+    required this.done,
+    required this.ink,
+    required this.green,
+  });
+
+  final double s;
+  final String dayNumber;
+  final bool done;
+  final Color ink;
+  final Color green;
+
+  @override
+  Widget build(BuildContext context) {
+    final bg = done ? green : Colors.white.withValues(alpha: 0.65);
+    final border = done ? null : Border.all(color: ink.withValues(alpha: 0.15));
+
+    return Container(
+      width: 30 * s,
+      height: 30 * s,
+      decoration: BoxDecoration(
+        color: bg,
+        shape: BoxShape.circle,
+        border: border,
+      ),
+      alignment: Alignment.center,
+      child: done
+          ? Icon(Icons.check_rounded, color: Colors.white, size: 18 * s)
+          : Text(
+              dayNumber,
+              style: TextStyle(
+                color: ink.withValues(alpha: 0.55),
+                fontSize: 12 * s,
+                fontWeight: FontWeight.w900,
+              ),
+            ),
     );
   }
 }
