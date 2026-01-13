@@ -1,8 +1,14 @@
-# corerect
+# Corerect
 
-A new Flutter project.
+A new final project for the subject Application Development and Emerging Technologies.
 
-## Getting Started
+## Proponent
+Antoc, John Loyd 
+Guioguio, Kenneth
+Reyes, Quinverly
+Sumo, John Windrei
+
+### Project Overview
 
 This project is a starting point for a Flutter application.
 

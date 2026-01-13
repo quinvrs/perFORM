@@ -66,7 +66,6 @@ class _SetupModeScreenState extends State<SetupModeScreen> {
       ),
     );
     _initCamera();
-    unawaited(TtsService.I.speak("TTS test"));
     unawaited(TtsService.I.init());
   }
 
