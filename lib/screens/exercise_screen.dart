@@ -22,11 +22,7 @@ import '../services/tts_service.dart';
 enum _Phase { setup, active, rest, continueNext, finished }
 
 class ExerciseScreen extends StatefulWidget {
-  const ExerciseScreen({
-    super.key,
-    required this.workout,
-    required this.plan,
-  });
+  const ExerciseScreen({super.key, required this.workout, required this.plan});
 
   final Workout workout;
   final WorkoutPlan plan;
@@ -87,6 +83,7 @@ class _ExerciseScreenState extends State<ExerciseScreen> {
   int _totalReps = 0; // total reps across sets
   bool _setCommitted = false;
 
+  // sets done
   int _setsCompleted = 0;
   bool _setCountedForCurrent = false;
 
@@ -111,7 +108,8 @@ class _ExerciseScreenState extends State<ExerciseScreen> {
 
   bool _isSquat(String title) => title.toLowerCase().contains('squat');
   bool _isJumpingJack(String title) =>
-      title.toLowerCase().contains('jump') || title.toLowerCase().contains('jack');
+      title.toLowerCase().contains('jump') ||
+      title.toLowerCase().contains('jack');
 
   @override
   void initState() {
@@ -219,7 +217,7 @@ class _ExerciseScreenState extends State<ExerciseScreen> {
     }
   }
 
-    void _speakFinalFiveSecondsIfNeeded() {
+  void _speakFinalFiveSecondsIfNeeded() {
     if (!widget.plan.isTimed) return;
     if (_phase != _Phase.active) return;
 
@@ -243,8 +241,8 @@ class _ExerciseScreenState extends State<ExerciseScreen> {
     _setCommitted = true;
 
     if (!_setCountedForCurrent) {
-    _setsCompleted += 1;
-    _setCountedForCurrent = true;
+      _setsCompleted += 1;
+      _setCountedForCurrent = true;
     }
   }
 
@@ -261,7 +259,7 @@ class _ExerciseScreenState extends State<ExerciseScreen> {
       _countdownTimer = null;
       _freezeElapsedTimer();
 
-      if(!_spokenWorkoutComplete) {
+      if (!_spokenWorkoutComplete) {
         _spokenWorkoutComplete = true;
         _tts.speak('Workout complete. Well done!');
       }
@@ -289,7 +287,7 @@ class _ExerciseScreenState extends State<ExerciseScreen> {
       if (!mounted) return;
       setState(() => _restRemaining--);
 
-       if (_restRemaining <= 6 && _restRemaining >= 1) {
+      if (_restRemaining <= 6 && _restRemaining >= 1) {
         if (!_spokenGetReady) {
           _spokenGetReady = true;
           unawaited(TtsService.I.speak('Get ready'));
@@ -358,7 +356,9 @@ class _ExerciseScreenState extends State<ExerciseScreen> {
       if (!mounted) return;
       setState(() => _countdown--);
 
-      if (_countdown >= 1 && _countdown <= seconds && _countdown != _lastSpokenSetupCountdown) {
+      if (_countdown >= 1 &&
+          _countdown <= seconds &&
+          _countdown != _lastSpokenSetupCountdown) {
         _lastSpokenSetupCountdown = _countdown;
         unawaited(TtsService.I.speak('$_countdown'));
       }
@@ -422,7 +422,8 @@ class _ExerciseScreenState extends State<ExerciseScreen> {
     final lw = L(PoseLandmarkType.leftWrist);
     final rw = L(PoseLandmarkType.rightWrist);
 
-    final fullBodyVisible = ls != null &&
+    final fullBodyVisible =
+        ls != null &&
         rs != null &&
         lh != null &&
         rh != null &&
@@ -431,12 +432,14 @@ class _ExerciseScreenState extends State<ExerciseScreen> {
         la != null &&
         ra != null;
 
-    final effW = (rotation == InputImageRotation.rotation90deg ||
+    final effW =
+        (rotation == InputImageRotation.rotation90deg ||
             rotation == InputImageRotation.rotation270deg)
         ? imageSize.height
         : imageSize.width;
 
-    final effH = (rotation == InputImageRotation.rotation90deg ||
+    final effH =
+        (rotation == InputImageRotation.rotation90deg ||
             rotation == InputImageRotation.rotation270deg)
         ? imageSize.width
         : imageSize.height;
@@ -477,7 +480,10 @@ class _ExerciseScreenState extends State<ExerciseScreen> {
         items: [
           SetupItem('Stand 4–6 feet from the camera', distanceOk),
           SetupItem('Ensure that the full body is visible', fullBodyVisible),
-          SetupItem('Position yourself side-facing to the camera', sideFacingOk),
+          SetupItem(
+            'Position yourself side-facing to the camera',
+            sideFacingOk,
+          ),
           SetupItem('Keep enough space for your arms and legs', spaceOk),
         ],
       );
@@ -521,7 +527,8 @@ class _ExerciseScreenState extends State<ExerciseScreen> {
 
       final cams = await availableCameras();
       if (cams.isEmpty) {
-        if (mounted) setState(() => _error = 'No cameras found on this device.');
+        if (mounted)
+          setState(() => _error = 'No cameras found on this device.');
         return;
       }
 
@@ -595,7 +602,8 @@ class _ExerciseScreenState extends State<ExerciseScreen> {
             final ready = c.allMet;
 
             if (_countdown > 0 && !ready) _stopCountdown();
-            if (_countdown == 0 && ready) _startCountdown(seconds: _setupCountdownSeconds);
+            if (_countdown == 0 && ready)
+              _startCountdown(seconds: _setupCountdownSeconds);
 
             if (mounted && _canUpdateUi(120)) {
               setState(() {
@@ -613,9 +621,13 @@ class _ExerciseScreenState extends State<ExerciseScreen> {
           if (poses.isEmpty) return;
 
           if (_isJumpingJacks) {
-            if (_imgSize == null || _imgRotation == null || _selectedCamera == null) return;
+            if (_imgSize == null ||
+                _imgRotation == null ||
+                _selectedCamera == null)
+              return;
 
-            final canvasSize = _canvasSize ??
+            final canvasSize =
+                _canvasSize ??
                 (() {
                   final previewSize = _controller?.value.previewSize;
                   if (previewSize == null) return null;
@@ -634,8 +646,10 @@ class _ExerciseScreenState extends State<ExerciseScreen> {
 
             if (had || _jjCounter.reps != _reps) {
               final next = _jjCounter.reps;
-              if (mounted && _canUpdateUi()) setState(() => _reps = next);
-              else _reps = next;
+              if (mounted && _canUpdateUi())
+                setState(() => _reps = next);
+              else
+                _reps = next;
             }
             return;
           }
@@ -644,8 +658,10 @@ class _ExerciseScreenState extends State<ExerciseScreen> {
           final hadRep = _repCounter.update(poses.first);
           if (hadRep) {
             final newReps = _repCounter.reps;
-            if (mounted && _canUpdateUi()) setState(() => _reps = newReps);
-            else _reps = newReps;
+            if (mounted && _canUpdateUi())
+              setState(() => _reps = newReps);
+            else
+              _reps = newReps;
 
             if (!_isJumpingJacks && newReps > _lastSpokenRep) {
               _lastSpokenRep = newReps;
@@ -679,7 +695,10 @@ class _ExerciseScreenState extends State<ExerciseScreen> {
     DeviceOrientation.landscapeRight: 270,
   };
 
-  InputImage? _cameraImageToInputImage(CameraImage image, CameraDescription camera) {
+  InputImage? _cameraImageToInputImage(
+    CameraImage image,
+    CameraDescription camera,
+  ) {
     final sensorOrientation = camera.sensorOrientation;
     InputImageRotation? rotation;
 
@@ -705,7 +724,8 @@ class _ExerciseScreenState extends State<ExerciseScreen> {
     if (format == null) return null;
 
     if (Platform.isAndroid) {
-      final ok = format == InputImageFormat.nv21 || format == InputImageFormat.yuv420;
+      final ok =
+          format == InputImageFormat.nv21 || format == InputImageFormat.yuv420;
       if (!ok) return null;
     }
     if (Platform.isIOS && format != InputImageFormat.bgra8888) return null;
@@ -755,11 +775,10 @@ class _ExerciseScreenState extends State<ExerciseScreen> {
         true,
         type: widget.workout.title,
         reps: _totalReps,
-        sets: _setsCompleted,
+        sets: _setsCompleted, // ✅ Saving actual sets completed
         duration: _fmt(_elapsed), // you store duration as String in DB
         formScore: 0.0, // or your computed score
       );
-
     } catch (e, st) {
       debugPrint('setWorkoutDay ERROR: $e\n$st');
     }
@@ -843,7 +862,9 @@ class _ExerciseScreenState extends State<ExerciseScreen> {
                   fit: StackFit.expand,
                   children: [
                     CameraPreview(controller),
-                    if (_imgSize != null && _imgRotation != null && _selectedCamera != null)
+                    if (_imgSize != null &&
+                        _imgRotation != null &&
+                        _selectedCamera != null)
                       IgnorePointer(
                         child: RepaintBoundary(
                           child: CustomPaint(
@@ -852,7 +873,8 @@ class _ExerciseScreenState extends State<ExerciseScreen> {
                               imageSize: _imgSize!,
                               rotation: _imgRotation!,
                               isFrontCamera:
-                                  _selectedCamera!.lensDirection == CameraLensDirection.front,
+                                  _selectedCamera!.lensDirection ==
+                                  CameraLensDirection.front,
                             ),
                           ),
                         ),
@@ -893,16 +915,18 @@ class _ExerciseScreenState extends State<ExerciseScreen> {
                       child: Text(
                         _error!,
                         textAlign: TextAlign.center,
-                        style: TextStyle(color: Colors.white.withValues(alpha: 0.92)),
+                        style: TextStyle(
+                          color: Colors.white.withValues(alpha: 0.92),
+                        ),
                       ),
                     )
                   : (_initFuture == null || _controller == null)
-                      ? Container(
-                          color: const Color(0xFF0F1A28),
-                          alignment: Alignment.center,
-                          child: const CircularProgressIndicator(),
-                        )
-                      : _buildCameraWithOverlay(),
+                  ? Container(
+                      color: const Color(0xFF0F1A28),
+                      alignment: Alignment.center,
+                      child: const CircularProgressIndicator(),
+                    )
+                  : _buildCameraWithOverlay(),
             ),
 
             // top fade
@@ -940,7 +964,10 @@ class _ExerciseScreenState extends State<ExerciseScreen> {
                     children: [
                       InkWell(
                         onTap: () => Navigator.pop(context),
-                        child: const Icon(Icons.arrow_back_rounded, color: Colors.white),
+                        child: const Icon(
+                          Icons.arrow_back_rounded,
+                          color: Colors.white,
+                        ),
                       ),
                       SizedBox(width: 10 * s),
                       Text(
@@ -949,7 +976,9 @@ class _ExerciseScreenState extends State<ExerciseScreen> {
                           color: Colors.white.withValues(alpha: 0.95),
                           fontSize: 14 * s,
                           fontWeight: FontWeight.w600,
-                          shadows: const [Shadow(blurRadius: 8, color: Colors.black)],
+                          shadows: const [
+                            Shadow(blurRadius: 8, color: Colors.black),
+                          ],
                         ),
                       ),
                     ],
@@ -966,7 +995,9 @@ class _ExerciseScreenState extends State<ExerciseScreen> {
                 child: _ChecklistCard(
                   s: s,
                   title: widget.workout.title.toUpperCase(),
-                  subtitle: _allReady ? 'All set! Starting soon…' : 'Fix the RED items to start.',
+                  subtitle: _allReady
+                      ? 'All set! Starting soon…'
+                      : 'Fix the RED items to start.',
                   checklist: _checklist,
                 ),
               ),
@@ -1103,21 +1134,17 @@ class _BottomWorkoutCardState extends State<_BottomWorkoutCard>
 
     _plusCtrl.value = 1.0;
 
-    _plusOpacity = CurvedAnimation(
-      parent: _plusCtrl,
-      curve: Curves.easeOut,
-    );
+    _plusOpacity = CurvedAnimation(parent: _plusCtrl, curve: Curves.easeOut);
 
-    _plusScale = Tween<double>(begin: 0.85, end: 1.12).animate(
-      CurvedAnimation(parent: _plusCtrl, curve: Curves.elasticOut),
-    );
+    _plusScale = Tween<double>(
+      begin: 0.85,
+      end: 1.12,
+    ).animate(CurvedAnimation(parent: _plusCtrl, curve: Curves.elasticOut));
 
     _plusSlide = Tween<Offset>(
       begin: const Offset(0, 0.25),
       end: const Offset(0, -0.85),
-    ).animate(
-      CurvedAnimation(parent: _plusCtrl, curve: Curves.easeOut),
-    );
+    ).animate(CurvedAnimation(parent: _plusCtrl, curve: Curves.easeOut));
   }
 
   @override
@@ -1155,7 +1182,8 @@ class _BottomWorkoutCardState extends State<_BottomWorkoutCard>
       fontWeight: FontWeight.w800,
     );
 
-    final border = (widget.phase == _Phase.continueNext ||
+    final border =
+        (widget.phase == _Phase.continueNext ||
             widget.phase == _Phase.finished ||
             widget.phase == _Phase.setup)
         ? Border.all(color: const Color(0xFF22C55E), width: 3)
@@ -1213,9 +1241,14 @@ class _BottomWorkoutCardState extends State<_BottomWorkoutCard>
                     clipBehavior: Clip.none,
                     children: [
                       Container(
-                        padding: EdgeInsets.symmetric(horizontal: 14 * s, vertical: 10 * s),
+                        padding: EdgeInsets.symmetric(
+                          horizontal: 14 * s,
+                          vertical: 10 * s,
+                        ),
                         decoration: BoxDecoration(
-                          color: const Color(0xFFFEF9C2).withValues(alpha: 0.60),
+                          color: const Color(
+                            0xFFFEF9C2,
+                          ).withValues(alpha: 0.60),
                           borderRadius: BorderRadius.circular(14 * s),
                           boxShadow: [
                             BoxShadow(
@@ -1225,13 +1258,19 @@ class _BottomWorkoutCardState extends State<_BottomWorkoutCard>
                             ),
                           ],
                         ),
-                        child: Text('REPS: ${widget.repsDone}', style: repsStyle),
+                        child: Text(
+                          'REPS: ${widget.repsDone}',
+                          style: repsStyle,
+                        ),
                       ),
                       Positioned(
                         right: 2 * s,
                         top: -18 * s,
                         child: FadeTransition(
-                          opacity: Tween<double>(begin: 1, end: 0).animate(_plusOpacity),
+                          opacity: Tween<double>(
+                            begin: 1,
+                            end: 0,
+                          ).animate(_plusOpacity),
                           child: SlideTransition(
                             position: _plusSlide,
                             child: ScaleTransition(
@@ -1242,7 +1281,9 @@ class _BottomWorkoutCardState extends State<_BottomWorkoutCard>
                                   color: const Color(0xFF22C55E),
                                   fontSize: 18 * s,
                                   fontWeight: FontWeight.w900,
-                                  shadows: const [Shadow(blurRadius: 10, color: Colors.black)],
+                                  shadows: const [
+                                    Shadow(blurRadius: 10, color: Colors.black),
+                                  ],
                                 ),
                               ),
                             ),
@@ -1254,7 +1295,10 @@ class _BottomWorkoutCardState extends State<_BottomWorkoutCard>
                 ],
               )
             else
-              Text('${widget.repsDone}/${widget.repsTarget}', style: timerStyle),
+              Text(
+                '${widget.repsDone}/${widget.repsTarget}',
+                style: timerStyle,
+              ),
             SizedBox(height: 6 * s),
             Text(
               'SET ${widget.setIndex}/${widget.setsTotal}',
@@ -1308,7 +1352,11 @@ class _BottomWorkoutCardState extends State<_BottomWorkoutCard>
             ),
           ] else if (widget.phase == _Phase.continueNext) ...[
             SizedBox(height: 4 * s),
-            _PrimaryYellowButton(s: s, label: 'Continue', onTap: widget.onContinue),
+            _PrimaryYellowButton(
+              s: s,
+              label: 'Continue',
+              onTap: widget.onContinue,
+            ),
             SizedBox(height: 10 * s),
             _DarkButton(
               s: s,
@@ -1549,11 +1597,15 @@ class _ChecklistCard extends StatelessWidget {
                               width: 28 * s,
                               height: 28 * s,
                               decoration: BoxDecoration(
-                                color: it.ok ? const Color(0xFF00C951) : const Color(0xFFE53935),
+                                color: it.ok
+                                    ? const Color(0xFF00C951)
+                                    : const Color(0xFFE53935),
                                 shape: BoxShape.circle,
                               ),
                               child: Icon(
-                                it.ok ? Icons.check_rounded : Icons.close_rounded,
+                                it.ok
+                                    ? Icons.check_rounded
+                                    : Icons.close_rounded,
                                 color: Colors.white,
                                 size: 18 * s,
                               ),
@@ -1719,13 +1771,13 @@ class _ExerciseSummaryScreenState extends State<ExerciseSummaryScreen> {
   }
 
   int _weekOfMonthMonday(DateTime d) {
-  final firstDay = DateTime(d.year, d.month, 1);
-  final firstWeekStart = _startOfWeekMonday(firstDay);
-  final thisWeekStart = _startOfWeekMonday(d);
+    final firstDay = DateTime(d.year, d.month, 1);
+    final firstWeekStart = _startOfWeekMonday(firstDay);
+    final thisWeekStart = _startOfWeekMonday(d);
 
-  final diffDays = thisWeekStart.difference(firstWeekStart).inDays;
-  return (diffDays ~/ 7) + 1;
-}
+    final diffDays = thisWeekStart.difference(firstWeekStart).inDays;
+    return (diffDays ~/ 7) + 1;
+  }
 
   String _dayKey(DateTime d) {
     final y = d.year.toString().padLeft(4, '0');
@@ -1844,7 +1896,9 @@ class _ExerciseSummaryScreenState extends State<ExerciseSummaryScreen> {
                                   child: Text(
                                     widget.workout.title,
                                     style: TextStyle(
-                                      color: Colors.white.withValues(alpha: 0.95),
+                                      color: Colors.white.withValues(
+                                        alpha: 0.95,
+                                      ),
                                       fontSize: 14 * s,
                                       fontWeight: FontWeight.w900,
                                     ),
@@ -1866,7 +1920,7 @@ class _ExerciseSummaryScreenState extends State<ExerciseSummaryScreen> {
                                   color: Colors.black.withValues(alpha: 0.25),
                                   blurRadius: 16,
                                   offset: const Offset(0, 8),
-                                )
+                                ),
                               ],
                             ),
                             child: Column(
@@ -1885,7 +1939,8 @@ class _ExerciseSummaryScreenState extends State<ExerciseSummaryScreen> {
                                       child: _StatBox(
                                         s: s,
                                         label: 'Sets',
-                                        value: '${widget.setsCompleted}', // ✅ actual sets done
+                                        value:
+                                            '${widget.setsCompleted}', // ✅ actual sets done
                                       ),
                                     ),
                                     SizedBox(width: 10 * s),
@@ -1899,11 +1954,12 @@ class _ExerciseSummaryScreenState extends State<ExerciseSummaryScreen> {
                                     ),
                                   ],
                                 ),
-                                
+
                                 SizedBox(height: 14 * s),
                                 _WeeklyProgressRow(
                                   s: s,
-                                  title: 'Week $weekNo', // you can compute week number later if needed
+                                  title:
+                                      'Week $weekNo', // you can compute week number later if needed
                                   doneText: '$doneThisWeek/7',
                                   startOfWeek: weekStart,
                                   isDone: (d) => _didWorkoutOn(state, d),
@@ -2048,7 +2104,11 @@ class _WeeklyProgressRow extends StatelessWidget {
                 if (i != 6) SizedBox(width: 8 * s),
               ],
               const Spacer(),
-              Icon(Icons.emoji_events_rounded, color: ink.withValues(alpha: 0.55), size: 20 * s),
+              Icon(
+                Icons.emoji_events_rounded,
+                color: ink.withValues(alpha: 0.55),
+                size: 20 * s,
+              ),
             ],
           ),
         ],
