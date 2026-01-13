@@ -17,6 +17,7 @@ import '../models/workout_plan.dart';
 import '../app_state.dart';
 import '../services/rep_counter_squats.dart';
 import '../services/rep_counter_jumping_jacks.dart';
+import '../services/form_score_tracker.dart';
 import '../services/tts_service.dart';
 
 enum _Phase { setup, active, rest, continueNext, finished }
@@ -89,6 +90,11 @@ class _ExerciseScreenState extends State<ExerciseScreen> {
   int _setsCompleted = 0;
   bool _setCountedForCurrent = false;
 
+    // form score (Option A: goodFrames / totalFrames)
+  final FormScoreTracker _formTracker = FormScoreTracker();
+  double _finalFormScore = 0.0; // computed when going to summary
+
+
   // timed-set support
   Timer? _setTimer;
   int _setRemaining = 0;
@@ -115,6 +121,8 @@ class _ExerciseScreenState extends State<ExerciseScreen> {
   @override
   void initState() {
     super.initState();
+
+    _formTracker.reset();
 
     _tts.init();
 
@@ -616,6 +624,20 @@ class _ExerciseScreenState extends State<ExerciseScreen> {
 
             if (canvasSize == null) return;
 
+            _formTracker.updateJumpingJacksFrame(
+              pose: poses.first,
+              canvasSize: canvasSize,
+              imageSize: _imgSize!,
+              rotation: _imgRotation!,
+              lensDirection: _selectedCamera!.lensDirection,
+              minLikelihood: _jjCounter.minLikelihood,
+              emaAlpha: _jjCounter.emaAlpha,
+              openRatio: _jjCounter.openRatio,
+              closeRatio: _jjCounter.closeRatio,
+              openSideRatio: _jjCounter.openSideRatio,
+              closeSideRatio: _jjCounter.closeSideRatio,
+            );
+
             final had = _jjCounter.update(
               pose: poses.first,
               canvasSize: canvasSize,
@@ -631,6 +653,12 @@ class _ExerciseScreenState extends State<ExerciseScreen> {
             }
             return;
           }
+
+            _formTracker.updateSquatFrame(
+              pose: poses.first,
+              downAngleDeg: _repCounter.downAngleDeg,
+              upAngleDeg: _repCounter.upAngleDeg,
+            );
 
           // squats
           final hadRep = _repCounter.update(poses.first);
@@ -734,13 +762,15 @@ class _ExerciseScreenState extends State<ExerciseScreen> {
     debugPrint('NAV: _viewExerciseSummary()');
     _freezeElapsedTimer();
 
+    final state = AppStateScope.of(context);
+
     if (!_spokenWorkoutComplete) {
       _spokenWorkoutComplete = true;
       await TtsService.I.speak('Workout Complete. Well done!');
     }
 
     try {
-      final state = AppStateScope.of(context);
+      _finalFormScore = _formTracker.percent;
 
       await state.setWorkoutDay(
         DateTime.now(),
@@ -749,7 +779,7 @@ class _ExerciseScreenState extends State<ExerciseScreen> {
         reps: _totalReps,
         sets: _setsCompleted,
         duration: _fmt(_elapsed), // you store duration as String in DB
-        formScore: 0.0, // or your computed score
+        formScore: _finalFormScore, 
       );
 
     } catch (e, st) {
@@ -782,6 +812,7 @@ class _ExerciseScreenState extends State<ExerciseScreen> {
           workout: widget.workout,
           plan: widget.plan,
           elapsedSeconds: _elapsed,
+          formScore: _finalFormScore,
           totalReps: _totalReps,
           setsCompleted: _setsCompleted,
         ),
@@ -1682,6 +1713,7 @@ class ExerciseSummaryScreen extends StatefulWidget {
     required this.plan,
     required this.elapsedSeconds,
     required this.totalReps,
+    required this.formScore,
     required this.setsCompleted,
   });
 
@@ -1689,6 +1721,7 @@ class ExerciseSummaryScreen extends StatefulWidget {
   final WorkoutPlan plan;
   final int elapsedSeconds;
   final int totalReps;
+  final double formScore;
   final int setsCompleted;
 
   @override
