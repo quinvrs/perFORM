@@ -42,9 +42,11 @@ class _ExerciseScreenState extends State<ExerciseScreen> {
   final TtsService _tts = TtsService.I;
 
   int _lastSpokenCountdown = -1;
+  int _lastSpokenRestCountdown = -1;
   int _lastSpokenRep = 0;
   bool _spokenWorkoutComplete = false;
   bool _spokenRest = false;
+  bool _spokenGetReady = false;
 
   CameraController? _controller;
   Future<void>? _initFuture;
@@ -278,10 +280,28 @@ class _ExerciseScreenState extends State<ExerciseScreen> {
       unawaited(TtsService.I.speak('Please Take a rest!'));
     }
 
+    _lastSpokenRestCountdown = -1;
+    _spokenGetReady = false;
+
     _restTimer?.cancel();
     _restTimer = Timer.periodic(const Duration(seconds: 1), (t) {
       if (!mounted) return;
       setState(() => _restRemaining--);
+
+       if (_restRemaining <= 6 && _restRemaining >= 1) {
+        if (!_spokenGetReady) {
+          _spokenGetReady = true;
+          unawaited(TtsService.I.speak('Get ready'));
+        }
+
+        if (_restRemaining != _lastSpokenRestCountdown) {
+          _lastSpokenRestCountdown = _restRemaining;
+          unawaited(TtsService.I.speak('$_restRemaining'));
+        }
+      } else {
+        // outside final 5 window, keep guards reset-ready
+        _lastSpokenRestCountdown = -1;
+      }
 
       if (_restRemaining <= 0) {
         t.cancel();
