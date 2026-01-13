@@ -39,9 +39,12 @@ class _ExerciseScreenState extends State<ExerciseScreen> {
   int _lastSpokenRestCountdown = -1;
   int _lastSpokenSetupCountdown = -1;
   int _lastSpokenRep = 0;
+  int _setTotalSeconds = 0;
+  int _halfwayMark = 0;
   bool _spokenWorkoutComplete = false;
   bool _spokenRest = false;
   bool _spokenGetReady = false;
+  bool _spokenHalfway = false;
 
   CameraController? _controller;
   Future<void>? _initFuture;
@@ -179,13 +182,18 @@ class _ExerciseScreenState extends State<ExerciseScreen> {
     if (!widget.plan.isTimed) return;
 
     _setTimer?.cancel();
-    _setRemaining = _secondsFromTimerLabel(widget.plan.timerLabel);
+    _setTotalSeconds = _secondsFromTimerLabel(widget.plan.timerLabel);
+    _setRemaining = _setTotalSeconds;
+    _spokenHalfway= false;
+    
+    _halfwayMark = (_setTotalSeconds /2).round();
 
     _setTimer = Timer.periodic(const Duration(seconds: 1), (t) {
       if (!mounted) return;
       if (_phase != _Phase.active) return;
       setState(() => _setRemaining--);
 
+      _maybeSpeakHalfwayElapsed();
       _speakFinalFiveSecondsIfNeeded();
 
       if (_setRemaining <= 0) {
@@ -202,6 +210,7 @@ class _ExerciseScreenState extends State<ExerciseScreen> {
     _lastSpokenCountdown = -1;
     _setCommitted = false;
     _setCountedForCurrent = false;
+    _spokenHalfway = false;
 
     if (_isJumpingJacks) {
       _jjCounter.reset();
@@ -230,6 +239,23 @@ class _ExerciseScreenState extends State<ExerciseScreen> {
     // Reset guard once we're not in the final 5 window anymore
     if (r > 5) {
       _lastSpokenCountdown = -1;
+    }
+  }
+
+    void _maybeSpeakHalfwayElapsed() {
+    if (!_isJumpingJacks) return;
+    if (!widget.plan.isTimed) return;
+    if (_phase != _Phase.active) return;
+    if (_spokenHalfway) return;
+
+    final elapsed = _setTotalSeconds - _setRemaining; 
+    final halfwayElapsed = _setTotalSeconds ~/ 2;
+
+    if (elapsed == halfwayElapsed) {
+      _spokenHalfway = true;
+
+      final remaining = _setRemaining;
+      unawaited(TtsService.I.speak('$remaining seconds left'));
     }
   }
 
