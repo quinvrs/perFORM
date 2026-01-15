@@ -159,18 +159,39 @@ class FormScoreTracker {
     final legsOpenIntent = (r >= openRatio) && legsOpenSym;
     final legsCloseIntent = (r <= closeRatio) && legsCloseSym;
 
-    if (!legsOpenIntent && !legsCloseIntent) {
+    // Add arm intent so "arms-only" movement can be penalized.
+    final armsUpIntent = armsUp;
+    final armsDownIntent = armsDown;
+
+    // If neither legs nor arms show a clear intent, ignore as transition/noise.
+    if (!legsOpenIntent && !legsCloseIntent && !armsUpIntent && !armsDownIntent) {
       lastReason = 'JJ: transition';
       return null;
     }
 
     bool ok;
+
+    // Priority 1: If legs clearly indicate OPEN/CLOSED, score based on matching arms.
     if (legsOpenIntent) {
-      ok = armsUp;
-      lastReason = ok ? 'JJ: open ok' : 'JJ: arms not overhead';
+      ok = armsUpIntent;
+      lastReason = ok ? 'JJ: open ok' : 'JJ: legs open but arms not overhead';
+    } else if (legsCloseIntent) {
+      ok = armsDownIntent;
+      lastReason = ok ? 'JJ: closed ok' : 'JJ: legs closed but arms not down';
+    }
+    // Priority 2: Arms-only cheat detection.
+    // If arms go overhead but legs did NOT open, mark as bad.
+    // If arms go down but legs did NOT close, also mark as bad (less common).
+    else if (armsUpIntent && !legsOpenIntent) {
+      ok = false;
+      lastReason = 'JJ: arms overhead without legs open';
+    } else if (armsDownIntent && !legsCloseIntent) {
+      ok = false;
+     lastReason = 'JJ: arms down without legs close';
     } else {
-      ok = armsDown;
-     lastReason = ok ? 'JJ: closed ok' : 'JJ: arms not down';
+      // Remaining ambiguous cases: ignore
+      lastReason = 'JJ: transition';
+     return null;
     }
 
     _accumulate(ok);
@@ -215,15 +236,16 @@ class FormScoreTracker {
     final ang = _angleDeg(hip, knee, ankle);
 
     final inStanding = ang >= upAngleDeg;
-    final inBottomAttempt = ang <= 145; // down-ish zone
+    final nearBottom = ang <= (downAngleDeg + 10); // try +8 to +12
+    final double depthToleranceDeg = 9;
 
     if (inStanding) {
       lastReason = 'SQ: standing (not scored)';
       return null;
     }
 
-    if (inBottomAttempt) {
-      final ok = ang <= downAngleDeg;
+    if (nearBottom) {
+      final ok = ang <= (downAngleDeg + depthToleranceDeg);
       _accumulate(ok);
       lastReason = ok ? 'SQ: depth ok' : 'SQ: depth shallow';
       return ok;

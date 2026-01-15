@@ -810,7 +810,7 @@ class _ExerciseScreenState extends State<ExerciseScreen> {
   // -------------------------
   // Summary nav
   // -------------------------
-  Future<void> _viewExerciseSummary() async {
+  Future<void> _viewExerciseSummary() async { 
     debugPrint('NAV: _viewExerciseSummary()');
     _freezeElapsedTimer();
 
