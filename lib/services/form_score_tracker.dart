@@ -153,19 +153,29 @@ class FormScoreTracker {
     final legsOpenSym = (ls >= openSideRatio && rs >= openSideRatio);
     final legsCloseSym = (ls <= closeSideRatio && rs <= closeSideRatio);
 
-    final isOpen = (r >= openRatio) && legsOpenSym && armsUp;
-    final isClosed = (r <= closeRatio) && legsCloseSym && armsDown;
+    // "Intent" checkpoints:
+    // If legs are clearly OPEN, require armsUp.
+    // If legs are clearly CLOSED, require armsDown.
+    final legsOpenIntent = (r >= openRatio) && legsOpenSym;
+    final legsCloseIntent = (r <= closeRatio) && legsCloseSym;
 
-    // Only score frames when we're clearly OPEN or CLOSED.
-    if (!isOpen && !isClosed) {
+    if (!legsOpenIntent && !legsCloseIntent) {
       lastReason = 'JJ: transition';
       return null;
     }
 
-    final ok = isOpen || isClosed;
+    bool ok;
+    if (legsOpenIntent) {
+      ok = armsUp;
+      lastReason = ok ? 'JJ: open ok' : 'JJ: arms not overhead';
+    } else {
+      ok = armsDown;
+     lastReason = ok ? 'JJ: closed ok' : 'JJ: arms not down';
+    }
+
     _accumulate(ok);
-    lastReason = ok ? 'JJ: ok' : 'JJ: bad';
     return ok;
+
   }
 
   /// Squat form score:
@@ -208,9 +218,8 @@ class FormScoreTracker {
     final inBottomAttempt = ang <= 145; // down-ish zone
 
     if (inStanding) {
-      _accumulate(true);
-      lastReason = 'SQ: standing ok';
-      return true;
+      lastReason = 'SQ: standing (not scored)';
+      return null;
     }
 
     if (inBottomAttempt) {
