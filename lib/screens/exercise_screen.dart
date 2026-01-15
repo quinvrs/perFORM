@@ -129,6 +129,7 @@ class _ExerciseScreenState extends State<ExerciseScreen> {
     );
 
     _startElapsedTimer();
+    _startSetIfTimed();
 
     WidgetsBinding.instance.addPostFrameCallback((_) {
       _initCamera();
