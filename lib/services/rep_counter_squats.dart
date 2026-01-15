@@ -36,17 +36,17 @@ class RepCounter {
   double? _baseHipY;
 
   RepCounter.squat({
-    this.downAngleDeg = 110, 
-    this.upAngleDeg = 160,
-    this.confirmFrames = 3,
+    this.downAngleDeg = 100, 
+    this.upAngleDeg = 165,
+    this.confirmFrames = 4,
     this.minRepInterval = const Duration(milliseconds: 450),
 
     // NEW (anti-leg-raise)
-    this.minHipDropTorso = 0.10,
+    this.minHipDropTorso = 0.14,
     this.hipBaseEmaAlpha = 0.15,
     this.strictFeetOnRep = true,
     this.strictFootMinLikelihood = 0.50,
-    this.strictFeetLevelTolTorso = 0.14, // 0.12 stricter, 0.18 looser
+    this.strictFeetLevelTolTorso = 0.12,
   }) : type = ExerciseType.squat;
 
   void reset() {
