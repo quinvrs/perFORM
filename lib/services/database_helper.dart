@@ -17,22 +17,26 @@ class DatabaseHelper {
     final dbPath = await getDatabasesPath();
     final path = join(dbPath, filePath);
 
+    // Increment version to 2 to trigger onUpgrade, or just uninstall/reinstall
     return await openDatabase(path, version: 1, onCreate: _createDB);
   }
 
   Future<void> _createDB(Database db, int version) async {
-    // 1. Profile Table
+    // 1. Profile Table - ADDED mainGoal, activityLevel, avatarPath
     await db.execute('''
       CREATE TABLE profile (
         id INTEGER PRIMARY KEY AUTOINCREMENT,
         name TEXT,
         gender TEXT,
         height REAL,
-        weight REAL
+        weight REAL,
+        mainGoal TEXT,       
+        activityLevel TEXT,
+        avatarPath TEXT      
       )
     ''');
 
-    // 2. History Table (Updated with metrics)
+    // 2. History Table
     await db.execute('''
       CREATE TABLE history (
         dateKey TEXT PRIMARY KEY,
@@ -66,7 +70,6 @@ class DatabaseHelper {
     return null;
   }
 
-  // Insert with ALL Metrics
   Future<void> insertWorkout({
     required String dateKey,
     required String type,
@@ -86,13 +89,11 @@ class DatabaseHelper {
     }, conflictAlgorithm: ConflictAlgorithm.ignore);
   }
 
-  // Delete specific entry
   Future<void> deleteWorkout(String dateKey) async {
     final db = await instance.database;
     await db.delete('history', where: 'dateKey = ?', whereArgs: [dateKey]);
   }
 
-  // Get All
   Future<List<Map<String, dynamic>>> getAllWorkouts() async {
     final db = await instance.database;
     return await db.query('history');
@@ -100,12 +101,11 @@ class DatabaseHelper {
 
   Future<void> clearHistory() async {
     final db = await instance.database;
-    await db.delete('history'); // Deletes all rows in the history table
+    await db.delete('history');
   }
-  
+
   Future<void> deleteEverything() async {
     final db = await instance.database;
-    // Transaction ensures both delete or neither does (safety)
     await db.transaction((txn) async {
       await txn.delete('profile');
       await txn.delete('history');

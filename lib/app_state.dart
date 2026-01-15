@@ -3,14 +3,13 @@ import 'services/database_helper.dart';
 
 enum Gender { male, female }
 
-/// Updated Model with Stats
 class WorkoutRecord {
-  final String dateKey; // ISO Timestamp
-  final String type;    // e.g., "Squat"
+  final String dateKey;
+  final String type;
   final int reps;
   final int sets;
-  final String duration; // e.g., "12 min"
-  final double formScore; // e.g., 92.0
+  final String duration;
+  final double formScore;
 
   WorkoutRecord({
     required this.dateKey,
@@ -25,14 +24,9 @@ class WorkoutRecord {
 }
 
 class AppState extends ChangeNotifier {
-  // ----------------------------
-  // 1. Loading State
-  // ----------------------------
   bool _isLoading = true;
 
-  // ----------------------------
   // Profile Data
-  // ----------------------------
   String _name = '';
   Gender? _gender;
   double _heightCm = 180;
@@ -42,18 +36,14 @@ class AppState extends ChangeNotifier {
   String? _mainGoal;
   String? _activityLevel;
 
-  // ----------------------------
   // Workouts History
-  // ----------------------------
   final List<WorkoutRecord> _workoutRecords = [];
 
   AppState() {
     _loadData();
   }
 
-  // ----------------------------
   // Getters
-  // ----------------------------
   bool get isLoading => _isLoading;
   bool get hasProfile => _name.isNotEmpty;
 
@@ -65,16 +55,21 @@ class AppState extends ChangeNotifier {
   String? get mainGoal => _mainGoal;
   String? get activityLevel => _activityLevel;
 
-  // ----------------------------
-  // Setters
-  // ----------------------------
-  void setAvatarPath(String? path) { _avatarPath = path; notifyListeners(); }
-  void setMainGoal(String? v) { _mainGoal = v; notifyListeners(); }
-  void setActivityLevel(String? v) { _activityLevel = v; notifyListeners(); }
+  void setAvatarPath(String? path) {
+    _avatarPath = path;
+    notifyListeners();
+  }
 
-  // ----------------------------
-  // Data Loading
-  // ----------------------------
+  void setMainGoal(String? v) {
+    _mainGoal = v;
+    notifyListeners();
+  }
+
+  void setActivityLevel(String? v) {
+    _activityLevel = v;
+    notifyListeners();
+  }
+
   Future<void> _loadData() async {
     try {
       // 1. Load Profile
@@ -84,7 +79,7 @@ class AppState extends ChangeNotifier {
         final gString = profileData['gender']?.toString();
         if (gString == 'male') _gender = Gender.male;
         if (gString == 'female') _gender = Gender.female;
-        
+
         final h = profileData['height'];
         final w = profileData['weight'];
         if (h is num) _heightCm = h.toDouble();
@@ -95,20 +90,21 @@ class AppState extends ChangeNotifier {
         _avatarPath = profileData['avatarPath']?.toString();
       }
 
-      // 2. Load History (Map new columns)
+      // 2. Load History
       final data = await DatabaseHelper.instance.getAllWorkouts();
       _workoutRecords.clear();
       for (final row in data) {
-        _workoutRecords.add(WorkoutRecord(
-          dateKey: row['dateKey'] as String,
-          type: (row['type'] ?? 'Workout').toString(),
-          reps: (row['reps'] as num?)?.toInt() ?? 0,
-          sets: (row['sets'] as num?)?.toInt() ?? 0,
-          duration: (row['duration'] ?? '0m').toString(),
-          formScore: (row['formScore'] as num?)?.toDouble() ?? 0.0,
-        ));
+        _workoutRecords.add(
+          WorkoutRecord(
+            dateKey: row['dateKey'] as String,
+            type: (row['type'] ?? 'Workout').toString(),
+            reps: (row['reps'] as num?)?.toInt() ?? 0,
+            sets: (row['sets'] as num?)?.toInt() ?? 0,
+            duration: (row['duration'] ?? '0m').toString(),
+            formScore: (row['formScore'] as num?)?.toDouble() ?? 0.0,
+          ),
+        );
       }
-
     } catch (_) {
       // Error handling
     } finally {
@@ -140,13 +136,19 @@ class AppState extends ChangeNotifier {
 
     notifyListeners();
 
-    final genderStr = (newGender == null) ? null : (newGender == Gender.male ? 'male' : 'female');
+    final genderStr = (newGender == null)
+        ? null
+        : (newGender == Gender.male ? 'male' : 'female');
 
+    // ✅ FIX: Included mainGoal, activityLevel, and avatarPath in the DB update
     await DatabaseHelper.instance.saveProfile({
       'name': newName,
       'gender': genderStr,
       'height': newHeightCm,
       'weight': newWeightKg,
+      'mainGoal': _mainGoal,
+      'activityLevel': _activityLevel,
+      'avatarPath': _avatarPath,
     });
   }
 
@@ -170,9 +172,7 @@ class AppState extends ChangeNotifier {
     );
   }
 
-  // ----------------------------
-  // WORKOUT LOGIC
-  // ----------------------------
+  // --- WORKOUT LOGIC (Unchanged) ---
 
   String _datePart(DateTime d) {
     return d.toIso8601String().substring(0, 10);
@@ -189,15 +189,13 @@ class AppState extends ChangeNotifier {
     return list;
   }
 
-  /// Manual Calendar Toggle
-  /// Uses default "dummy" stats so the entry is valid.
   Future<void> toggleWorkoutDay(DateTime d) async {
     if (isWorkoutDay(d)) {
       await setWorkoutDay(d, false);
     } else {
       await setWorkoutDay(
-        d, 
-        true, 
+        d,
+        true,
         type: 'Manual',
         reps: 0,
         sets: 0,
@@ -207,21 +205,19 @@ class AppState extends ChangeNotifier {
     }
   }
 
-/// Backward-compatible: returns unique YYYY-MM-DD keys for days with workouts.
-List<String> get workoutDayKeys {
-  final set = <String>{};
-  for (final r in _workoutRecords) {
-    final k = r.dateKey;
-    if (k.length >= 10) set.add(k.substring(0, 10)); // YYYY-MM-DD
+  List<String> get workoutDayKeys {
+    final set = <String>{};
+    for (final r in _workoutRecords) {
+      final k = r.dateKey;
+      if (k.length >= 10) set.add(k.substring(0, 10));
+    }
+    final list = set.toList();
+    list.sort();
+    return list;
   }
-  final list = set.toList();
-  list.sort(); // optional: ascending
-  return list;
-}
 
-  /// Saves workout with ALL metrics
   Future<void> setWorkoutDay(
-    DateTime d, 
+    DateTime d,
     bool done, {
     String type = 'Workout',
     int reps = 0,
@@ -230,7 +226,7 @@ List<String> get workoutDayKeys {
     double formScore = 0.0,
   }) async {
     if (done) {
-      final timestamp = d.toIso8601String(); 
+      final timestamp = d.toIso8601String();
       final newRecord = WorkoutRecord(
         dateKey: timestamp,
         type: type,
@@ -239,7 +235,7 @@ List<String> get workoutDayKeys {
         duration: duration,
         formScore: formScore,
       );
-      
+
       _workoutRecords.add(newRecord);
       await DatabaseHelper.instance.insertWorkout(
         dateKey: timestamp,
@@ -251,8 +247,10 @@ List<String> get workoutDayKeys {
       );
     } else {
       final target = _datePart(d);
-      final toRemove = _workoutRecords.where((r) => r.dateKey.startsWith(target)).toList();
-      
+      final toRemove = _workoutRecords
+          .where((r) => r.dateKey.startsWith(target))
+          .toList();
+
       for (final r in toRemove) {
         _workoutRecords.remove(r);
         await DatabaseHelper.instance.deleteWorkout(r.dateKey);
@@ -261,17 +259,20 @@ List<String> get workoutDayKeys {
     notifyListeners();
   }
 
-  // Weekly Sessions Logic (Unchanged)
   int weeklySessions() {
     final now = DateTime.now();
-    final dist = now.weekday % 7; 
-    final startOfWeek = DateTime(now.year, now.month, now.day).subtract(Duration(days: dist));
+    final dist = now.weekday % 7;
+    final startOfWeek = DateTime(
+      now.year,
+      now.month,
+      now.day,
+    ).subtract(Duration(days: dist));
     final endOfWeek = startOfWeek.add(const Duration(days: 7));
 
     int count = 0;
     for (final r in _workoutRecords) {
       final d = r.dateTime;
-      if (d.isAfter(startOfWeek.subtract(const Duration(seconds: 1))) && 
+      if (d.isAfter(startOfWeek.subtract(const Duration(seconds: 1))) &&
           d.isBefore(endOfWeek)) {
         count++;
       }
@@ -279,7 +280,6 @@ List<String> get workoutDayKeys {
     return count;
   }
 
-  // Streak Logic (Unchanged - with Grace Period)
   int get currentStreak {
     final uniqueDays = <String>{};
     for (final r in _workoutRecords) {
@@ -294,7 +294,7 @@ List<String> get workoutDayKeys {
     if (!uniqueDays.contains(key)) {
       checkDate = checkDate.subtract(const Duration(days: 1));
       key = _datePart(checkDate);
-      if (!uniqueDays.contains(key)) return 0; 
+      if (!uniqueDays.contains(key)) return 0;
     }
 
     var streak = 0;
@@ -305,23 +305,15 @@ List<String> get workoutDayKeys {
     }
     return streak;
   }
-  // Clear all workout data
+
   Future<void> clearAllWorkouts() async {
-    // 1. Clear memory
     _workoutRecords.clear();
-    
-    // 2. Clear Database
     await DatabaseHelper.instance.clearHistory();
-    
-    // 3. Update UI (Home Screen stats will become 0 immediately)
     notifyListeners();
   }
-  
-  Future<void> deleteProfile() async {
-    // 1. Wipe Database
-    await DatabaseHelper.instance.deleteEverything();
 
-    // 2. Reset Local State to Defaults
+  Future<void> deleteProfile() async {
+    await DatabaseHelper.instance.deleteEverything();
     _name = '';
     _gender = null;
     _heightCm = 180;
@@ -330,8 +322,6 @@ List<String> get workoutDayKeys {
     _mainGoal = null;
     _activityLevel = null;
     _workoutRecords.clear();
-
-    // 3. Notify listeners (although we will navigate away immediately)
     notifyListeners();
   }
 }
@@ -345,7 +335,10 @@ class AppStateScope extends InheritedNotifier<AppState> {
 
   static AppState of(BuildContext context) {
     final scope = context.dependOnInheritedWidgetOfExactType<AppStateScope>();
-    assert(scope != null, 'AppStateScope not found. Wrap MaterialApp with AppStateScope.');
+    assert(
+      scope != null,
+      'AppStateScope not found. Wrap MaterialApp with AppStateScope.',
+    );
     return scope!.notifier!;
   }
 }
