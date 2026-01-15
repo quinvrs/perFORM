@@ -296,7 +296,7 @@ class _HomeTab extends StatelessWidget {
           // streak card
           Container(
             width: double.infinity,
-            height: 132 * scale,
+            height: 155 * scale,
             decoration: BoxDecoration(
               color: cardBgColor,
               borderRadius: BorderRadius.circular(12 * scale),
@@ -313,7 +313,7 @@ class _HomeTab extends StatelessWidget {
                 18 * scale,
                 12 * scale,
                 16 * scale,
-                12 * scale,
+                22 * scale,
               ),
               child: Row(
                 children: [
@@ -409,8 +409,8 @@ class _HomeTab extends StatelessWidget {
                   Column(
                     children: [
                       Container(
-                        width: 58 * scale,
-                        height: 58 * scale,
+                        width: 68 * scale,
+                        height: 68 * scale,
                         decoration: BoxDecoration(
                           color: isActive
                               ? accentColor.withValues(alpha: 0.14)
@@ -432,7 +432,7 @@ class _HomeTab extends StatelessWidget {
                           size: 34 * scale,
                         ),
                       ),
-                      SizedBox(height: 6 * scale),
+                      SizedBox(height: 17 * scale),
                       Text(
                         isActive ? 'Keep it up!' : 'Start your streak!',
                         style: TextStyle(

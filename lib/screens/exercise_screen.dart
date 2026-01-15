@@ -46,6 +46,7 @@ class _ExerciseScreenState extends State<ExerciseScreen> {
   bool _spokenRest = false;
   bool _spokenGetReady = false;
   bool _spokenHalfway = false;
+  bool _setupCountdownLocked = false;
 
   CameraController? _controller;
   Future<void>? _initFuture;
@@ -306,10 +307,9 @@ class _ExerciseScreenState extends State<ExerciseScreen> {
     _restRemaining = _restSecondsDefault;
     setState(() => _phase = _Phase.rest);
 
-    if (!_spokenRest) {
-      _spokenRest = true;
-      unawaited(TtsService.I.speak('Please Take a rest!'));
-    }
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      unawaited(_announceRestNow());
+    });
 
     _lastSpokenRestCountdown = -1;
     _spokenGetReady = false;
@@ -319,7 +319,7 @@ class _ExerciseScreenState extends State<ExerciseScreen> {
       if (!mounted) return;
       setState(() => _restRemaining--);
 
-      if (_restRemaining <= 6 && _restRemaining >= 1) {
+      if (_restRemaining <= 5 && _restRemaining >= 1) {
         if (!_spokenGetReady) {
           _spokenGetReady = true;
           unawaited(TtsService.I.speak('Get ready'));
@@ -344,6 +344,15 @@ class _ExerciseScreenState extends State<ExerciseScreen> {
     });
   }
 
+    Future<void> _announceRestNow() async {
+      await Future.delayed(const Duration(milliseconds: 250));
+      await TtsService.I.stop();
+      await Future.delayed(const Duration(milliseconds: 120));
+
+      if (!mounted || _phase != _Phase.rest) return;
+      await TtsService.I.speak('Please take a rest');
+    }
+
   void _skipRest() {
     _restTimer?.cancel();
     _restTimer = null;
@@ -363,12 +372,12 @@ class _ExerciseScreenState extends State<ExerciseScreen> {
     _freezeElapsedTimer();
     _stopCountdown();
     _spokenRest = false;
+    _setupCountdownLocked = false;
 
     _checklist = SetupChecklist.empty();
     _allReady = false;
-
     _resetForNextSet(startTimedTimer: false);
-
+  
     setState(() => _phase = _Phase.setup);
   }
 
@@ -408,6 +417,7 @@ class _ExerciseScreenState extends State<ExerciseScreen> {
   void _stopCountdown() {
     _countdownTimer?.cancel();
     _countdownTimer = null;
+    _setupCountdownLocked = false;
     if (mounted) setState(() => _countdown = 0);
   }
 
@@ -559,8 +569,9 @@ class _ExerciseScreenState extends State<ExerciseScreen> {
 
       final cams = await availableCameras();
       if (cams.isEmpty) {
-        if (mounted)
+        if (mounted) {
           setState(() => _error = 'No cameras found on this device.');
+        }
         return;
       }
 
@@ -634,8 +645,10 @@ class _ExerciseScreenState extends State<ExerciseScreen> {
             final ready = c.allMet;
 
             if (_countdown > 0 && !ready) _stopCountdown();
-            if (_countdown == 0 && ready)
+            if (_countdown == 0 && ready && !_setupCountdownLocked) {
+              _setupCountdownLocked = true;
               _startCountdown(seconds: _setupCountdownSeconds);
+            }
 
             if (mounted && _canUpdateUi(120)) {
               setState(() {
@@ -655,8 +668,9 @@ class _ExerciseScreenState extends State<ExerciseScreen> {
           if (_isJumpingJacks) {
             if (_imgSize == null ||
                 _imgRotation == null ||
-                _selectedCamera == null)
+                _selectedCamera == null) {
               return;
+            }
 
             final canvasSize =
                 _canvasSize ??
@@ -692,10 +706,11 @@ class _ExerciseScreenState extends State<ExerciseScreen> {
 
             if (had || _jjCounter.reps != _reps) {
               final next = _jjCounter.reps;
-              if (mounted && _canUpdateUi())
+              if (mounted && _canUpdateUi()) {
                 setState(() => _reps = next);
-              else
+              } else {
                 _reps = next;
+              }
             }
             return;
           }
@@ -710,14 +725,15 @@ class _ExerciseScreenState extends State<ExerciseScreen> {
           final hadRep = _repCounter.update(poses.first);
           if (hadRep) {
             final newReps = _repCounter.reps;
-            if (mounted && _canUpdateUi())
+            if (mounted && _canUpdateUi()) {
               setState(() => _reps = newReps);
-            else
+            } else {
               _reps = newReps;
+            }
 
             if (!_isJumpingJacks && newReps > _lastSpokenRep) {
               _lastSpokenRep = newReps;
-              _tts.speak('$newReps');
+              unawaited(TtsService.I.speak('$newReps'));
             }
 
             if (_reps >= widget.plan.reps) {
@@ -866,6 +882,7 @@ class _ExerciseScreenState extends State<ExerciseScreen> {
           formScore: _finalFormScore,
           totalReps: _totalReps,
           setsCompleted: _setsCompleted,
+          formScore: 0.0,
         ),
       ),
     );
@@ -1799,6 +1816,7 @@ class ExerciseSummaryScreen extends StatefulWidget {
     required this.totalReps,
     required this.formScore,
     required this.setsCompleted,
+    this.formScore = 0.0,
   });
 
   final Workout workout;
@@ -1807,6 +1825,7 @@ class ExerciseSummaryScreen extends StatefulWidget {
   final int totalReps;
   final double formScore;
   final int setsCompleted;
+  final double formScore;
 
   @override
   State<ExerciseSummaryScreen> createState() => _ExerciseSummaryScreenState();
@@ -1966,6 +1985,29 @@ class _ExerciseSummaryScreenState extends State<ExerciseSummaryScreen> {
                           ),
                           SizedBox(height: 16 * s),
 
+                          // Form Score Ring Card
+                          Container(
+                            width: double.infinity,
+                            padding: EdgeInsets.all(22 * s),
+                            decoration: BoxDecoration(
+                              color: Colors.white.withValues(alpha: 0.92),
+                              borderRadius: BorderRadius.circular(16 * s),
+                              boxShadow: [
+                                BoxShadow(
+                                  color: Colors.black.withValues(alpha: 0.20),
+                                  blurRadius: 14,
+                                  offset: const Offset(0, 6),
+                                ),
+                              ],
+                            ),
+                            child: _FormScoreRingCard(
+                              s: s,
+                              score: widget.formScore,
+                            ),
+                          ),
+
+                          SizedBox(height: 16 * s),
+
                           // stats card
                           Container(
                             padding: EdgeInsets.all(14 * s),
@@ -2026,30 +2068,6 @@ class _ExerciseSummaryScreenState extends State<ExerciseSummaryScreen> {
                                   yellow: _yellow,
                                 ),
                               ],
-                            ),
-                          ),
-
-                          SizedBox(height: 14 * s),
-
-                          // placeholder summary box (your original)
-                          Container(
-                            width: double.infinity,
-                            padding: EdgeInsets.all(16 * s),
-                            decoration: BoxDecoration(
-                              color: Colors.white.withValues(alpha: 0.90),
-                              borderRadius: BorderRadius.circular(16 * s),
-                            ),
-                            child: Text(
-                              'Exercise Summary\n\n'
-                              '• Form score (coming soon)\n'
-                              '• Accuracy / depth / tempo metrics (optional)\n'
-                              '• Tips based on common mistakes',
-                              style: TextStyle(
-                                color: Colors.black.withValues(alpha: 0.75),
-                                fontSize: 13 * s,
-                                height: 1.35,
-                                fontWeight: FontWeight.w700,
-                              ),
                             ),
                           ),
 
@@ -2213,6 +2231,140 @@ class _DayDot extends StatelessWidget {
                 fontWeight: FontWeight.w900,
               ),
             ),
+    );
+  }
+}
+
+class _FormScoreRingCard extends StatelessWidget {
+  const _FormScoreRingCard({
+    required this.s,
+    required this.score,
+  });
+
+  final double s;
+  final double score;
+
+  static const _ink = Color(0xFF051328);
+
+  Color _tint(int v) {
+    if (v <= 0) return const Color(0xFF6B7280); // gray
+    if (v < 40) return const Color(0xFFDC2626); // red
+    if (v < 80) return const Color(0xFFF97316); // orange
+    return const Color(0xFF16A34A); // green
+  }
+
+  String _label(int v) {
+    if (v <= 0) return 'Form Accuracy: Not measured yet';
+    if (v < 40) return 'Form Accuracy: Needs work';
+    if (v < 80) return 'Form Accuracy: Good';
+    return 'Form Accuracy: Excellent';
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final v = score.isNaN ? 0 : score.clamp(0, 100).round();
+    final progress = v / 100.0;
+    final color = _tint(v);
+
+    return Row(
+      children: [
+        SizedBox(
+          width: 92 * s,
+          height: 92 * s,
+          child: Stack(
+            alignment: Alignment.center,
+            children: [
+              // background ring
+              SizedBox(
+                width: 92 * s,
+                height: 92 * s,
+                child: CircularProgressIndicator(
+                  value: 1,
+                  strokeWidth: 10 * s,
+                  valueColor: AlwaysStoppedAnimation<Color>(
+                    Colors.black.withValues(alpha: 0.08),
+                  ),
+                ),
+              ),
+              // progress ring
+              SizedBox(
+                width: 92 * s,
+                height: 92 * s,
+                child: CircularProgressIndicator(
+                  value: progress,
+                  strokeWidth: 10 * s,
+                  strokeCap: StrokeCap.round,
+                  backgroundColor: Colors.transparent,
+                  valueColor: AlwaysStoppedAnimation<Color>(color),
+                ),
+              ),
+              // center text
+              Container(
+                width: 64 * s,
+                height: 64 * s,
+                decoration: BoxDecoration(
+                  color: Colors.white,
+                  shape: BoxShape.circle,
+                  boxShadow: [
+                    BoxShadow(
+                      color: Colors.black.withValues(alpha: 0.06),
+                      blurRadius: 10,
+                      offset: const Offset(0, 4),
+                    ),
+                  ],
+                ),
+                alignment: Alignment.center,
+                child: Text(
+                  '$v%',
+                  style: TextStyle(
+                    color: _ink,
+                    fontSize: 16 * s,
+                    fontWeight: FontWeight.w900,
+                  ),
+                ),
+              ),
+            ],
+          ),
+        ),
+
+        SizedBox(width: 14 * s),
+
+        Expanded(
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                'Form Score',
+                style: TextStyle(
+                  color: _ink,
+                  fontSize: 14 * s,
+                  fontWeight: FontWeight.w900,
+                ),
+              ),
+              SizedBox(height: 6 * s),
+              Text(
+                _label(v),
+                style: TextStyle(
+                  color: _ink.withValues(alpha: 0.70),
+                  fontSize: 12 * s,
+                  fontWeight: FontWeight.w800,
+                  height: 0.20,
+                ),
+              ),
+              SizedBox(height: 6 * s),
+              // small hint text
+              Text(
+                v <= 0 ? 'Do more reps to measure form.' : 'Keep going to improve your score.',
+                style: TextStyle(
+                  color: _ink.withValues(alpha: 0.55),
+                  fontSize: 11 * s,
+                  fontWeight: FontWeight.w600,
+                ),
+              ),
+            ],
+          ),
+        ),
+      ],
     );
   }
 }
