@@ -852,6 +852,7 @@ class _ExerciseScreenState extends State<ExerciseScreen> {
           elapsedSeconds: _elapsed,
           totalReps: _totalReps,
           setsCompleted: _setsCompleted,
+          formScore: 0.0,
         ),
       ),
     );
@@ -1784,6 +1785,7 @@ class ExerciseSummaryScreen extends StatefulWidget {
     required this.elapsedSeconds,
     required this.totalReps,
     required this.setsCompleted,
+    this.formScore = 0.0,
   });
 
   final Workout workout;
@@ -1791,6 +1793,7 @@ class ExerciseSummaryScreen extends StatefulWidget {
   final int elapsedSeconds;
   final int totalReps;
   final int setsCompleted;
+  final double formScore;
 
   @override
   State<ExerciseSummaryScreen> createState() => _ExerciseSummaryScreenState();
@@ -1950,6 +1953,29 @@ class _ExerciseSummaryScreenState extends State<ExerciseSummaryScreen> {
                           ),
                           SizedBox(height: 16 * s),
 
+                          // Form Score Ring Card
+                          Container(
+                            width: double.infinity,
+                            padding: EdgeInsets.all(22 * s),
+                            decoration: BoxDecoration(
+                              color: Colors.white.withValues(alpha: 0.92),
+                              borderRadius: BorderRadius.circular(16 * s),
+                              boxShadow: [
+                                BoxShadow(
+                                  color: Colors.black.withValues(alpha: 0.20),
+                                  blurRadius: 14,
+                                  offset: const Offset(0, 6),
+                                ),
+                              ],
+                            ),
+                            child: _FormScoreRingCard(
+                              s: s,
+                              score: widget.formScore,
+                            ),
+                          ),
+
+                          SizedBox(height: 16 * s),
+
                           // stats card
                           Container(
                             padding: EdgeInsets.all(14 * s),
@@ -2010,30 +2036,6 @@ class _ExerciseSummaryScreenState extends State<ExerciseSummaryScreen> {
                                   yellow: _yellow,
                                 ),
                               ],
-                            ),
-                          ),
-
-                          SizedBox(height: 14 * s),
-
-                          // placeholder summary box (your original)
-                          Container(
-                            width: double.infinity,
-                            padding: EdgeInsets.all(16 * s),
-                            decoration: BoxDecoration(
-                              color: Colors.white.withValues(alpha: 0.90),
-                              borderRadius: BorderRadius.circular(16 * s),
-                            ),
-                            child: Text(
-                              'Exercise Summary\n\n'
-                              '• Form score (coming soon)\n'
-                              '• Accuracy / depth / tempo metrics (optional)\n'
-                              '• Tips based on common mistakes',
-                              style: TextStyle(
-                                color: Colors.black.withValues(alpha: 0.75),
-                                fontSize: 13 * s,
-                                height: 1.35,
-                                fontWeight: FontWeight.w700,
-                              ),
                             ),
                           ),
 
@@ -2197,6 +2199,140 @@ class _DayDot extends StatelessWidget {
                 fontWeight: FontWeight.w900,
               ),
             ),
+    );
+  }
+}
+
+class _FormScoreRingCard extends StatelessWidget {
+  const _FormScoreRingCard({
+    required this.s,
+    required this.score,
+  });
+
+  final double s;
+  final double score;
+
+  static const _ink = Color(0xFF051328);
+
+  Color _tint(int v) {
+    if (v <= 0) return const Color(0xFF6B7280); // gray
+    if (v < 40) return const Color(0xFFDC2626); // red
+    if (v < 80) return const Color(0xFFF97316); // orange
+    return const Color(0xFF16A34A); // green
+  }
+
+  String _label(int v) {
+    if (v <= 0) return 'Form Accuracy: Not measured yet';
+    if (v < 40) return 'Form Accuracy: Needs work';
+    if (v < 80) return 'Form Accuracy: Good';
+    return 'Form Accuracy: Excellent';
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final v = score.isNaN ? 0 : score.clamp(0, 100).round();
+    final progress = v / 100.0;
+    final color = _tint(v);
+
+    return Row(
+      children: [
+        SizedBox(
+          width: 92 * s,
+          height: 92 * s,
+          child: Stack(
+            alignment: Alignment.center,
+            children: [
+              // background ring
+              SizedBox(
+                width: 92 * s,
+                height: 92 * s,
+                child: CircularProgressIndicator(
+                  value: 1,
+                  strokeWidth: 10 * s,
+                  valueColor: AlwaysStoppedAnimation<Color>(
+                    Colors.black.withValues(alpha: 0.08),
+                  ),
+                ),
+              ),
+              // progress ring
+              SizedBox(
+                width: 92 * s,
+                height: 92 * s,
+                child: CircularProgressIndicator(
+                  value: progress,
+                  strokeWidth: 10 * s,
+                  strokeCap: StrokeCap.round,
+                  backgroundColor: Colors.transparent,
+                  valueColor: AlwaysStoppedAnimation<Color>(color),
+                ),
+              ),
+              // center text
+              Container(
+                width: 64 * s,
+                height: 64 * s,
+                decoration: BoxDecoration(
+                  color: Colors.white,
+                  shape: BoxShape.circle,
+                  boxShadow: [
+                    BoxShadow(
+                      color: Colors.black.withValues(alpha: 0.06),
+                      blurRadius: 10,
+                      offset: const Offset(0, 4),
+                    ),
+                  ],
+                ),
+                alignment: Alignment.center,
+                child: Text(
+                  '$v%',
+                  style: TextStyle(
+                    color: _ink,
+                    fontSize: 16 * s,
+                    fontWeight: FontWeight.w900,
+                  ),
+                ),
+              ),
+            ],
+          ),
+        ),
+
+        SizedBox(width: 14 * s),
+
+        Expanded(
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                'Form Score',
+                style: TextStyle(
+                  color: _ink,
+                  fontSize: 14 * s,
+                  fontWeight: FontWeight.w900,
+                ),
+              ),
+              SizedBox(height: 6 * s),
+              Text(
+                _label(v),
+                style: TextStyle(
+                  color: _ink.withValues(alpha: 0.70),
+                  fontSize: 12 * s,
+                  fontWeight: FontWeight.w800,
+                  height: 0.20,
+                ),
+              ),
+              SizedBox(height: 6 * s),
+              // small hint text
+              Text(
+                v <= 0 ? 'Do more reps to measure form.' : 'Keep going to improve your score.',
+                style: TextStyle(
+                  color: _ink.withValues(alpha: 0.55),
+                  fontSize: 11 * s,
+                  fontWeight: FontWeight.w600,
+                ),
+              ),
+            ],
+          ),
+        ),
+      ],
     );
   }
 }

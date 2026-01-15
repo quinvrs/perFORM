@@ -409,8 +409,8 @@ class _HomeTab extends StatelessWidget {
                   Column(
                     children: [
                       Container(
-                        width: 58 * scale,
-                        height: 58 * scale,
+                        width: 68 * scale,
+                        height: 68 * scale,
                         decoration: BoxDecoration(
                           color: isActive
                               ? accentColor.withValues(alpha: 0.14)
@@ -432,7 +432,7 @@ class _HomeTab extends StatelessWidget {
                           size: 34 * scale,
                         ),
                       ),
-                      SizedBox(height: 6 * scale),
+                      SizedBox(height: 17 * scale),
                       Text(
                         isActive ? 'Keep it up!' : 'Start your streak!',
                         style: TextStyle(
