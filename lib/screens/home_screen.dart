@@ -296,7 +296,7 @@ class _HomeTab extends StatelessWidget {
           // streak card
           Container(
             width: double.infinity,
-            height: 132 * scale,
+            height: 155 * scale,
             decoration: BoxDecoration(
               color: cardBgColor,
               borderRadius: BorderRadius.circular(12 * scale),
@@ -313,7 +313,7 @@ class _HomeTab extends StatelessWidget {
                 18 * scale,
                 12 * scale,
                 16 * scale,
-                12 * scale,
+                22 * scale,
               ),
               child: Row(
                 children: [

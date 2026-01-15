@@ -551,8 +551,9 @@ class _ExerciseScreenState extends State<ExerciseScreen> {
 
       final cams = await availableCameras();
       if (cams.isEmpty) {
-        if (mounted)
+        if (mounted) {
           setState(() => _error = 'No cameras found on this device.');
+        }
         return;
       }
 
@@ -626,8 +627,9 @@ class _ExerciseScreenState extends State<ExerciseScreen> {
             final ready = c.allMet;
 
             if (_countdown > 0 && !ready) _stopCountdown();
-            if (_countdown == 0 && ready)
+            if (_countdown == 0 && ready) {
               _startCountdown(seconds: _setupCountdownSeconds);
+            }
 
             if (mounted && _canUpdateUi(120)) {
               setState(() {
@@ -647,8 +649,9 @@ class _ExerciseScreenState extends State<ExerciseScreen> {
           if (_isJumpingJacks) {
             if (_imgSize == null ||
                 _imgRotation == null ||
-                _selectedCamera == null)
+                _selectedCamera == null) {
               return;
+            }
 
             final canvasSize =
                 _canvasSize ??
@@ -670,10 +673,11 @@ class _ExerciseScreenState extends State<ExerciseScreen> {
 
             if (had || _jjCounter.reps != _reps) {
               final next = _jjCounter.reps;
-              if (mounted && _canUpdateUi())
+              if (mounted && _canUpdateUi()) {
                 setState(() => _reps = next);
-              else
+              } else {
                 _reps = next;
+              }
             }
             return;
           }
@@ -682,10 +686,11 @@ class _ExerciseScreenState extends State<ExerciseScreen> {
           final hadRep = _repCounter.update(poses.first);
           if (hadRep) {
             final newReps = _repCounter.reps;
-            if (mounted && _canUpdateUi())
+            if (mounted && _canUpdateUi()) {
               setState(() => _reps = newReps);
-            else
+            } else {
               _reps = newReps;
+            }
 
             if (!_isJumpingJacks && newReps > _lastSpokenRep) {
               _lastSpokenRep = newReps;
