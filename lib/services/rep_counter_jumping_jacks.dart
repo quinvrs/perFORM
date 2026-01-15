@@ -10,6 +10,11 @@ enum _Phase { unknown, closed, open }
 
 class JumpingJacksRepCounter {
   JumpingJacksRepCounter({
+    //added a jump parameter
+    this.requireJump = true,
+    this.minJumpTorso = 0.06,
+    this.hipBaseEmaAlpha = 0.12,
+    
     // Minimum landmark confidence required before we trust a point.
     this.minLikelihood = 0.55,
 
@@ -42,6 +47,11 @@ class JumpingJacksRepCounter {
   String debug = '';
 
   // Tunables
+  //added a jump parameter
+  final bool requireJump;
+  final double minJumpTorso;
+  final double hipBaseEmaAlpha;
+
   final double minLikelihood;
   final double emaAlpha;
 
@@ -68,6 +78,10 @@ class JumpingJacksRepCounter {
   double? _emaLeftSide;
   double? _emaRightSide;
 
+  double? _baseHipY;
+  double? _emaHipY;
+  bool _seenJump = false;
+
   // Counts consecutive "bad frames" (missing/low confidence)
   int _missingStreak = 0;
 
@@ -82,6 +96,9 @@ class JumpingJacksRepCounter {
     _emaLeftSide = null;
     _emaRightSide = null;
     _missingStreak = 0;
+    _baseHipY = 0;
+    _emaHipY = 0;
+    _seenJump = false;
   }
 
   /// Update the rep counter from the latest pose.
@@ -162,6 +179,13 @@ class JumpingJacksRepCounter {
     final avgHipY = (lHip.dy + rHip.dy) / 2.0;
     final torsoH = (avgHipY - avgShoulderY).abs().clamp(1.0, 1e9);
 
+    //added for jumping
+    _emaHipY = _ema(_emaHipY, avgHipY, emaAlpha);
+    final hipY = _emaHipY!;
+
+    final jumped = (_baseHipY != null) && ((_baseHipY! - hipY) >= (minJumpTorso * torsoH));
+    if (jumped) _seenJump = true;
+
     // --- Arms UP detection (good form) ---
     // We want "hands overhead" / arms above the head.
     // Use nose/eyes if present; otherwise estimate headY from shoulders + torso height.
@@ -211,7 +235,7 @@ class JumpingJacksRepCounter {
     // State detection:
     // - OPEN requires legs apart + arms overhead
     // - CLOSED requires legs together + arms down
-    final isOpen = (r >= openRatio) && legsOpenSym && armsUp;
+    final isOpen = (r >= openRatio) && legsOpenSym && armsUp && (!requireJump || _seenJump);
     final isClosed = (r <= closeRatio) && legsCloseSym && armsDown;
 
     // Debug string for on-screen overlay
@@ -228,8 +252,18 @@ class JumpingJacksRepCounter {
     }
 
     if (isClosed) {
+      if (!jumped) {
+        _baseHipY = _ema(_baseHipY, hipY, hipBaseEmaAlpha);
+      }
+      
       // Count only on OPEN -> CLOSED transition, with cooldown.
-      if (_phase == _Phase.open && _seenOpen) {
+      if (_phase == _Phase.open && _seenOpen){
+        if (requireJump && !_seenJump){
+          debug += 'Blocked: no jump';
+          _phase = _Phase.closed;
+          return false;
+        }
+
         final now = DateTime.now();
         if (now.difference(_lastRepTime) >= minRepInterval) {
           reps += 1;
@@ -240,6 +274,8 @@ class JumpingJacksRepCounter {
           return true;
         }
       }
+      if (_phase != _Phase.closed) _seenJump = false;
+
       _phase = _Phase.closed;
       return false;
     }
@@ -261,6 +297,10 @@ class JumpingJacksRepCounter {
       _emaAnkleRatio = null;
       _emaLeftSide = null;
       _emaRightSide = null;
+
+      _seenJump = false;
+      _emaHipY = null;
+      _baseHipY = null;
     }
     return false;
   }
