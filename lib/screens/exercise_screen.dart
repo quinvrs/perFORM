@@ -882,7 +882,6 @@ class _ExerciseScreenState extends State<ExerciseScreen> {
           formScore: _finalFormScore,
           totalReps: _totalReps,
           setsCompleted: _setsCompleted,
-          formScore: 0.0,
         ),
       ),
     );
@@ -1814,16 +1813,14 @@ class ExerciseSummaryScreen extends StatefulWidget {
     required this.plan,
     required this.elapsedSeconds,
     required this.totalReps,
-    required this.formScore,
     required this.setsCompleted,
-    this.formScore = 0.0,
+    required this.formScore,
   });
 
   final Workout workout;
   final WorkoutPlan plan;
   final int elapsedSeconds;
   final int totalReps;
-  final double formScore;
   final int setsCompleted;
   final double formScore;
 
