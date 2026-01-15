@@ -129,7 +129,6 @@ class _ExerciseScreenState extends State<ExerciseScreen> {
     );
 
     _startElapsedTimer();
-    _startSetIfTimed();
 
     WidgetsBinding.instance.addPostFrameCallback((_) {
       _initCamera();
@@ -298,10 +297,9 @@ class _ExerciseScreenState extends State<ExerciseScreen> {
     _restRemaining = _restSecondsDefault;
     setState(() => _phase = _Phase.rest);
 
-    if (!_spokenRest) {
-      _spokenRest = true;
-      unawaited(TtsService.I.speak('Please Take a rest!'));
-    }
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      unawaited(_announceRestNow());
+    });
 
     _lastSpokenRestCountdown = -1;
     _spokenGetReady = false;
@@ -311,7 +309,7 @@ class _ExerciseScreenState extends State<ExerciseScreen> {
       if (!mounted) return;
       setState(() => _restRemaining--);
 
-      if (_restRemaining <= 6 && _restRemaining >= 1) {
+      if (_restRemaining <= 5 && _restRemaining >= 1) {
         if (!_spokenGetReady) {
           _spokenGetReady = true;
           unawaited(TtsService.I.speak('Get ready'));
@@ -335,6 +333,20 @@ class _ExerciseScreenState extends State<ExerciseScreen> {
       }
     });
   }
+
+    Future<void> _announceRestNow() async {
+    //   await TtsService.I.stop(); // stop anything (like last rep)
+    // await Future.delayed(const Duration(milliseconds: 200));
+    // if (!mounted || _phase != _Phase.rest) return;
+    // await TtsService.I.speak('Please take a rest');
+
+      await Future.delayed(const Duration(milliseconds: 250));
+      await TtsService.I.stop();
+      await Future.delayed(const Duration(milliseconds: 120));
+
+      if (!mounted || _phase != _Phase.rest) return;
+      await TtsService.I.speak('Please take a rest');
+    }
 
   void _skipRest() {
     _restTimer?.cancel();
@@ -694,7 +706,7 @@ class _ExerciseScreenState extends State<ExerciseScreen> {
 
             if (!_isJumpingJacks && newReps > _lastSpokenRep) {
               _lastSpokenRep = newReps;
-              _tts.speak('$newReps');
+              unawaited(TtsService.I.speak('$newReps'));
             }
 
             if (_reps >= widget.plan.reps) {

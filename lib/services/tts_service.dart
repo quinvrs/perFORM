@@ -21,7 +21,6 @@ class TtsService {
 
   Future<void> speak(String text) async {
     await init();
-    await _tts.stop();         // prevents overlap
     await _tts.speak(text);
   }
 
