@@ -45,6 +45,7 @@ class _ExerciseScreenState extends State<ExerciseScreen> {
   bool _spokenRest = false;
   bool _spokenGetReady = false;
   bool _spokenHalfway = false;
+  bool _setupCountdownLocked = false;
 
   CameraController? _controller;
   Future<void>? _initFuture;
@@ -336,11 +337,6 @@ class _ExerciseScreenState extends State<ExerciseScreen> {
   }
 
     Future<void> _announceRestNow() async {
-    //   await TtsService.I.stop(); // stop anything (like last rep)
-    // await Future.delayed(const Duration(milliseconds: 200));
-    // if (!mounted || _phase != _Phase.rest) return;
-    // await TtsService.I.speak('Please take a rest');
-
       await Future.delayed(const Duration(milliseconds: 250));
       await TtsService.I.stop();
       await Future.delayed(const Duration(milliseconds: 120));
@@ -368,12 +364,12 @@ class _ExerciseScreenState extends State<ExerciseScreen> {
     _freezeElapsedTimer();
     _stopCountdown();
     _spokenRest = false;
+    _setupCountdownLocked = false;
 
     _checklist = SetupChecklist.empty();
     _allReady = false;
-
     _resetForNextSet(startTimedTimer: false);
-
+  
     setState(() => _phase = _Phase.setup);
   }
 
@@ -413,6 +409,7 @@ class _ExerciseScreenState extends State<ExerciseScreen> {
   void _stopCountdown() {
     _countdownTimer?.cancel();
     _countdownTimer = null;
+    _setupCountdownLocked = false;
     if (mounted) setState(() => _countdown = 0);
   }
 
@@ -640,7 +637,8 @@ class _ExerciseScreenState extends State<ExerciseScreen> {
             final ready = c.allMet;
 
             if (_countdown > 0 && !ready) _stopCountdown();
-            if (_countdown == 0 && ready) {
+            if (_countdown == 0 && ready && !_setupCountdownLocked) {
+              _setupCountdownLocked = true;
               _startCountdown(seconds: _setupCountdownSeconds);
             }
 
