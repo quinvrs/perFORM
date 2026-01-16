@@ -8,7 +8,6 @@ enum _SquatPhase { unknown, standing, bottom }
 class RepCounter {
   final ExerciseType type;
 
-  // Public outputs
   int reps = 0;
   String debug = '';
 
@@ -19,10 +18,10 @@ class RepCounter {
   final Duration minRepInterval; 
 
   // --- Anti false reps (single-leg raise)
-  /// Require hips to drop by this fraction of torso height before accepting "DOWN"
+  /// Require hips to drop by this fraction of torso height before accepting 
   final double minHipDropTorso;
   final double hipBaseEmaAlpha;
-  // This blocks reps when a foot is lifted OR when ankles are missing/low-confidence.
+  // for when a foot is lifted OR when ankles are missing/low-confidence.
   final bool strictFeetOnRep;
   final double strictFootMinLikelihood;
   final double strictFeetLevelTolTorso;
@@ -40,8 +39,6 @@ class RepCounter {
     this.upAngleDeg = 165,
     this.confirmFrames = 4,
     this.minRepInterval = const Duration(milliseconds: 450),
-
-    // NEW (anti-leg-raise)
     this.minHipDropTorso = 0.14,
     this.hipBaseEmaAlpha = 0.15,
     this.strictFeetOnRep = true,
@@ -103,7 +100,6 @@ class RepCounter {
 
     // DOWN condition (deep squat)
     if (kneeAngle <= downAngleDeg) {
-      // NEW: block "down" if knee bends but hips didn't actually drop (common in leg raise)
       if (!hipDropped) {
         _downHits = 0;
         _upHits = 0;
@@ -129,12 +125,11 @@ class RepCounter {
       if (_upHits >= confirmFrames) {
         // Count rep ONLY when we came from bottom -> standing
         if (_phase == _SquatPhase.bottom) {
-          // NEW: strict feet check ONLY when counting (blocks single-leg raises)
           if (strictFeetOnRep) {
             final reason = _strictFeetGate(pose, torsoH);
             if (reason != null) {
               debug += ' | blocked: $reason';
-              return false; // keep phase bottom; wait for a clean standing frame
+              return false; 
             }
           }
 
@@ -152,19 +147,14 @@ class RepCounter {
       }
       return false;
     }
-
-    // In-between (moving). Don’t change phase; just reset hit counters.
     _downHits = 0;
     _upHits = 0;
 
-    // If we have no phase yet, assume standing-ish after first valid frame.
     if (_phase == _SquatPhase.unknown) _phase = _SquatPhase.standing;
-
     return false;
   }
 
   // Helpers
-
   double _angleDeg(PoseLandmark a, PoseLandmark b, PoseLandmark c) {
     // Angle at point b formed by a-b-c
     final abx = a.x - b.x;
@@ -199,21 +189,16 @@ class RepCounter {
       return (avgHipY - avgShoulderY).abs().clamp(1.0, 1e9);
     }
 
-    // fallback scale if shoulders aren't reliable
     return ((hip.y - knee.y).abs() * 2.0).clamp(1.0, 1e9);
   }
 
-  /// Strict check at rep moment:
-  /// - both ankles must exist
-  /// - both must have decent likelihood
-  /// - ankles must be roughly level (blocks one-leg raise)
   String? _strictFeetGate(Pose pose, double torsoH) {
     final lA = pose.landmarks[PoseLandmarkType.leftAnkle];
     final rA = pose.landmarks[PoseLandmarkType.rightAnkle];
     if (lA == null || rA == null) return 'Missing ankles';
 
-    final lLik = lA.likelihood ?? 0.0;
-    final rLik = rA.likelihood ?? 0.0;
+    final lLik = lA.likelihood;
+    final rLik = rA.likelihood;
     if (lLik < strictFootMinLikelihood || rLik < strictFootMinLikelihood) {
       return 'Low ankle confidence';
     }
@@ -226,7 +211,7 @@ class RepCounter {
   }
 
   _Side _bestSide(Pose pose) {
-    // For sideways, one leg is usually clearer. Pick side with higher landmark likelihood.
+    // since its sideways, one leg is usually clearer. so pick a side with higher landmark likelihood.
     double score(PoseLandmarkType hip, PoseLandmarkType knee, PoseLandmarkType ankle) {
       double l(PoseLandmarkType t) => pose.landmarks[t]?.likelihood ?? 0.0;
       return l(hip) + l(knee) + l(ankle);
