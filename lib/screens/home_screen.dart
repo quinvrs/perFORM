@@ -741,8 +741,9 @@ class _StreakTabState extends State<_StreakTab> {
                     crossAxisSpacing: 8,
                   ),
                   itemBuilder: (context, i) {
-                    if (i < offset || (i - offset + 1) > daysInMonth)
+                    if (i < offset || (i - offset + 1) > daysInMonth) {
                       return const SizedBox.shrink();
+                    }
                     final day = i - offset + 1;
                     final currentDay = DateTime(year, month, day);
 
