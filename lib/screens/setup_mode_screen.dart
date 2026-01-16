@@ -31,6 +31,9 @@ class SetupModeScreen extends StatefulWidget {
 class _SetupModeScreenState extends State<SetupModeScreen> {
   static const _bgDark = Color.fromARGB(255, 18, 32, 47);
 
+  bool _isNavigating = false;
+  bool _setupCountdownLocked = false;
+
   CameraController? _controller;
   Future<void>? _initFuture;
   String? _error;
@@ -156,6 +159,8 @@ class _SetupModeScreenState extends State<SetupModeScreen> {
         _isDetecting = true;
 
         try {
+          if (_isNavigating) return;
+
           final inputImage = _cameraImageToInputImage(image, chosen);
           if (inputImage == null) return;
 
@@ -174,7 +179,9 @@ class _SetupModeScreenState extends State<SetupModeScreen> {
           if (_countdown > 0 && !ready) _stopCountdown();
 
           // if became ready and not counting down -> start countdown
-          if (_countdown == 0 && ready) _startCountdown(seconds: 5);
+          if (_countdown == 0 && ready && !_setupCountdownLocked) { 
+            _startCountdown(seconds: 5);
+          }
 
           // rep counter (debug)
           int newReps = 0;
@@ -208,6 +215,10 @@ class _SetupModeScreenState extends State<SetupModeScreen> {
   // Countdown + navigation
   // -------------------------
     void _startCountdown({required int seconds}) {
+      if (_isNavigating) return;
+      if (_setupCountdownLocked) return;
+      _setupCountdownLocked = true;
+
       _countdownTimer?.cancel();
       _countdown = seconds;
 
@@ -223,9 +234,11 @@ class _SetupModeScreenState extends State<SetupModeScreen> {
         if (next <= 0) {
           t.cancel();
           _countdownTimer = null;
+
+          _isNavigating = true;
           await _goToExercise();
         } else {
-          // Speak the next number (e.g., "4", "3", "2", "1")
+          // Speak the next number
           await TtsService.I.speak('$next');
         }
       });
@@ -237,11 +250,16 @@ class _SetupModeScreenState extends State<SetupModeScreen> {
   void _stopCountdown() {
     _countdownTimer?.cancel();
     _countdownTimer = null;
+    _setupCountdownLocked = false;
+
     unawaited(TtsService.I.stop());
     if (mounted) setState(() => _countdown = 0);
   }
 
   Future<void> _goToExercise() async {
+    _isNavigating = true;
+    _stopCountdown();
+    
     final state = AppStateScope.of(context);
 
     final level = _parseActivityLevel(state.activityLevel);
