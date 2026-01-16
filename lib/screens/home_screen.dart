@@ -536,10 +536,6 @@ class _StreakTabState extends State<_StreakTab> {
   static const _ink = Color(0xFF051328);
   static const _gold = Color(0xFFECC051);
 
-  static const _greenLight = Color(0xFF42D678);
-  static const _greenMid = Color(0xFF16A34A);
-  static const _greenDark = Color(0xFF14532D);
-
   late DateTime _focusedDate;
 
   @override
@@ -549,10 +545,12 @@ class _StreakTabState extends State<_StreakTab> {
   }
 
   Color _getDailyColor(int count) {
-    if (count == 0) return const Color(0xFFEDEFF3);
-    if (count == 1) return _greenLight;
-    if (count == 2) return _greenMid;
-    return _greenDark;
+  if (count <= 0) return const Color(0xFFEDEFF3); 
+    const Color startColor = Color.fromARGB(255, 79, 185, 83); 
+    const Color endColor = Color.fromARGB(255, 20, 93, 25);   
+    const int maxSaturatedCount = 10;
+    double t = ((count - 1) / (maxSaturatedCount - 1)).clamp(0.0, 1.0);
+    return Color.lerp(startColor, endColor, t)!;
   }
 
   // --- NAVIGATION BOUNDS ---
