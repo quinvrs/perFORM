@@ -12,7 +12,6 @@ import 'package:google_mlkit_pose_detection/google_mlkit_pose_detection.dart';
 import '../app_state.dart';
 import '../models/workout.dart';
 import '../models/workout_plan.dart';
-import '../services/rep_counter_squats.dart';
 import 'exercise_screen.dart';
 import '../services/tts_service.dart';
 
@@ -54,10 +53,6 @@ class _SetupModeScreenState extends State<SetupModeScreen> {
   int _countdown = 0;
   Timer? _countdownTimer;
 
-  // optional rep debug for squats
-  final RepCounter _repCounter = RepCounter.squat();
-  int _reps = 0;
-
   @override
   void initState() {
     super.initState();
@@ -91,15 +86,11 @@ class _SetupModeScreenState extends State<SetupModeScreen> {
     super.dispose();
   }
 
-  // -------------------------
-  // ActivityLevel parsing (String? -> enum)
-  // -------------------------
+//Handles Activity Level 
   ActivityLevel _parseActivityLevel(String? raw) {
     final s = (raw ?? '').trim();
     if (s.isEmpty) return ActivityLevel.sedentary;
 
-    // handles: "ActivityLevel.sedentary", "sedentary", "Sedentary",
-    // "Lightly Active", "lightlyActive", etc.
     final lower = s.toLowerCase();
     final key = (lower.contains('.') ? lower.split('.').last : lower)
         .replaceAll(RegExp(r'\s+'), '');
@@ -118,9 +109,7 @@ class _SetupModeScreenState extends State<SetupModeScreen> {
     }
   }
 
-  // -------------------------
-  // Camera init + pose stream
-  // -------------------------
+// Camera init + pose stream
   Future<void> _initCamera() async {
     try {
       final perm = await Permission.camera.request();
@@ -183,19 +172,11 @@ class _SetupModeScreenState extends State<SetupModeScreen> {
             _startCountdown(seconds: 5);
           }
 
-          // rep counter (debug)
-          int newReps = 0;
-          if (_isSquat(widget.workout.title) && poses.isNotEmpty) {
-            _repCounter.update(poses.first);
-            newReps = _repCounter.reps;
-          }
-
           if (mounted) {
             setState(() {
               _poses = poses;
               _checklist = c;
               _allReady = ready;
-              _reps = newReps;
             });
           }
         } catch (e, st) {
@@ -211,9 +192,7 @@ class _SetupModeScreenState extends State<SetupModeScreen> {
     }
   }
 
-  // -------------------------
   // Countdown + navigation
-  // -------------------------
     void _startCountdown({required int seconds}) {
       if (_isNavigating) return;
       if (_setupCountdownLocked) return;
@@ -222,7 +201,7 @@ class _SetupModeScreenState extends State<SetupModeScreen> {
       _countdownTimer?.cancel();
       _countdown = seconds;
 
-      // Speak the first number immediately (e.g., "5")
+      // Speak the first number
       unawaited(TtsService.I.speak('$_countdown'));
 
       _countdownTimer = Timer.periodic(const Duration(seconds: 1), (t) async {
@@ -245,7 +224,6 @@ class _SetupModeScreenState extends State<SetupModeScreen> {
 
       setState(() {});
     }
-
 
   void _stopCountdown() {
     _countdownTimer?.cancel();
@@ -280,7 +258,7 @@ class _SetupModeScreenState extends State<SetupModeScreen> {
       await old?.dispose();
     } catch (_) {}
 
-    // (optional) stop detector early (dispose still closes too)
+    // (optional) stop detector early
     try {
       await _poseDetector?.close();
     } catch (_) {}
@@ -299,9 +277,7 @@ class _SetupModeScreenState extends State<SetupModeScreen> {
     );
   }
 
-  // -------------------------
-  // Camera -> MLKit InputImage
-  // -------------------------
+// Camera -> MLKit InputImage
   static const Map<DeviceOrientation, int> _orientations = {
     DeviceOrientation.portraitUp: 0,
     DeviceOrientation.landscapeLeft: 90,
@@ -354,9 +330,8 @@ class _SetupModeScreenState extends State<SetupModeScreen> {
     );
   }
 
-  // -------------------------
-  // Checklist evaluation
-  // -------------------------
+// Checklist evaluation
+
   bool _isSquat(String title) => title.toLowerCase().contains('squat');
   bool _isJumpingJack(String title) =>
       title.toLowerCase().contains('jump') || title.toLowerCase().contains('jack');
@@ -669,9 +644,7 @@ class _SetupModeScreenState extends State<SetupModeScreen> {
   }
 }
 
-// -------------------------
 // Checklist models + UI
-// -------------------------
 class SetupChecklist {
   const SetupChecklist({required this.items});
   final List<SetupItem> items;
@@ -806,9 +779,7 @@ class _ChecklistCard extends StatelessWidget {
   }
 }
 
-// -------------------------
 // Pose painter (white dots/lines)
-// -------------------------
 class _PosePainter extends CustomPainter {
   _PosePainter({
     required this.poses,
