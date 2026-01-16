@@ -12,8 +12,9 @@ class JumpingJacksRepCounter {
   JumpingJacksRepCounter({
     //added a jump parameter
     this.requireJump = true,
-    this.minJumpTorso = 0.06,
-    this.hipBaseEmaAlpha = 0.12,
+    this.minJumpTorso = 0.11,
+    this.confirmJumpFrames = 2,
+    this.bodyBaseEmaAlpha = 0.12,
     
     // Minimum landmark confidence required before we trust a point.
     this.minLikelihood = 0.55,
@@ -50,7 +51,8 @@ class JumpingJacksRepCounter {
   //added a jump parameter
   final bool requireJump;
   final double minJumpTorso;
-  final double hipBaseEmaAlpha;
+  final int confirmJumpFrames;
+  final double bodyBaseEmaAlpha;
 
   final double minLikelihood;
   final double emaAlpha;
@@ -78,8 +80,9 @@ class JumpingJacksRepCounter {
   double? _emaLeftSide;
   double? _emaRightSide;
 
-  double? _baseHipY;
-  double? _emaHipY;
+  double? _baseBodyY;
+  double? _emaBodyY;
+  int _jumpHits = 0;
   bool _seenJump = false;
 
   // Counts consecutive "bad frames" (missing/low confidence)
@@ -96,13 +99,13 @@ class JumpingJacksRepCounter {
     _emaLeftSide = null;
     _emaRightSide = null;
     _missingStreak = 0;
-    _baseHipY = 0;
-    _emaHipY = 0;
+    _baseBodyY = 0;
+    _emaBodyY = 0;
+    _jumpHits = 0;
     _seenJump = false;
   }
 
   /// Update the rep counter from the latest pose.
-  ///
   /// Returns true if a rep was counted on this frame.
   bool update({
     required Pose pose,
@@ -180,11 +183,21 @@ class JumpingJacksRepCounter {
     final torsoH = (avgHipY - avgShoulderY).abs().clamp(1.0, 1e9);
 
     //added for jumping
-    _emaHipY = _ema(_emaHipY, avgHipY, emaAlpha);
-    final hipY = _emaHipY!;
+    final rawBodyY = (avgShoulderY + avgHipY) / 2.0;
+    
+    _emaBodyY = _ema(_emaBodyY, rawBodyY, emaAlpha);
+    final bodyY = _emaBodyY!;
 
-    final jumped = (_baseHipY != null) && ((_baseHipY! - hipY) >= (minJumpTorso * torsoH));
-    if (jumped) _seenJump = true;
+    final bool jumpedNow = (_baseBodyY != null) && ((_baseBodyY! - bodyY) >= (minJumpTorso * torsoH));
+    if (jumpedNow) {
+      _jumpHits++;
+    } else {
+      _jumpHits = 0;
+    }
+
+    if (_jumpHits >= confirmJumpFrames) {
+      _seenJump = true;
+    }
 
     // --- Arms UP detection (good form) ---
     // We want "hands overhead" / arms above the head.
@@ -252,8 +265,8 @@ class JumpingJacksRepCounter {
     }
 
     if (isClosed) {
-      if (!jumped) {
-        _baseHipY = _ema(_baseHipY, hipY, hipBaseEmaAlpha);
+      if (!jumpedNow) {
+        _baseBodyY = _ema(_baseBodyY, bodyY, bodyBaseEmaAlpha);
       }
       
       // Count only on OPEN -> CLOSED transition, with cooldown.
@@ -274,7 +287,10 @@ class JumpingJacksRepCounter {
           return true;
         }
       }
-      if (_phase != _Phase.closed) _seenJump = false;
+      if (_phase != _Phase.open) {
+        _seenJump = false;
+        _jumpHits = 0;
+      }
 
       _phase = _Phase.closed;
       return false;
@@ -299,8 +315,8 @@ class JumpingJacksRepCounter {
       _emaRightSide = null;
 
       _seenJump = false;
-      _emaHipY = null;
-      _baseHipY = null;
+      _emaBodyY = null;
+      _baseBodyY = null;
     }
     return false;
   }
