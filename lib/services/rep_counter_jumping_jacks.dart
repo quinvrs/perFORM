@@ -205,13 +205,11 @@ class JumpingJacksRepCounter {
     final usingLeftWrist = okLm(lWr);
     final usingRightWrist = okLm(rWr);
 
-    // Tune these to make "overhead" stricter:
-    // - Increase 0.06 to require higher wrists above head
-    // - Increase 0.12 to require higher elbows (fallback) above head
-    final leftThresh =
-        headY - (usingLeftWrist ? 0.06 * torsoH : 0.12 * torsoH);
-    final rightThresh =
-        headY - (usingRightWrist ? 0.06 * torsoH : 0.12 * torsoH);
+    // Stricter overhead requirement:
+    // wrists must be well ABOVE the head (not forehead).
+    final leftThresh  = headY - (usingLeftWrist  ? 0.14 * torsoH : 0.20 * torsoH);
+    final rightThresh = headY - (usingRightWrist ? 0.14 * torsoH : 0.20 * torsoH);
+
 
     final armsUp = (lArmPt.dy < leftThresh) && (rArmPt.dy < rightThresh);
 

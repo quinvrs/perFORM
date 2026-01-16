@@ -18,6 +18,19 @@ class FormScoreTracker {
   double? _emaLeftSide;
   double? _emaRightSide;
 
+  // --- NEW: Jumping Jacks checkpoint scoring (stable OPEN/CLOSED) ---
+  int _jjOpenStable = 0;
+  int _jjCloseStable = 0;
+  bool _jjOpenScored = false;
+  bool _jjCloseScored = false;
+
+  // How many consecutive frames to consider a state "stable"
+  final int _jjStableNeed = 2; // try 2 or 3
+
+  // --- NEW: Squat scoring state (tracks one "rep attempt") ---
+  bool _sqInRep = false;
+  double _sqMinAngle = 999;
+
   void reset() {
     totalFrames = 0;
     goodFrames = 0;
@@ -25,6 +38,16 @@ class FormScoreTracker {
     _emaAnkleRatio = null;
     _emaLeftSide = null;
     _emaRightSide = null;
+
+    // reset JJ checkpoint tracking
+    _jjOpenStable = 0;
+    _jjCloseStable = 0;
+    _jjOpenScored = false;
+    _jjCloseScored = false;
+
+    // reset squat tracking
+    _sqInRep = false;
+    _sqMinAngle = 999;
   }
 
   double get percent {
@@ -132,8 +155,10 @@ class FormScoreTracker {
     final usingLeftWrist = okLm(lWr);
     final usingRightWrist = okLm(rWr);
 
-    final leftThresh = headY - (usingLeftWrist ? 0.06 * torsoH : 0.12 * torsoH);
-    final rightThresh = headY - (usingRightWrist ? 0.06 * torsoH : 0.12 * torsoH);
+    final leftThresh =
+        headY - (usingLeftWrist ? 0.06 * torsoH : 0.12 * torsoH);
+    final rightThresh =
+        headY - (usingRightWrist ? 0.06 * torsoH : 0.12 * torsoH);
 
     final armsUp = (lArmPt.dy < leftThresh) && (rArmPt.dy < rightThresh);
 
@@ -153,61 +178,65 @@ class FormScoreTracker {
     final legsOpenSym = (ls >= openSideRatio && rs >= openSideRatio);
     final legsCloseSym = (ls <= closeSideRatio && rs <= closeSideRatio);
 
-    // "Intent" checkpoints:
-    // If legs are clearly OPEN, require armsUp.
-    // If legs are clearly CLOSED, require armsDown.
+    // "Intent" checkpoints (stable states only)
     final legsOpenIntent = (r >= openRatio) && legsOpenSym;
     final legsCloseIntent = (r <= closeRatio) && legsCloseSym;
 
-    // Add arm intent so "arms-only" movement can be penalized.
     final armsUpIntent = armsUp;
     final armsDownIntent = armsDown;
 
-    // If neither legs nor arms show a clear intent, ignore as transition/noise.
-    if (!legsOpenIntent && !legsCloseIntent && !armsUpIntent && !armsDownIntent) {
-      lastReason = 'JJ: transition';
+    // --- NEW: Score only stable OPEN/CLOSED checkpoints ---
+    if (legsOpenIntent) {
+      _jjOpenStable++;
+      _jjCloseStable = 0;
+
+      if (_jjOpenStable >= _jjStableNeed && !_jjOpenScored) {
+        final ok = armsUpIntent;
+        lastReason = ok ? 'JJ: OPEN ok' : 'JJ: OPEN bad (arms not overhead)';
+        _accumulate(ok);
+        _jjOpenScored = true;
+        _jjCloseScored = false;
+        return ok;
+      }
+
+      lastReason = 'JJ: open stabilizing';
       return null;
     }
 
-    bool ok;
+    if (legsCloseIntent) {
+      _jjCloseStable++;
+      _jjOpenStable = 0;
 
-    // Priority 1: If legs clearly indicate OPEN/CLOSED, score based on matching arms.
-    if (legsOpenIntent) {
-      ok = armsUpIntent;
-      lastReason = ok ? 'JJ: open ok' : 'JJ: legs open but arms not overhead';
-    } else if (legsCloseIntent) {
-      ok = armsDownIntent;
-      lastReason = ok ? 'JJ: closed ok' : 'JJ: legs closed but arms not down';
-    }
-    // Priority 2: Arms-only cheat detection.
-    // If arms go overhead but legs did NOT open, mark as bad.
-    // If arms go down but legs did NOT close, also mark as bad (less common).
-    else if (armsUpIntent && !legsOpenIntent) {
-      ok = false;
-      lastReason = 'JJ: arms overhead without legs open';
-    } else if (armsDownIntent && !legsCloseIntent) {
-      ok = false;
-     lastReason = 'JJ: arms down without legs close';
-    } else {
-      // Remaining ambiguous cases: ignore
-      lastReason = 'JJ: transition';
-     return null;
+      if (_jjCloseStable >= _jjStableNeed && !_jjCloseScored) {
+        final ok = armsDownIntent;
+        lastReason = ok ? 'JJ: CLOSED ok' : 'JJ: CLOSED bad (arms not down)';
+        _accumulate(ok);
+        _jjCloseScored = true;
+        _jjOpenScored = false;
+        return ok;
+      }
+
+      lastReason = 'JJ: close stabilizing';
+      return null;
     }
 
-    _accumulate(ok);
-    return ok;
-
+    // Transition/noise: ignore
+    _jjOpenStable = 0;
+    _jjCloseStable = 0;
+    lastReason = 'JJ: transition';
+    return null;
   }
 
-  /// Squat form score:
-  /// Score frames near checkpoints (bottom or standing).
-  /// - Bottom is good only if knee angle is deep enough (<= downAngleDeg).
-  /// - Standing frames are OK.
+  /// Squat form score (rep-attempt based, graded):
+  /// - Track the minimum knee angle during a rep attempt
+  /// - Score ONCE when returning to standing
+  /// - Use points so shallow squats don't get high scores
   bool? updateSquatFrame({
     required Pose pose,
     double minLikelihood = 0.55,
     double downAngleDeg = 110,
-    double upAngleDeg = 160,
+    double upAngleDeg = 168,
+    double depthToleranceDeg = 9,
   }) {
     final left = _Side(
       hip: PoseLandmarkType.leftHip,
@@ -235,29 +264,61 @@ class FormScoreTracker {
 
     final ang = _angleDeg(hip, knee, ankle);
 
-    final inStanding = ang >= upAngleDeg;
-    final nearBottom = ang <= (downAngleDeg + 10); // try +8 to +12
-    final double depthToleranceDeg = 9;
+    // Define when a "rep attempt" starts/ends
+    final startAttempt = ang < 160; // leaving full standing
+    final endAttempt = ang > upAngleDeg; // back to standing (hysteresis)
 
-    if (inStanding) {
-      lastReason = 'SQ: standing (not scored)';
+    // Start tracking rep
+    if (!_sqInRep && startAttempt) {
+      _sqInRep = true;
+      _sqMinAngle = ang;
+      lastReason = 'SQ: start tracking';
       return null;
     }
 
-    if (nearBottom) {
-      final ok = ang <= (downAngleDeg + depthToleranceDeg);
-      _accumulate(ok);
-      lastReason = ok ? 'SQ: depth ok' : 'SQ: depth shallow';
-      return ok;
+    if (_sqInRep) {
+      if (ang < _sqMinAngle) _sqMinAngle = ang;
+
+      if (endAttempt) {
+        _sqInRep = false;
+
+        // --- NEW: graded scoring per rep (points) ---
+        final minA = _sqMinAngle;
+
+        int pts;
+        if (minA <= (downAngleDeg + depthToleranceDeg)) {
+          pts = 10; // great depth
+        } else if (minA <= (downAngleDeg + depthToleranceDeg + 8)) {
+          pts = 7; // decent
+        } else if (minA <= (downAngleDeg + depthToleranceDeg + 16)) {
+          pts = 4; // shallow
+        } else {
+          pts = 1; // very shallow
+        }
+
+        _accumulatePoints(pts, 10);
+        lastReason = 'SQ: rep min=${minA.toStringAsFixed(0)} pts=$pts/10';
+
+        // Return true/false only for debug convenience
+        return pts >= 7;
+      }
+
+      lastReason = 'SQ: tracking (min=${_sqMinAngle.toStringAsFixed(0)})';
+      return null;
     }
 
-    lastReason = 'SQ: transition';
+    lastReason = 'SQ: idle';
     return null;
   }
 
   void _accumulate(bool ok) {
     totalFrames += 1;
     if (ok) goodFrames += 1;
+  }
+
+  void _accumulatePoints(int good, int total) {
+    totalFrames += total;
+    goodFrames += good;
   }
 
   double _ema(double? prev, double next, double a) {
