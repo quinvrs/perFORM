@@ -214,15 +214,20 @@ class JumpingJacksRepCounter {
       headY = (map(lEye!).dy + map(rEye!).dy) / 2.0;
     }
 
-    // Prefer wrists for true overhead check; if we fell back to elbows, require stricter height.
-    final usingLeftWrist = okLm(lWr);
-    final usingRightWrist = okLm(rWr);
+    final usingLeftWrist = lWr != null && lWr.likelihood >= minLikelihood;
+    final usingRightWrist = rWr != null && rWr.likelihood >= minLikelihood;
 
-    // Stricter overhead requirement:
-    // wrists must be well ABOVE the head (not forehead).
-    final leftThresh  = headY - (usingLeftWrist  ? 0.14 * torsoH : 0.20 * torsoH);
-    final rightThresh = headY - (usingRightWrist ? 0.14 * torsoH : 0.20 * torsoH);
+    // If wrist missing, do NOT allow armsUp (prevents elbow/forehead cheating)
+    if (!usingLeftWrist || !usingRightWrist) {
+      // treat as missing arms for OPEN
+      return _handleMissing('wrists missing (need overhead)');
+    }
 
+
+    // MORE STRICT: must be clearly above head (not forehead)
+    // Try 0.26 first. If still counts forehead, increase to 0.28–0.32.
+    final leftThresh  = headY - 0.34 * torsoH;
+    final rightThresh = headY - 0.34 * torsoH;
 
     final armsUp = (lArmPt.dy < leftThresh) && (rArmPt.dy < rightThresh);
 
