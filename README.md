@@ -1,25 +1,44 @@
-# Corerect
+# CORErect
+
+CORErect is an **offline fitness mobile application** that helps users perform exercises with better form by providing **real-time pose detection, rep/time tracking, and guided workout flow**.
 
 A final project for the subject Application Development and Emerging Technologies.
 
 ## Group 3 Project Proponents
-[Antoc, John Loyd](https://github.com/JLA35)
+**Database:**[Antoc, John Loyd](https://github.com/JLA35)
 
-[Guioguio, Kenneth](https://github.com/k3nn-g)
+**Backend:**[Guioguio, Kenneth](https://github.com/k3nn-g)
 
-[Reyes, Quinverly](https://github.com/quinvrs)
+**UI/UX:**[Reyes, Quinverly](https://github.com/quinvrs)
 
-[Sumo, John Windrei](https://github.com/JDRAyCS)
+**Backend:**[Sumo, John Windrei](https://github.com/JDRAyCS)
 
-### Project Overview
+---
 
-This project is a starting point for a Flutter application.
+## Project Overview
 
-A few resources to get you started if this is your first Flutter project:
+**Purpose**---to be added--
+**Status:** IN DEVELOPMENT
+**Built for:**---to be added--
 
-- [Lab: Write your first Flutter app](https://docs.flutter.dev/get-started/codelab)
-- [Cookbook: Useful Flutter samples](https://docs.flutter.dev/cookbook)
+## Features
+---to be added--
 
-For help getting started with Flutter development, view the
-[online documentation](https://docs.flutter.dev/), which offers tutorials,
-samples, guidance on mobile development, and a full API reference.
+## Technology Used
+**Frontend:** Flutter (Dart)
+**Pose Detection:** Google ML Kit Pose Detection
+**Camera:** `camera` plugin
+**Permissions:** `permission_handler`
+**Speech:** Text-to-Speech (TTS)
+
+### Pre-requisites
+Make sure you have:
+- **Flutter SDK** installed
+- **Android Studio** (or VS Code) with Flutter extension
+- A **physical Android device** (recommended for camera + ML Kit) or a properly configured emulator
+- USB debugging enabled (if using an android device)
+
+## How to Install
+### 1) Clone the repository
+```bash
+git clone   
