@@ -936,7 +936,7 @@ class _HistoryTab extends StatelessWidget {
     int count = 0;
 
     for (final r in records) {
-      if (r.formScore > 0) {
+      if (r.formScore >= 0) {
         totalForm += r.formScore;
         count++;
       }
