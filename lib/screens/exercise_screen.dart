@@ -167,11 +167,7 @@ class _ExerciseScreenState extends State<ExerciseScreen> {
 
     super.dispose();
   }
-
-  // -------------------------
   // Timers
-  // -------------------------
-
   void _freezeElapsedTimer() {
     _elapsedFrozen = true;
   }
@@ -258,9 +254,8 @@ class _ExerciseScreenState extends State<ExerciseScreen> {
     if (_spokenHalfway) return;
 
     final elapsed = _setTotalSeconds - _setRemaining; 
-    final halfwayElapsed = _setTotalSeconds ~/ 2;
 
-    if (elapsed == halfwayElapsed) {
+    if (elapsed >= _halfwayMark) {
       _spokenHalfway = true;
 
       final remaining = _setRemaining;
@@ -298,6 +293,7 @@ class _ExerciseScreenState extends State<ExerciseScreen> {
       }
 
       setState(() => _phase = _Phase.finished);
+      _spokenRest = false;
       return;
     }
 
@@ -345,6 +341,9 @@ class _ExerciseScreenState extends State<ExerciseScreen> {
   }
 
     Future<void> _announceRestNow() async {
+      if (_spokenRest) return;
+      _spokenRest = true;
+
       await Future.delayed(const Duration(milliseconds: 250));
       await TtsService.I.stop();
       await Future.delayed(const Duration(milliseconds: 120));
@@ -381,9 +380,7 @@ class _ExerciseScreenState extends State<ExerciseScreen> {
     setState(() => _phase = _Phase.setup);
   }
 
-  // -------------------------
   // Setup-mode replication
-  // -------------------------
   void _startCountdown({required int seconds}) {
     _countdownTimer?.cancel();
     _countdown = seconds;
@@ -554,9 +551,7 @@ class _ExerciseScreenState extends State<ExerciseScreen> {
     );
   }
 
-  // -------------------------
   // Camera init + pose stream
-  // -------------------------
   Future<void> _initCamera() async {
     try {
       await Future.delayed(const Duration(milliseconds: 300));
@@ -753,9 +748,7 @@ class _ExerciseScreenState extends State<ExerciseScreen> {
     }
   }
 
-  // -------------------------
   // Camera -> MLKit InputImage
-  // -------------------------
   static const _orientations = <DeviceOrientation, int>{
     DeviceOrientation.portraitUp: 0,
     DeviceOrientation.landscapeLeft: 90,
@@ -823,9 +816,7 @@ class _ExerciseScreenState extends State<ExerciseScreen> {
     return b.toBytes();
   }
 
-  // -------------------------
   // Summary nav
-  // -------------------------
   Future<void> _viewExerciseSummary() async { 
     debugPrint('NAV: _viewExerciseSummary()');
     _freezeElapsedTimer();
@@ -845,8 +836,8 @@ class _ExerciseScreenState extends State<ExerciseScreen> {
         true,
         type: widget.workout.title,
         reps: _totalReps,
-        sets: _setsCompleted, // ✅ Saving actual sets completed
-        duration: _fmt(_elapsed), // you store duration as String in DB
+        sets: _setsCompleted, // Saving actual sets
+        duration: _fmt(_elapsed), // stores duration as String in DB
         formScore: _finalFormScore, 
       );
     } catch (e, st) {
@@ -887,9 +878,7 @@ class _ExerciseScreenState extends State<ExerciseScreen> {
     );
   }
 
-  // -------------------------
   // UI
-  // -------------------------
   Widget _buildCameraWithOverlay() {
     final controller = _controller;
     if (controller == null || !controller.value.isInitialized) {
@@ -1135,9 +1124,7 @@ class _ExerciseScreenState extends State<ExerciseScreen> {
   }
 }
 
-// ============================
 // Bottom Card
-// ============================
 class _BottomWorkoutCard extends StatefulWidget {
   const _BottomWorkoutCard({
     required this.s,
@@ -1481,9 +1468,7 @@ class _BottomWorkoutCardState extends State<_BottomWorkoutCard>
   }
 }
 
-// ============================
 // Buttons
-// ============================
 class _DarkButton extends StatelessWidget {
   const _DarkButton({
     required this.s,
@@ -1567,9 +1552,7 @@ class _PrimaryYellowButton extends StatelessWidget {
   }
 }
 
-// ---------------------------------------
 // Checklist models + UI
-// ---------------------------------------
 class SetupChecklist {
   const SetupChecklist({required this.items});
   final List<SetupItem> items;
@@ -1706,9 +1689,7 @@ class _ChecklistCard extends StatelessWidget {
   }
 }
 
-// ---------------------------------------
 // Pose overlay painter
-// ---------------------------------------
 class _PosePainter extends CustomPainter {
   _PosePainter({
     required this.poses,
@@ -1803,9 +1784,7 @@ class _PosePainter extends CustomPainter {
       old.isFrontCamera != isFrontCamera;
 }
 
-// ============================
 // Exercise Summary Screen
-// ============================
 class ExerciseSummaryScreen extends StatefulWidget {
   const ExerciseSummaryScreen({
     super.key,
@@ -1860,10 +1839,8 @@ class _ExerciseSummaryScreenState extends State<ExerciseSummaryScreen> {
   }
 
   bool _didWorkoutOn(AppState state, DateTime d) {
-    // ✅ Update this line if your AppState uses a different field name:
-    // common patterns: Set<String> workoutDayKeys; Map<String,bool> workoutDays;
     final key = _dayKey(d);
-    final keys = state.workoutDayKeys; // <-- must exist in your AppState
+    final keys = state.workoutDayKeys;
     return keys.contains(key);
   }
 
@@ -2057,7 +2034,7 @@ class _ExerciseSummaryScreenState extends State<ExerciseSummaryScreen> {
                                 _WeeklyProgressRow(
                                   s: s,
                                   title:
-                                      'Week $weekNo', // you can compute week number later if needed
+                                      'Week $weekNo', // can compute week number if needed
                                   doneText: '$doneThisWeek/7',
                                   startOfWeek: weekStart,
                                   isDone: (d) => _didWorkoutOn(state, d),
@@ -2257,10 +2234,10 @@ class _FormScoreRingCard extends StatelessWidget {
   static const _ink = Color(0xFF051328);
 
   Color _tint(int v) {
-    if (v <= 0) return const Color(0xFF6B7280); // gray
-    if (v < 40) return const Color(0xFFDC2626); // red
-    if (v < 80) return const Color(0xFFF97316); // orange
-    return const Color(0xFF16A34A); // green
+    if (v <= 0) return const Color(0xFF6B7280); 
+    if (v < 40) return const Color(0xFFDC2626); 
+    if (v < 80) return const Color(0xFFF97316); 
+    return const Color(0xFF16A34A);
   }
 
   String _label(int v) {
@@ -2428,9 +2405,7 @@ class _StatBox extends StatelessWidget {
   }
 }
 
-// -------------------------
 // helpers
-// -------------------------
 int _secondsFromTimerLabel(String label) {
   final t = label.trim().toLowerCase();
   if (t.contains(':')) {
