@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 
 import 'app_state.dart';
 import 'models/workout.dart';
@@ -13,8 +14,13 @@ import 'screens/exercise_selection_screen.dart';
 import 'screens/setup_mode_screen.dart';
 import 'screens/exercise_screen.dart';
 
-void main() {
+void main() async {
   WidgetsFlutterBinding.ensureInitialized();
+
+  await SystemChrome.setPreferredOrientations([
+    DeviceOrientation.portraitUp,
+    DeviceOrientation.portraitDown,
+  ]);
 
   ErrorWidget.builder = (details) {
     return Material(
