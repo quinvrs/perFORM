@@ -47,6 +47,7 @@ class _ExerciseScreenState extends State<ExerciseScreen> {
   bool _spokenGetReady = false;
   bool _spokenHalfway = false;
   bool _setupCountdownLocked = false;
+  bool _isSaving = false;
 
   CameraController? _controller;
   Future<void>? _initFuture;
@@ -818,6 +819,11 @@ class _ExerciseScreenState extends State<ExerciseScreen> {
 
   // Summary nav
   Future<void> _viewExerciseSummary() async { 
+
+    if (_isSaving) return;
+
+     setState(() => _isSaving = true);
+
     debugPrint('NAV: _viewExerciseSummary()');
     _freezeElapsedTimer();
 
@@ -842,6 +848,8 @@ class _ExerciseScreenState extends State<ExerciseScreen> {
       );
     } catch (e, st) {
       debugPrint('setWorkoutDay ERROR: $e\n$st');
+      setState(() => _isSaving = false);
+      return;
     }
 
     _commitSetRepsOnce();
