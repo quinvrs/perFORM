@@ -11,7 +11,7 @@ class WelcomeFlowScreen extends StatefulWidget {
 class _WelcomeFlowScreenState extends State<WelcomeFlowScreen> {
   int _i = 0;
 
-  static const double _finalIconY = -0.18;
+  static const double _finalIconY = -0.30;
 
   static const _frames =
       <({Alignment align, double scale, double bgOpacity, double uiOpacity})>[
@@ -117,7 +117,7 @@ class _WelcomeFlowScreenState extends State<WelcomeFlowScreen> {
           final textLogoMaxW = (w * 0.58).clamp(200.0, 520.0); 
           final textLogoMaxH = (h * 0.12).clamp(50.0, 140.0);  
 
-          final gapIconToText = (35 * s).clamp(30.0, 40.0); // adjust if you want closer
+          final gapIconToText = (35 * s).clamp(30.0, 40.0); 
 
           final iconCenterY = (h / 2) * (f.align.y + 1.0);
           final iconHalfH = (logoH * f.scale) / 2;
