@@ -1985,7 +1985,7 @@ class _ExerciseSummaryScreenState extends State<ExerciseSummaryScreen> {
                           // Form Score Ring Card
                           Container(
                             width: double.infinity,
-                            padding: EdgeInsets.all(22 * s),
+                            padding: EdgeInsets.all(20 * s),
                             decoration: BoxDecoration(
                               color: Colors.white.withValues(alpha: 0.92),
                               borderRadius: BorderRadius.circular(16 * s),
@@ -2343,18 +2343,18 @@ class _FormScoreRingCard extends StatelessWidget {
                 _label(v),
                 style: TextStyle(
                   color: _ink.withValues(alpha: 0.70),
-                  fontSize: 12 * s,
+                  fontSize: 10 * s,
                   fontWeight: FontWeight.w800,
                   height: 0.20,
                 ),
               ),
-              SizedBox(height: 6 * s),
+              SizedBox(height: 7 * s),
               // small hint text
               Text(
                 v <= 0 ? 'Do more reps to measure form.' : 'Keep going to improve your score.',
                 style: TextStyle(
                   color: _ink.withValues(alpha: 0.55),
-                  fontSize: 11 * s,
+                  fontSize: 9 * s,
                   fontWeight: FontWeight.w600,
                 ),
               ),
