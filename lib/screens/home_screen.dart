@@ -545,16 +545,16 @@ class _StreakTabState extends State<_StreakTab> {
   }
 
   Color _getDailyColor(int count) {
-  if (count <= 0) return const Color(0xFFEDEFF3); 
-    const Color startColor = Color.fromARGB(255, 79, 185, 83); 
-    const Color endColor = Color.fromARGB(255, 20, 93, 25);   
+    if (count <= 0) return const Color(0xFFEDEFF3);
+    const Color startColor = Color.fromARGB(255, 79, 185, 83);
+    const Color endColor = Color.fromARGB(255, 20, 93, 25);
     const int maxSaturatedCount = 10;
     double t = ((count - 1) / (maxSaturatedCount - 1)).clamp(0.0, 1.0);
     return Color.lerp(startColor, endColor, t)!;
   }
 
   // --- NAVIGATION BOUNDS ---
-  bool get _canGoBack => _focusedDate.year > 2020; 
+  bool get _canGoBack => _focusedDate.year > 2020;
 
   // Allow going forward up to next month
   bool get _canGoForward {
@@ -589,7 +589,7 @@ class _StreakTabState extends State<_StreakTab> {
   @override
   Widget build(BuildContext context) {
     final state = AppStateScope.of(context);
-    
+
     final year = _focusedDate.year;
     final month = _focusedDate.month;
 
@@ -602,7 +602,12 @@ class _StreakTabState extends State<_StreakTab> {
     final weekly = state.weeklySessions();
 
     return SingleChildScrollView(
-      padding: EdgeInsets.fromLTRB(24 * widget.scale, 24 * widget.scale, 24 * widget.scale, widget.navPad),
+      padding: EdgeInsets.fromLTRB(
+        24 * widget.scale,
+        24 * widget.scale,
+        24 * widget.scale,
+        widget.navPad,
+      ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
@@ -611,26 +616,47 @@ class _StreakTabState extends State<_StreakTab> {
             child: Center(
               child: Text(
                 'Activity Calendar',
-                style: TextStyle(color: _ink, fontSize: 20 * widget.scale, fontWeight: FontWeight.w800),
+                style: TextStyle(
+                  color: _ink,
+                  fontSize: 20 * widget.scale,
+                  fontWeight: FontWeight.w800,
+                ),
               ),
             ),
           ),
           SizedBox(height: 18 * widget.scale),
           Row(
             children: [
-              _MetricCard(scale: widget.scale, title: 'Streak', value: '$streak', tint: _gold),
+              _MetricCard(
+                scale: widget.scale,
+                title: 'Streak',
+                value: '$streak',
+                tint: _gold,
+              ),
               SizedBox(width: 14 * widget.scale),
-              _MetricCard(scale: widget.scale, title: 'Weekly\nSessions', value: '$weekly', suffix: 'sessions', tint: const Color(0xFF537892)),
+              _MetricCard(
+                scale: widget.scale,
+                title: 'Weekly\nSessions',
+                value: '$weekly',
+                suffix: 'sessions',
+                tint: const Color(0xFF537892),
+              ),
             ],
           ),
           SizedBox(height: 18 * widget.scale),
-          
+
           Container(
             padding: EdgeInsets.all(16 * widget.scale),
             decoration: BoxDecoration(
               color: Colors.white,
               borderRadius: BorderRadius.circular(10 * widget.scale),
-              boxShadow: [BoxShadow(color: const Color(0xFF000000).withValues(alpha: 0.08), blurRadius: 8, offset: const Offset(0, 2))],
+              boxShadow: [
+                BoxShadow(
+                  color: const Color(0xFF000000).withValues(alpha: 0.08),
+                  blurRadius: 8,
+                  offset: const Offset(0, 2),
+                ),
+              ],
             ),
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
@@ -645,15 +671,26 @@ class _StreakTabState extends State<_StreakTab> {
                         borderRadius: BorderRadius.circular(50),
                         child: Padding(
                           padding: EdgeInsets.all(4 * widget.scale),
-                          child: Icon(Icons.chevron_left_rounded, color: _ink, size: 24 * widget.scale),
+                          child: Icon(
+                            Icons.chevron_left_rounded,
+                            color: _ink,
+                            size: 24 * widget.scale,
+                          ),
                         ),
                       ),
                     ),
-                    
+
                     SizedBox(width: 8 * widget.scale),
-                    Text('${_monthName(month)} $year', style: TextStyle(color: Colors.black, fontSize: 16 * widget.scale, fontWeight: FontWeight.w800)),
+                    Text(
+                      '${_monthName(month)} $year',
+                      style: TextStyle(
+                        color: Colors.black,
+                        fontSize: 16 * widget.scale,
+                        fontWeight: FontWeight.w800,
+                      ),
+                    ),
                     const Spacer(),
-                    
+
                     // Right Arrow
                     Opacity(
                       opacity: _canGoForward ? 1.0 : 0.0,
@@ -662,56 +699,100 @@ class _StreakTabState extends State<_StreakTab> {
                         borderRadius: BorderRadius.circular(50),
                         child: Padding(
                           padding: EdgeInsets.all(4 * widget.scale),
-                          child: Icon(Icons.chevron_right_rounded, color: _ink, size: 24 * widget.scale),
+                          child: Icon(
+                            Icons.chevron_right_rounded,
+                            color: _ink,
+                            size: 24 * widget.scale,
+                          ),
                         ),
                       ),
                     ),
                   ],
                 ),
                 SizedBox(height: 12 * widget.scale),
-                
+
                 Row(
-                  children: const ['S', 'M', 'T', 'W', 'T', 'F', 'S'].map((t) => Expanded(child: Center(child: Text(t, style: TextStyle(color: Color(0xFF797B7F), fontSize: 12, fontWeight: FontWeight.w600))))).toList(),
+                  children: const ['S', 'M', 'T', 'W', 'T', 'F', 'S']
+                      .map(
+                        (t) => Expanded(
+                          child: Center(
+                            child: Text(
+                              t,
+                              style: TextStyle(
+                                color: Color(0xFF797B7F),
+                                fontSize: 12,
+                                fontWeight: FontWeight.w600,
+                              ),
+                            ),
+                          ),
+                        ),
+                      )
+                      .toList(),
                 ),
                 SizedBox(height: 10 * widget.scale),
-                
+
                 GridView.builder(
                   shrinkWrap: true,
                   physics: const NeverScrollableScrollPhysics(),
                   itemCount: totalCells,
-                  gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(crossAxisCount: 7, mainAxisSpacing: 8, crossAxisSpacing: 8),
+                  gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+                    crossAxisCount: 7,
+                    mainAxisSpacing: 8,
+                    crossAxisSpacing: 8,
+                  ),
                   itemBuilder: (context, i) {
-                    if (i < offset || (i - offset + 1) > daysInMonth) return const SizedBox.shrink();
+                    if (i < offset || (i - offset + 1) > daysInMonth)
+                      return const SizedBox.shrink();
                     final day = i - offset + 1;
                     final currentDay = DateTime(year, month, day);
 
                     final isFuture = _isFuture(currentDay);
 
-                    final workoutCount = isFuture ? 0 : state.historyRecordsSorted.where((r) {
-                      final d = r.dateTime;
-                      return d.year == currentDay.year && d.month == currentDay.month && d.day == currentDay.day;
-                    }).length;
+                    final workoutCount = isFuture
+                        ? 0
+                        : state.historyRecordsSorted.where((r) {
+                            final d = r.dateTime;
+                            return d.year == currentDay.year &&
+                                d.month == currentDay.month &&
+                                d.day == currentDay.day;
+                          }).length;
 
                     Color bg;
                     Color fg;
 
                     if (isFuture) {
-                      bg = Colors.white; 
-                      fg = const Color(0xFFE0E0E0); 
+                      bg = Colors.white;
+                      fg = const Color(0xFFE0E0E0);
                     } else {
                       bg = _getDailyColor(workoutCount);
-                      fg = workoutCount > 0 ? Colors.white : const Color(0xFF797B7F);
+                      fg = workoutCount > 0
+                          ? Colors.white
+                          : const Color(0xFF797B7F);
                     }
 
-                    final isToday = DateTime.now().year == year && DateTime.now().month == month && DateTime.now().day == day;
+                    final isToday =
+                        DateTime.now().year == year &&
+                        DateTime.now().month == month &&
+                        DateTime.now().day == day;
 
                     return Container(
                       decoration: BoxDecoration(
                         color: bg,
                         borderRadius: BorderRadius.circular(10 * widget.scale),
-                        border: isToday ? Border.all(color: _ink, width: 1.5) : null,
+                        border: isToday
+                            ? Border.all(color: _ink, width: 1.5)
+                            : null,
                       ),
-                      child: Center(child: Text('$day', style: TextStyle(color: fg, fontWeight: FontWeight.w700, fontSize: 12 * widget.scale))),
+                      child: Center(
+                        child: Text(
+                          '$day',
+                          style: TextStyle(
+                            color: fg,
+                            fontWeight: FontWeight.w700,
+                            fontSize: 12 * widget.scale,
+                          ),
+                        ),
+                      ),
                     );
                   },
                 ),
@@ -723,7 +804,20 @@ class _StreakTabState extends State<_StreakTab> {
     );
   }
 
-  String _monthName(int m) => ['January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December'][m - 1];
+  String _monthName(int m) => [
+    'January',
+    'February',
+    'March',
+    'April',
+    'May',
+    'June',
+    'July',
+    'August',
+    'September',
+    'October',
+    'November',
+    'December',
+  ][m - 1];
 }
 
 class _MetricCard extends StatelessWidget {
@@ -1088,33 +1182,37 @@ class _HistoryStatCard extends StatelessWidget {
             ],
           ),
           const Spacer(),
-          Row(
-            crossAxisAlignment: CrossAxisAlignment.end,
-            children: [
-              Text(
-                value,
-                style: TextStyle(
-                  color: accent,
-                  fontSize: 40 * scale,
-                  fontWeight: FontWeight.w900,
-                  height: 1.0,
-                ),
-              ),
-              SizedBox(width: 6 * scale),
-              Padding(
-                padding: EdgeInsets.only(bottom: 8 * scale),
-                child: Text(
-                  unit,
+          FittedBox(
+            fit: BoxFit.scaleDown,
+            alignment: Alignment.centerLeft,
+            child: Row(
+              crossAxisAlignment: CrossAxisAlignment.end,
+              children: [
+                Text(
+                  value,
                   style: TextStyle(
-                    color: unit == '%'
-                        ? accent
-                        : accent.withValues(alpha: 0.70),
-                    fontSize: 14 * scale,
-                    fontWeight: FontWeight.w600,
+                    color: accent,
+                    fontSize: 40 * scale,
+                    fontWeight: FontWeight.w900,
+                    height: 1.0,
                   ),
                 ),
-              ),
-            ],
+                SizedBox(width: 6 * scale),
+                Padding(
+                  padding: EdgeInsets.only(bottom: 8 * scale),
+                  child: Text(
+                    unit,
+                    style: TextStyle(
+                      color: unit == '%'
+                          ? accent
+                          : accent.withValues(alpha: 0.70),
+                      fontSize: 14 * scale,
+                      fontWeight: FontWeight.w600,
+                    ),
+                  ),
+                ),
+              ],
+            ),
           ),
         ],
       ),
