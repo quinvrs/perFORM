@@ -25,12 +25,12 @@ class JumpingJacksRepCounter {
 
     // Normalized ankle distance (ankleDist / shoulderWidth) thresholds.
     // We use hysteresis by having separate open/close thresholds.
-    this.openRatio = 1.10,
+    this.openRatio = 1.30,
     this.closeRatio = 0.78,
 
     // Symmetry thresholds to prevent cheating with one leg only:
     // Each ankle must move away from the body center by this normalized amount.
-    this.openSideRatio = 0.35,
+    this.openSideRatio = 0.46,
     // To be considered "closed", both ankles must be close to the center.
     this.closeSideRatio = 0.24,
 

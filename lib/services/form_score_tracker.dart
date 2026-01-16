@@ -24,8 +24,11 @@ class FormScoreTracker {
   bool _jjOpenScored = false;
   bool _jjCloseScored = false;
 
-  // How many consecutive frames to consider a state "stable"
-  final int _jjStableNeed = 2; // try 2 or 3
+  // ✅ NEW: Only allow CLOSED scoring after we've seen a REAL OPEN once
+  bool _jjSeenRealOpen = false;
+
+  // ✅ Step 2: Increase stability requirement to reduce noise scoring
+  final int _jjStableNeed = 3; // was 2
 
   // --- Squat scoring state (rep-attempt based) ---
   bool _sqInRep = false;
@@ -51,6 +54,7 @@ class FormScoreTracker {
     _jjCloseStable = 0;
     _jjOpenScored = false;
     _jjCloseScored = false;
+    _jjSeenRealOpen = false; // ✅ reset this too
 
     // reset squat tracking
     _sqInRep = false;
@@ -67,160 +71,168 @@ class FormScoreTracker {
   /// - null -> frame ignored
   /// - true/false -> frame counted as good/bad
   bool? updateJumpingJacksFrame({
-  required Pose pose,
-  required Size canvasSize,
-  required Size imageSize,
-  required InputImageRotation rotation,
-  required CameraLensDirection lensDirection,
+    required Pose pose,
+    required Size canvasSize,
+    required Size imageSize,
+    required InputImageRotation rotation,
+    required CameraLensDirection lensDirection,
+    double minLikelihood = 0.55,
+    double emaAlpha = 0.45,
+    double openRatio = 1.30,
+    double closeRatio = 0.78,
+    double openSideRatio = 0.46,
+    double closeSideRatio = 0.24,
+  }) {
+    bool okLm(PoseLandmark? p) => p != null && p.likelihood >= minLikelihood;
 
-  double minLikelihood = 0.55,
-  double emaAlpha = 0.45,
-  double openRatio = 1.10,
-  double closeRatio = 0.78,
-  double openSideRatio = 0.35,
-  double closeSideRatio = 0.24,
+    const required = <PoseLandmarkType>[
+      PoseLandmarkType.leftAnkle,
+      PoseLandmarkType.rightAnkle,
+      PoseLandmarkType.leftShoulder,
+      PoseLandmarkType.rightShoulder,
+      PoseLandmarkType.leftHip,
+      PoseLandmarkType.rightHip,
+    ];
+    for (final t in required) {
+      if (!okLm(pose.landmarks[t])) {
+        lastReason = 'JJ: missing/low $t';
+        return null;
+      }
+    }
 
-}) {
-  bool okLm(PoseLandmark? p) => p != null && p.likelihood >= minLikelihood;
+    final lWr = pose.landmarks[PoseLandmarkType.leftWrist];
+    final rWr = pose.landmarks[PoseLandmarkType.rightWrist];
+    final lEl = pose.landmarks[PoseLandmarkType.leftElbow];
+    final rEl = pose.landmarks[PoseLandmarkType.rightElbow];
 
-  const required = <PoseLandmarkType>[
-    PoseLandmarkType.leftAnkle,
-    PoseLandmarkType.rightAnkle,
-    PoseLandmarkType.leftShoulder,
-    PoseLandmarkType.rightShoulder,
-    PoseLandmarkType.leftHip,
-    PoseLandmarkType.rightHip,
-  ];
-  for (final t in required) {
-    if (!okLm(pose.landmarks[t])) {
-      lastReason = 'JJ: missing/low $t';
+    final lArm = okLm(lWr) ? lWr : (okLm(lEl) ? lEl : null);
+    final rArm = okLm(rWr) ? rWr : (okLm(rEl) ? rEl : null);
+
+    if (lArm == null || rArm == null) {
+      lastReason = 'JJ: arms missing';
       return null;
     }
-  }
 
-  final lWr = pose.landmarks[PoseLandmarkType.leftWrist];
-  final rWr = pose.landmarks[PoseLandmarkType.rightWrist];
-  final lEl = pose.landmarks[PoseLandmarkType.leftElbow];
-  final rEl = pose.landmarks[PoseLandmarkType.rightElbow];
+    Offset map(PoseLandmark p) => _map(
+          p.x,
+          p.y,
+          canvasSize,
+          imageSize,
+          rotation,
+          lensDirection,
+        );
 
-  final lArm = okLm(lWr) ? lWr : (okLm(lEl) ? lEl : null);
-  final rArm = okLm(rWr) ? rWr : (okLm(rEl) ? rEl : null);
+    final lAnk = map(pose.landmarks[PoseLandmarkType.leftAnkle]!);
+    final rAnk = map(pose.landmarks[PoseLandmarkType.rightAnkle]!);
+    final lSh = map(pose.landmarks[PoseLandmarkType.leftShoulder]!);
+    final rSh = map(pose.landmarks[PoseLandmarkType.rightShoulder]!);
+    final lHip = map(pose.landmarks[PoseLandmarkType.leftHip]!);
+    final rHip = map(pose.landmarks[PoseLandmarkType.rightHip]!);
 
-  if (lArm == null || rArm == null) {
-    lastReason = 'JJ: arms missing';
-    return null;
-  }
+    final lArmPt = map(lArm);
+    final rArmPt = map(rArm);
 
-  Offset map(PoseLandmark p) => _map(
-        p.x, p.y,
-        canvasSize, imageSize,
-        rotation, lensDirection,
-      );
+    final shoulderWidth = (lSh - rSh).distance.clamp(1.0, 1e9);
+    final ankleDist = (lAnk - rAnk).distance;
+    final ankleRatio = ankleDist / shoulderWidth;
 
-  final lAnk = map(pose.landmarks[PoseLandmarkType.leftAnkle]!);
-  final rAnk = map(pose.landmarks[PoseLandmarkType.rightAnkle]!);
-  final lSh = map(pose.landmarks[PoseLandmarkType.leftShoulder]!);
-  final rSh = map(pose.landmarks[PoseLandmarkType.rightShoulder]!);
-  final lHip = map(pose.landmarks[PoseLandmarkType.leftHip]!);
-  final rHip = map(pose.landmarks[PoseLandmarkType.rightHip]!);
+    final centerX = (lHip.dx + rHip.dx) / 2.0;
+    final leftSide = (centerX - lAnk.dx).abs() / shoulderWidth;
+    final rightSide = (rAnk.dx - centerX).abs() / shoulderWidth;
 
-  final lArmPt = map(lArm);
-  final rArmPt = map(rArm);
+    final avgShoulderY = (lSh.dy + rSh.dy) / 2.0;
+    final avgHipY = (lHip.dy + rHip.dy) / 2.0;
+    final torsoH = (avgHipY - avgShoulderY).abs().clamp(1.0, 1e9);
 
-  final shoulderWidth = (lSh - rSh).distance.clamp(1.0, 1e9);
-  final ankleDist = (lAnk - rAnk).distance;
-  final ankleRatio = ankleDist / shoulderWidth;
-
-  final centerX = (lHip.dx + rHip.dx) / 2.0;
-  final leftSide = (centerX - lAnk.dx).abs() / shoulderWidth;
-  final rightSide = (rAnk.dx - centerX).abs() / shoulderWidth;
-
-  final avgShoulderY = (lSh.dy + rSh.dy) / 2.0;
-  final avgHipY = (lHip.dy + rHip.dy) / 2.0;
-  final torsoH = (avgHipY - avgShoulderY).abs().clamp(1.0, 1e9);
-
-  // head reference
-  double headY = avgShoulderY - 0.45 * torsoH;
-  final nose = pose.landmarks[PoseLandmarkType.nose];
-  final lEye = pose.landmarks[PoseLandmarkType.leftEye];
-  final rEye = pose.landmarks[PoseLandmarkType.rightEye];
-  if (okLm(nose)) {
-    headY = map(nose!).dy;
-  } else if (okLm(lEye) && okLm(rEye)) {
-    headY = (map(lEye!).dy + map(rEye!).dy) / 2.0;
-  }
-
-  // Arms up (keep strict-ish but not insane)
-  // If you already tuned this in rep counter, match that number.
-  final usingLeftWrist = okLm(lWr);
-  final usingRightWrist = okLm(rWr);
-
-  final leftUpThresh = headY - (usingLeftWrist ? 0.24 * torsoH : 0.30 * torsoH);
-  final rightUpThresh = headY - (usingRightWrist ? 0.24 * torsoH : 0.30 * torsoH);
-  final armsUp = (lArmPt.dy < leftUpThresh) && (rArmPt.dy < rightUpThresh);
-
-  // Arms down: make it EASIER so correct jacks don't get punished.
-  // Most people don't push hands to thighs; this just needs "below shoulders".
-  final avgArmY = (lArmPt.dy + rArmPt.dy) / 2.0;
-  final armsDown = avgArmY > (avgShoulderY + 0.12 * torsoH);
-
-  // EMA on legs
-  _emaAnkleRatio = _ema(_emaAnkleRatio, ankleRatio, emaAlpha);
-  _emaLeftSide = _ema(_emaLeftSide, leftSide, emaAlpha);
-  _emaRightSide = _ema(_emaRightSide, rightSide, emaAlpha);
-
-  final r = _emaAnkleRatio!;
-  final ls = _emaLeftSide!;
-  final rs = _emaRightSide!;
-
-  final legsOpenSym = (ls >= openSideRatio && rs >= openSideRatio);
-  final legsCloseSym = (ls <= closeSideRatio && rs <= closeSideRatio);
-
-  final legsOpen = (r >= openRatio) && legsOpenSym;
-  final legsClose = (r <= closeRatio) && legsCloseSym;
-
-  // --- stable checkpoint logic ---
-  if (legsOpen) {
-    _jjOpenStable++;
-    _jjCloseStable = 0;
-
-    if (_jjOpenStable >= _jjStableNeed && !_jjOpenScored) {
-      // OPEN checkpoint: legs open must match armsUp
-      final ok = armsUp;
-      _accumulate(ok);
-      _jjOpenScored = true;
-      _jjCloseScored = false;
-      lastReason = ok ? 'JJ: OPEN ok' : 'JJ: OPEN bad (arms not overhead)';
-      return ok;
+    // head reference
+    double headY = avgShoulderY - 0.45 * torsoH;
+    final nose = pose.landmarks[PoseLandmarkType.nose];
+    final lEye = pose.landmarks[PoseLandmarkType.leftEye];
+    final rEye = pose.landmarks[PoseLandmarkType.rightEye];
+    if (okLm(nose)) {
+      headY = map(nose!).dy;
+    } else if (okLm(lEye) && okLm(rEye)) {
+      headY = (map(lEye!).dy + map(rEye!).dy) / 2.0;
     }
-    lastReason = 'JJ: open stabilizing';
-    return null;
-  }
 
-  if (legsClose) {
-    _jjCloseStable++;
+    // Arms up (keep strict-ish but not insane)
+    final usingLeftWrist = okLm(lWr);
+    final usingRightWrist = okLm(rWr);
+
+    final leftUpThresh =
+        headY - (usingLeftWrist ? 0.24 * torsoH : 0.30 * torsoH);
+    final rightUpThresh =
+        headY - (usingRightWrist ? 0.24 * torsoH : 0.30 * torsoH);
+    final armsUp = (lArmPt.dy < leftUpThresh) && (rArmPt.dy < rightUpThresh);
+
+    // Arms down: easier, just needs below shoulders.
+    final avgArmY = (lArmPt.dy + rArmPt.dy) / 2.0;
+    final armsDown = avgArmY > (avgShoulderY + 0.12 * torsoH);
+
+    // EMA on legs
+    _emaAnkleRatio = _ema(_emaAnkleRatio, ankleRatio, emaAlpha);
+    _emaLeftSide = _ema(_emaLeftSide, leftSide, emaAlpha);
+    _emaRightSide = _ema(_emaRightSide, rightSide, emaAlpha);
+
+    final r = _emaAnkleRatio!;
+    final ls = _emaLeftSide!;
+    final rs = _emaRightSide!;
+
+    final legsOpenSym = (ls >= openSideRatio && rs >= openSideRatio);
+    final legsCloseSym = (ls <= closeSideRatio && rs <= closeSideRatio);
+
+    final legsOpen = (r >= openRatio) && legsOpenSym;
+    final legsClose = (r <= closeRatio) && legsCloseSym;
+
+    // --- stable checkpoint logic ---
+    if (legsOpen) {
+      _jjOpenStable++;
+      _jjCloseStable = 0;
+
+      if (_jjOpenStable >= _jjStableNeed && !_jjOpenScored) {
+        final ok = armsUp;
+        _accumulate(ok);
+        _jjOpenScored = true;
+        _jjCloseScored = false;
+
+        // ✅ Step 3: mark we've seen a REAL OPEN at least once
+        _jjSeenRealOpen = true;
+
+        lastReason = ok ? 'JJ: OPEN ok' : 'JJ: OPEN bad (arms not overhead)';
+        return ok;
+      }
+      lastReason = 'JJ: open stabilizing';
+      return null;
+    }
+
+    if (legsClose) {
+      _jjCloseStable++;
+      _jjOpenStable = 0;
+
+      // ✅ Step 3: DO NOT score CLOSED until we’ve seen a real OPEN
+      if (!_jjSeenRealOpen) {
+        lastReason = 'JJ: closed ignored (no real OPEN yet)';
+        return null;
+      }
+
+      if (_jjCloseStable >= _jjStableNeed && !_jjCloseScored) {
+        final ok = armsDown;
+        _accumulate(ok);
+        _jjCloseScored = true;
+        _jjOpenScored = false;
+        lastReason = ok ? 'JJ: CLOSED ok' : 'JJ: CLOSED bad (arms not down)';
+        return ok;
+      }
+      lastReason = 'JJ: close stabilizing';
+      return null;
+    }
+
+    // Transition/noise: ignore
     _jjOpenStable = 0;
-
-    if (_jjCloseStable >= _jjStableNeed && !_jjCloseScored) {
-      // CLOSED checkpoint: legs close must match armsDown
-      final ok = armsDown;
-      _accumulate(ok);
-      _jjCloseScored = true;
-      _jjOpenScored = false;
-      lastReason = ok ? 'JJ: CLOSED ok' : 'JJ: CLOSED bad (arms not down)';
-      return ok;
-    }
-    lastReason = 'JJ: close stabilizing';
+    _jjCloseStable = 0;
+    lastReason = 'JJ: transition';
     return null;
   }
-
-  // Transition/noise: ignore
-  _jjOpenStable = 0;
-  _jjCloseStable = 0;
-  lastReason = 'JJ: transition';
-  return null;
-}
-
 
   /// ✅ NEW Squat scoring (redo):
   /// - Track one "rep attempt" (leave standing -> return to standing)
@@ -265,9 +277,12 @@ class FormScoreTracker {
       return null;
     }
 
-    final hip = pose.landmarks[rSideOk ? PoseLandmarkType.rightHip : PoseLandmarkType.leftHip]!;
-    final knee = pose.landmarks[rSideOk ? PoseLandmarkType.rightKnee : PoseLandmarkType.leftKnee]!;
-    final ankle = pose.landmarks[rSideOk ? PoseLandmarkType.rightAnkle : PoseLandmarkType.leftAnkle]!;
+    final hip = pose.landmarks[
+        rSideOk ? PoseLandmarkType.rightHip : PoseLandmarkType.leftHip]!;
+    final knee = pose.landmarks[
+        rSideOk ? PoseLandmarkType.rightKnee : PoseLandmarkType.leftKnee]!;
+    final ankle = pose.landmarks[
+        rSideOk ? PoseLandmarkType.rightAnkle : PoseLandmarkType.leftAnkle]!;
 
     final ang = _angleDeg(hip, knee, ankle);
 
@@ -301,7 +316,9 @@ class FormScoreTracker {
     // Track rep
     if (_sqInRep) {
       if (ang < _sqMinKneeAngle) _sqMinKneeAngle = ang;
-      if (hipKneeGapTorso < _sqMinHipKneeGapTorso) _sqMinHipKneeGapTorso = hipKneeGapTorso;
+      if (hipKneeGapTorso < _sqMinHipKneeGapTorso) {
+        _sqMinHipKneeGapTorso = hipKneeGapTorso;
+      }
 
       // End rep -> score once
       if (endAttempt) {
@@ -323,11 +340,6 @@ class FormScoreTracker {
         }
 
         // Hip-to-knee gap points (smaller gap = better depth)
-        // Tune these if needed:
-        // - <= 0.22 torso: deep (good)
-        // - 0.23..0.30: ok
-        // - 0.31..0.38: shallow
-        // - > 0.38: very shallow
         int gapPts;
         if (minGap <= 0.22) {
           gapPts = 10;
@@ -340,7 +352,8 @@ class FormScoreTracker {
         }
 
         // Weight gap more than knee (gap is the depth guard)
-        final pts = ((0.65 * gapPts) + (0.35 * kneePts)).round().clamp(0, 10);
+        final pts =
+            ((0.65 * gapPts) + (0.35 * kneePts)).round().clamp(0, 10);
 
         _accumulatePoints(pts, 10);
 
