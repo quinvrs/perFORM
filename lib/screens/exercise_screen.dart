@@ -619,7 +619,9 @@ class _ExerciseScreenState extends State<ExerciseScreen> {
           if (_isJumpingJacks) {
             if (_imgSize == null ||
                 _imgRotation == null ||
-                _selectedCamera == null) return;
+                _selectedCamera == null) {
+              return;
+            }
             final canvasSize = _canvasSize ??
                 (() {
                   final previewSize = _controller?.value.previewSize;
