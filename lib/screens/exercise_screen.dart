@@ -1877,7 +1877,9 @@ class _ExerciseSummaryScreenState extends State<ExerciseSummaryScreen> {
 
   @override
   Widget build(BuildContext context) {
-    final s = MediaQuery.sizeOf(context).width / 375.0;
+    final mq = MediaQuery.of(context);
+    final s = (mq.size.shortestSide / 375.0).clamp(0.90, 1.10);
+
     final state = AppStateScope.of(context);
 
     final now = DateTime.now();
@@ -2165,29 +2167,40 @@ class _WeeklyProgressRow extends StatelessWidget {
           SizedBox(height: 10 * s),
           Row(
             children: [
-              for (int i = 0; i < 7; i++) ...[
-                _DayDot(
-                  s: s,
-                  dayNumber: '${i + 1}',
-                  done: isDone(days[i]),
-                  ink: ink,
-                  green: green,
+                Expanded(
+                  child: FittedBox(
+                    fit: BoxFit.scaleDown,
+                    alignment: Alignment.centerLeft,
+                    child: Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        for (int i = 0; i < 7; i++) ...[
+                          _DayDot(
+                            s: s,
+                            dayNumber: '${i + 1}',
+                            done: isDone(days[i]),
+                            ink: ink,
+                            green: green,
+                          ),
+                          if (i != 6) SizedBox(width: 8 * s),
+                        ],
+                      ],
+                    ),
+                  ),
                 ),
-                if (i != 6) SizedBox(width: 8 * s),
+                SizedBox(width: 10 * s),
+                Icon(
+                  Icons.emoji_events_rounded,
+                  color: ink.withValues(alpha: 0.55),
+                  size: 20 * s,
+                ),
               ],
-              const Spacer(),
-              Icon(
-                Icons.emoji_events_rounded,
-                color: ink.withValues(alpha: 0.55),
-                size: 20 * s,
-              ),
-            ],
-          ),
-        ],
-      ),
-    );
+            ),
+          ],
+        ),
+      );
+    }
   }
-}
 
 class _DayDot extends StatelessWidget {
   const _DayDot({
@@ -2334,7 +2347,7 @@ class _FormScoreRingCard extends StatelessWidget {
                 'Form Score',
                 style: TextStyle(
                   color: _ink,
-                  fontSize: 14 * s,
+                  fontSize: 16 * s,
                   fontWeight: FontWeight.w900,
                 ),
               ),
@@ -2343,19 +2356,22 @@ class _FormScoreRingCard extends StatelessWidget {
                 _label(v),
                 style: TextStyle(
                   color: _ink.withValues(alpha: 0.70),
-                  fontSize: 10 * s,
+                  fontSize: 12 * s,
                   fontWeight: FontWeight.w800,
-                  height: 0.20,
+                  height: 1.20,
                 ),
               ),
               SizedBox(height: 7 * s),
               // small hint text
               Text(
                 v <= 0 ? 'Do more reps to measure form.' : 'Keep going to improve your score.',
+                maxLines: 2,
+                overflow: TextOverflow.ellipsis,
                 style: TextStyle(
                   color: _ink.withValues(alpha: 0.55),
-                  fontSize: 9 * s,
+                  fontSize: 11 * s,
                   fontWeight: FontWeight.w600,
+                  height: 1.2,
                 ),
               ),
             ],
