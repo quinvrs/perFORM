@@ -11,7 +11,7 @@ class WelcomeFlowScreen extends StatefulWidget {
 class _WelcomeFlowScreenState extends State<WelcomeFlowScreen> {
   int _i = 0;
 
-  static const double _finalIconY = -0.15;
+  static const double _finalIconY = -0.18;
 
   static const _frames =
       <({Alignment align, double scale, double bgOpacity, double uiOpacity})>[

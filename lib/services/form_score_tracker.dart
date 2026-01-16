@@ -18,23 +18,33 @@ class FormScoreTracker {
   double? _emaLeftSide;
   double? _emaRightSide;
 
-  // --- NEW: Jumping Jacks checkpoint scoring (stable OPEN/CLOSED) ---
+  // --- Jumping Jacks checkpoint scoring (stable OPEN/CLOSED) ---
   int _jjOpenStable = 0;
   int _jjCloseStable = 0;
   bool _jjOpenScored = false;
   bool _jjCloseScored = false;
 
-  // How many consecutive frames to consider a state "stable"
-  final int _jjStableNeed = 2; // try 2 or 3
+  // ✅ NEW: Only allow CLOSED scoring after we've seen a REAL OPEN once
+  bool _jjSeenRealOpen = false;
 
-  // --- NEW: Squat scoring state (tracks one "rep attempt") ---
+  // ✅ Step 2: Increase stability requirement to reduce noise scoring
+  final int _jjStableNeed = 3; // was 2
+
+  // --- Squat scoring state (rep-attempt based) ---
   bool _sqInRep = false;
-  double _sqMinAngle = 999;
+
+  // Deepest knee angle reached during rep (smaller angle = deeper)
+  double _sqMinKneeAngle = 999;
+
+  // Smallest hip-to-knee vertical gap observed during rep, normalized by torso height.
+  // Deep squat => hip gets closer to knee => GAP gets smaller.
+  double _sqMinHipKneeGapTorso = 999;
 
   void reset() {
     totalFrames = 0;
     goodFrames = 0;
     lastReason = '';
+
     _emaAnkleRatio = null;
     _emaLeftSide = null;
     _emaRightSide = null;
@@ -44,10 +54,12 @@ class FormScoreTracker {
     _jjCloseStable = 0;
     _jjOpenScored = false;
     _jjCloseScored = false;
+    _jjSeenRealOpen = false; // ✅ reset this too
 
     // reset squat tracking
     _sqInRep = false;
-    _sqMinAngle = 999;
+    _sqMinKneeAngle = 999;
+    _sqMinHipKneeGapTorso = 999;
   }
 
   double get percent {
@@ -64,18 +76,15 @@ class FormScoreTracker {
     required Size imageSize,
     required InputImageRotation rotation,
     required CameraLensDirection lensDirection,
-
-    // Tunings (keep in sync with your JJ rep counter values)
     double minLikelihood = 0.55,
     double emaAlpha = 0.45,
-    double openRatio = 1.10,
+    double openRatio = 1.30,
     double closeRatio = 0.78,
-    double openSideRatio = 0.35,
+    double openSideRatio = 0.46,
     double closeSideRatio = 0.24,
   }) {
     bool okLm(PoseLandmark? p) => p != null && p.likelihood >= minLikelihood;
 
-    // Required: ankles + shoulders + hips
     const required = <PoseLandmarkType>[
       PoseLandmarkType.leftAnkle,
       PoseLandmarkType.rightAnkle,
@@ -91,7 +100,6 @@ class FormScoreTracker {
       }
     }
 
-    // Arms: prefer wrists; fallback to elbows if wrists are cropped
     final lWr = pose.landmarks[PoseLandmarkType.leftWrist];
     final rWr = pose.landmarks[PoseLandmarkType.rightWrist];
     final lEl = pose.landmarks[PoseLandmarkType.leftElbow];
@@ -128,18 +136,16 @@ class FormScoreTracker {
     final ankleDist = (lAnk - rAnk).distance;
     final ankleRatio = ankleDist / shoulderWidth;
 
-    // Symmetry: each ankle should move away/towards body center together
     final centerX = (lHip.dx + rHip.dx) / 2.0;
     final leftSide = (centerX - lAnk.dx).abs() / shoulderWidth;
     final rightSide = (rAnk.dx - centerX).abs() / shoulderWidth;
 
-    // Torso reference
     final avgShoulderY = (lSh.dy + rSh.dy) / 2.0;
     final avgHipY = (lHip.dy + rHip.dy) / 2.0;
     final torsoH = (avgHipY - avgShoulderY).abs().clamp(1.0, 1e9);
 
-    // Head reference for "arms up"
-    double headY = avgShoulderY - 0.45 * torsoH; // fallback
+    // head reference
+    double headY = avgShoulderY - 0.45 * torsoH;
     final nose = pose.landmarks[PoseLandmarkType.nose];
     final lEye = pose.landmarks[PoseLandmarkType.leftEye];
     final rEye = pose.landmarks[PoseLandmarkType.rightEye];
@@ -149,24 +155,21 @@ class FormScoreTracker {
       headY = (map(lEye!).dy + map(rEye!).dy) / 2.0;
     }
 
-    // Overhead check:
-    // - wrists: slightly above head
-    // - elbows (fallback): require higher so "in front of face" won't pass
+    // Arms up (keep strict-ish but not insane)
     final usingLeftWrist = okLm(lWr);
     final usingRightWrist = okLm(rWr);
 
-    final leftThresh =
-        headY - (usingLeftWrist ? 0.06 * torsoH : 0.12 * torsoH);
-    final rightThresh =
-        headY - (usingRightWrist ? 0.06 * torsoH : 0.12 * torsoH);
+    final leftUpThresh =
+        headY - (usingLeftWrist ? 0.24 * torsoH : 0.30 * torsoH);
+    final rightUpThresh =
+        headY - (usingRightWrist ? 0.24 * torsoH : 0.30 * torsoH);
+    final armsUp = (lArmPt.dy < leftUpThresh) && (rArmPt.dy < rightUpThresh);
 
-    final armsUp = (lArmPt.dy < leftThresh) && (rArmPt.dy < rightThresh);
-
-    // Arms down: below shoulders
+    // Arms down: easier, just needs below shoulders.
     final avgArmY = (lArmPt.dy + rArmPt.dy) / 2.0;
-    final armsDown = avgArmY > (avgShoulderY + 0.05 * torsoH);
+    final armsDown = avgArmY > (avgShoulderY + 0.12 * torsoH);
 
-    // EMA smoothing
+    // EMA on legs
     _emaAnkleRatio = _ema(_emaAnkleRatio, ankleRatio, emaAlpha);
     _emaLeftSide = _ema(_emaLeftSide, leftSide, emaAlpha);
     _emaRightSide = _ema(_emaRightSide, rightSide, emaAlpha);
@@ -178,44 +181,48 @@ class FormScoreTracker {
     final legsOpenSym = (ls >= openSideRatio && rs >= openSideRatio);
     final legsCloseSym = (ls <= closeSideRatio && rs <= closeSideRatio);
 
-    // "Intent" checkpoints (stable states only)
-    final legsOpenIntent = (r >= openRatio) && legsOpenSym;
-    final legsCloseIntent = (r <= closeRatio) && legsCloseSym;
+    final legsOpen = (r >= openRatio) && legsOpenSym;
+    final legsClose = (r <= closeRatio) && legsCloseSym;
 
-    final armsUpIntent = armsUp;
-    final armsDownIntent = armsDown;
-
-    // --- NEW: Score only stable OPEN/CLOSED checkpoints ---
-    if (legsOpenIntent) {
+    // --- stable checkpoint logic ---
+    if (legsOpen) {
       _jjOpenStable++;
       _jjCloseStable = 0;
 
       if (_jjOpenStable >= _jjStableNeed && !_jjOpenScored) {
-        final ok = armsUpIntent;
-        lastReason = ok ? 'JJ: OPEN ok' : 'JJ: OPEN bad (arms not overhead)';
+        final ok = armsUp;
         _accumulate(ok);
         _jjOpenScored = true;
         _jjCloseScored = false;
+
+        // ✅ Step 3: mark we've seen a REAL OPEN at least once
+        _jjSeenRealOpen = true;
+
+        lastReason = ok ? 'JJ: OPEN ok' : 'JJ: OPEN bad (arms not overhead)';
         return ok;
       }
-
       lastReason = 'JJ: open stabilizing';
       return null;
     }
 
-    if (legsCloseIntent) {
+    if (legsClose) {
       _jjCloseStable++;
       _jjOpenStable = 0;
 
+      // ✅ Step 3: DO NOT score CLOSED until we’ve seen a real OPEN
+      if (!_jjSeenRealOpen) {
+        lastReason = 'JJ: closed ignored (no real OPEN yet)';
+        return null;
+      }
+
       if (_jjCloseStable >= _jjStableNeed && !_jjCloseScored) {
-        final ok = armsDownIntent;
-        lastReason = ok ? 'JJ: CLOSED ok' : 'JJ: CLOSED bad (arms not down)';
+        final ok = armsDown;
         _accumulate(ok);
         _jjCloseScored = true;
         _jjOpenScored = false;
+        lastReason = ok ? 'JJ: CLOSED ok' : 'JJ: CLOSED bad (arms not down)';
         return ok;
       }
-
       lastReason = 'JJ: close stabilizing';
       return null;
     }
@@ -227,83 +234,137 @@ class FormScoreTracker {
     return null;
   }
 
-  /// Squat form score (rep-attempt based, graded):
-  /// - Track the minimum knee angle during a rep attempt
-  /// - Score ONCE when returning to standing
-  /// - Use points so shallow squats don't get high scores
+  /// ✅ NEW Squat scoring (redo):
+  /// - Track one "rep attempt" (leave standing -> return to standing)
+  /// - During the rep:
+  ///   1) record deepest knee angle (min angle)
+  ///   2) record minimum hip-to-knee vertical gap (hips closer to knee = deeper squat)
+  /// - Score ONCE at the end of the rep attempt.
+  ///
+  /// Why this helps:
+  /// - Knee angle alone can be noisy / overly optimistic.
+  /// - Hip-to-knee gap is a strong “depth” signal that shallow squats fail.
   bool? updateSquatFrame({
     required Pose pose,
     double minLikelihood = 0.55,
     double downAngleDeg = 110,
-    double upAngleDeg = 168,
-    double depthToleranceDeg = 9,
+    double upAngleDeg = 160,
   }) {
-    final left = _Side(
-      hip: PoseLandmarkType.leftHip,
-      knee: PoseLandmarkType.leftKnee,
-      ankle: PoseLandmarkType.leftAnkle,
-    );
-    final right = _Side(
-      hip: PoseLandmarkType.rightHip,
-      knee: PoseLandmarkType.rightKnee,
-      ankle: PoseLandmarkType.rightAnkle,
-    );
+    bool okLm(PoseLandmark? p) => p != null && p.likelihood >= minLikelihood;
 
-    final lOk = _hasAll(pose, left, minLikelihood);
-    final rOk = _hasAll(pose, right, minLikelihood);
+    // Need shoulders+hips for torso height, and a side hip/knee/ankle for angle.
+    final lSh = pose.landmarks[PoseLandmarkType.leftShoulder];
+    final rSh = pose.landmarks[PoseLandmarkType.rightShoulder];
+    final lHip = pose.landmarks[PoseLandmarkType.leftHip];
+    final rHip = pose.landmarks[PoseLandmarkType.rightHip];
 
-    if (!lOk && !rOk) {
+    if (!okLm(lSh) || !okLm(rSh) || !okLm(lHip) || !okLm(rHip)) {
+      lastReason = 'SQ: missing torso landmarks';
+      return null;
+    }
+
+    // Choose a reliable side for knee angle (prefer right if valid)
+    final rSideOk = okLm(pose.landmarks[PoseLandmarkType.rightHip]) &&
+        okLm(pose.landmarks[PoseLandmarkType.rightKnee]) &&
+        okLm(pose.landmarks[PoseLandmarkType.rightAnkle]);
+
+    final lSideOk = okLm(pose.landmarks[PoseLandmarkType.leftHip]) &&
+        okLm(pose.landmarks[PoseLandmarkType.leftKnee]) &&
+        okLm(pose.landmarks[PoseLandmarkType.leftAnkle]);
+
+    if (!rSideOk && !lSideOk) {
       lastReason = 'SQ: missing hip/knee/ankle';
       return null;
     }
 
-    final side = rOk ? right : left;
-    final hip = pose.landmarks[side.hip]!;
-    final knee = pose.landmarks[side.knee]!;
-    final ankle = pose.landmarks[side.ankle]!;
+    final hip = pose.landmarks[
+        rSideOk ? PoseLandmarkType.rightHip : PoseLandmarkType.leftHip]!;
+    final knee = pose.landmarks[
+        rSideOk ? PoseLandmarkType.rightKnee : PoseLandmarkType.leftKnee]!;
+    final ankle = pose.landmarks[
+        rSideOk ? PoseLandmarkType.rightAnkle : PoseLandmarkType.leftAnkle]!;
 
     final ang = _angleDeg(hip, knee, ankle);
 
-    // Define when a "rep attempt" starts/ends
-    final startAttempt = ang < 160; // leaving full standing
-    final endAttempt = ang > upAngleDeg; // back to standing (hysteresis)
+    final avgShoulderY = (lSh!.y + rSh!.y) / 2.0;
+    final avgHipY = (lHip!.y + rHip!.y) / 2.0;
+    final torsoH = (avgHipY - avgShoulderY).abs().clamp(1.0, 1e9);
 
-    // Start tracking rep
+    // Hip-to-knee gap: deep squat => hips go down closer to knee level => gap gets smaller.
+    final hipKneeGapPx = (knee.y - hip.y).abs(); // always positive
+    final hipKneeGapTorso = (hipKneeGapPx / torsoH).clamp(0.0, 2.0);
+
+    // Rep attempt hysteresis
+    final startAttempt = ang < 165; // leaving standing
+    final endAttempt = ang > (upAngleDeg + 5); // must be clearly standing again
+
+    // If we are idle/standing and not in a rep, do nothing.
+    if (!_sqInRep && !startAttempt) {
+      lastReason = 'SQ: idle/standing';
+      return null;
+    }
+
+    // Start rep
     if (!_sqInRep && startAttempt) {
       _sqInRep = true;
-      _sqMinAngle = ang;
+      _sqMinKneeAngle = ang;
+      _sqMinHipKneeGapTorso = hipKneeGapTorso;
       lastReason = 'SQ: start tracking';
       return null;
     }
 
+    // Track rep
     if (_sqInRep) {
-      if (ang < _sqMinAngle) _sqMinAngle = ang;
+      if (ang < _sqMinKneeAngle) _sqMinKneeAngle = ang;
+      if (hipKneeGapTorso < _sqMinHipKneeGapTorso) {
+        _sqMinHipKneeGapTorso = hipKneeGapTorso;
+      }
 
+      // End rep -> score once
       if (endAttempt) {
         _sqInRep = false;
 
-        // --- NEW: graded scoring per rep (points) ---
-        final minA = _sqMinAngle;
+        final minA = _sqMinKneeAngle;
+        final minGap = _sqMinHipKneeGapTorso;
 
-        int pts;
-        if (minA <= (downAngleDeg + depthToleranceDeg)) {
-          pts = 10; // great depth
-        } else if (minA <= (downAngleDeg + depthToleranceDeg + 8)) {
-          pts = 7; // decent
-        } else if (minA <= (downAngleDeg + depthToleranceDeg + 16)) {
-          pts = 4; // shallow
+        // Knee depth points
+        int kneePts;
+        if (minA <= (downAngleDeg + 5)) {
+          kneePts = 10;
+        } else if (minA <= (downAngleDeg + 15)) {
+          kneePts = 7;
+        } else if (minA <= (downAngleDeg + 25)) {
+          kneePts = 4;
         } else {
-          pts = 1; // very shallow
+          kneePts = 1;
         }
 
-        _accumulatePoints(pts, 10);
-        lastReason = 'SQ: rep min=${minA.toStringAsFixed(0)} pts=$pts/10';
+        // Hip-to-knee gap points (smaller gap = better depth)
+        int gapPts;
+        if (minGap <= 0.22) {
+          gapPts = 10;
+        } else if (minGap <= 0.30) {
+          gapPts = 7;
+        } else if (minGap <= 0.38) {
+          gapPts = 4;
+        } else {
+          gapPts = 1;
+        }
 
-        // Return true/false only for debug convenience
+        // Weight gap more than knee (gap is the depth guard)
+        final pts =
+            ((0.65 * gapPts) + (0.35 * kneePts)).round().clamp(0, 10);
+
+        _accumulatePoints(pts, 10);
+
+        lastReason =
+            'SQ: minAngle=${minA.toStringAsFixed(0)} knee=$kneePts/10 minGap=${minGap.toStringAsFixed(2)} gap=$gapPts/10 -> pts=$pts/10';
+
         return pts >= 7;
       }
 
-      lastReason = 'SQ: tracking (min=${_sqMinAngle.toStringAsFixed(0)})';
+      lastReason =
+          'SQ: tracking (minAngle=${_sqMinKneeAngle.toStringAsFixed(0)}, minGap=${_sqMinHipKneeGapTorso.toStringAsFixed(2)})';
       return null;
     }
 
@@ -341,18 +402,6 @@ class FormScoreTracker {
     return math.acos(cos) * 180 / math.pi;
   }
 
-  static bool _hasAll(Pose pose, _Side s, double minL) {
-    final hip = pose.landmarks[s.hip];
-    final knee = pose.landmarks[s.knee];
-    final ankle = pose.landmarks[s.ankle];
-    return hip != null &&
-        knee != null &&
-        ankle != null &&
-        hip.likelihood >= minL &&
-        knee.likelihood >= minL &&
-        ankle.likelihood >= minL;
-  }
-
   static Offset _map(
     double x,
     double y,
@@ -387,11 +436,4 @@ class FormScoreTracker {
     }
     return Offset(tx, ty);
   }
-}
-
-class _Side {
-  const _Side({required this.hip, required this.knee, required this.ankle});
-  final PoseLandmarkType hip;
-  final PoseLandmarkType knee;
-  final PoseLandmarkType ankle;
 }
