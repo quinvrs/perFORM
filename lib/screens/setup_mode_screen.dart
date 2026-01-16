@@ -268,8 +268,6 @@ class _SetupModeScreenState extends State<SetupModeScreen> {
     } catch (_) {}
     _poseDetector = null;
 
-    await Future.delayed(const Duration(milliseconds: 250));
-
     if (!mounted) return;
 
     Navigator.pushReplacement(
