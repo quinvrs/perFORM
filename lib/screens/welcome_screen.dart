@@ -11,9 +11,7 @@ class WelcomeFlowScreen extends StatefulWidget {
 class _WelcomeFlowScreenState extends State<WelcomeFlowScreen> {
   int _i = 0;
 
-  static const double _finalIconY = -0.27;
-  static const double _textGroupY = 0.20;
-  static const double _coreRectTightenPx = 0;
+  static const double _finalIconY = -0.15;
 
   static const _frames =
       <({Alignment align, double scale, double bgOpacity, double uiOpacity})>[
@@ -100,118 +98,131 @@ class _WelcomeFlowScreenState extends State<WelcomeFlowScreen> {
   Widget build(BuildContext context) {
     final f = _frames[_i];
 
+    final mq = MediaQuery.of(context);
+    final size = mq.size;
     // Full screen size
-    final size = MediaQuery.sizeOf(context);
-    final s = size.width / 375.0;
+    final s = (size.shortestSide / 375.0).clamp(0.90, 1.10);
 
-    final logoW = 175 * s;
-    final logoH = 201 * s;
+    final logoW = (175 * s).clamp(140.0, 210.0);
+    final logoH = (201 * s).clamp(160.0, 240.0);
 
     return Scaffold(
       backgroundColor: Colors.white,
-      body: SizedBox.expand(
-        child: Stack(
-          children: [
-            // Base white
-            Positioned.fill(child: Container(color: Colors.white)),
+      body: SafeArea(
+      child: LayoutBuilder(
+        builder: (context, c) {
+          final h = c.maxHeight;
+          final w = c.maxWidth;
 
-            // Animated gradient background
-            Positioned.fill(
-              child: AnimatedOpacity(
-                duration: const Duration(milliseconds: 250),
-                opacity: f.bgOpacity,
-                child: Container(
-                  decoration: const BoxDecoration(
-                    gradient: LinearGradient(
-                      begin: Alignment.topRight,
-                      end: Alignment.bottomLeft,
-                      colors: [
-                        Color(0xFFFFF5B8),
-                        Color(0xFFBFD1E6),
-                        Color(0xFF6E7C8A),
-                      ],
+          final textLogoMaxW = (w * 0.58).clamp(200.0, 520.0); 
+          final textLogoMaxH = (h * 0.12).clamp(50.0, 140.0);  
+
+          final gapIconToText = (35 * s).clamp(30.0, 40.0); // adjust if you want closer
+
+          final iconCenterY = (h / 2) * (f.align.y + 1.0);
+          final iconHalfH = (logoH * f.scale) / 2;
+
+          final textTop = (iconCenterY + iconHalfH + gapIconToText)
+              .clamp(0.0, h - 220); 
+              
+          return SizedBox.expand(
+            child: Stack(
+              children: [
+                // Base white
+                Positioned.fill(child: Container(color: Colors.white)),
+
+                // Animated gradient background
+                Positioned.fill(
+                  child: AnimatedOpacity(
+                    duration: const Duration(milliseconds: 250),
+                    opacity: f.bgOpacity,
+                    child: Container(
+                      decoration: const BoxDecoration(
+                        gradient: LinearGradient(
+                          begin: Alignment.topRight,
+                          end: Alignment.bottomLeft,
+                          colors: [
+                            Color(0xFFFFF5B8),
+                            Color(0xFFBFD1E6),
+                            Color(0xFF6E7C8A),
+                          ],
+                        ),
+                      ),
                     ),
                   ),
                 ),
-              ),
-            ),
 
-            // Animated logo
-            AnimatedAlign(
-              duration: _bounce,
-              curve: Curves.bounceOut,
-              alignment: f.align,
-              child: AnimatedScale(
-                duration: _bounce,
-                curve: Curves.bounceOut,
-                scale: f.scale,
-                child: SizedBox(
-                  width: logoW,
-                  height: logoH,
-                  child: Image.asset(
-                    'assets/corerect-transparent-1.png',
-                    fit: BoxFit.contain,
+                // Animated logo
+                AnimatedAlign(
+                  duration: _bounce,
+                  curve: Curves.bounceOut,
+                  alignment: f.align,
+                  child: AnimatedScale(
+                    duration: _bounce,
+                    curve: Curves.bounceOut,
+                    scale: f.scale,
+                    child: SizedBox(
+                      width: logoW,
+                      height: logoH,
+                      child: Image.asset(
+                        'assets/corerect-transparent-1.png',
+                        fit: BoxFit.contain,
+                      ),
+                    ),
                   ),
                 ),
-              ),
-            ),
 
-            // UI text (button removed)
-            Positioned.fill(
-              child: AnimatedOpacity(
-                duration: const Duration(milliseconds: 300),
-                opacity: f.uiOpacity,
-                child: Align(
-                  alignment: const Alignment(0.0, _textGroupY),
-                  child: Column(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      Text(
-                        'WELCOME TO',
-                        textAlign: TextAlign.center,
-                        style: TextStyle(
-                          height: 0.6,
-                          color: const Color(0xFF1F3447),
-                          fontSize: 20 * s,
-                          fontWeight: FontWeight.w500,
-                          fontFamily: 'DM Sans',
-                        ),
-                      ),
-                      const SizedBox(height: 0),
-                      Row(
-                        mainAxisSize: MainAxisSize.min,
-                        children: [
-                          Text(
-                            'CORE',
-                            style: TextStyle(
-                              color: const Color(0xFF537892),
-                              fontSize: 48 * s,
-                              fontWeight: FontWeight.w700,
-                              fontFamily: 'DM Sans',
-                            ),
-                          ),
-                          Transform.translate(
-                            offset: const Offset(-_coreRectTightenPx, 0),
-                            child: Text(
-                              'rect',
+                // UI (WELCOME TO + text-logo image)
+                  Positioned(
+                      top: textTop,
+                      left: 0,
+                      right: 0,
+                      child: AnimatedOpacity(
+                        duration: const Duration(milliseconds: 300),
+                        opacity: f.uiOpacity,
+                        child: Column(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            Text(
+                              'WELCOME TO',
+                              textAlign: TextAlign.center,
                               style: TextStyle(
-                                color: const Color(0xFF051328),
-                                fontSize: 48 * s,
-                                fontWeight: FontWeight.w700,
+                                height: 1.1,
+                                color: const Color(0xFF1F3447),
+                                fontSize: 20 * s,
+                                fontWeight: FontWeight.w600,
                                 fontFamily: 'DM Sans',
                               ),
                             ),
-                          ),
-                        ],
+                            SizedBox(height: (6 * s).clamp(4.0, 10.0)),
+
+                            ConstrainedBox(
+                              constraints: BoxConstraints(
+                                maxWidth: textLogoMaxW,
+                                maxHeight: textLogoMaxH,
+                              ),
+                              child: FittedBox(
+                                fit: BoxFit.contain,
+                                child: ClipRect(
+                                  child: Align(
+                                  alignment: Alignment.center,
+                                  widthFactor: 0.61,
+                                  heightFactor: 0.57,
+                                  child: Image.asset('assets/corerect-text-logo.png'),
+                                  ),
+                                ),
+                              ),
+                            ),
+                          ],
+                        ),
                       ),
-                    ],
-                  ),
+                    ),
+                  ],
                 ),
-              ),
-            ),
-          ],
+              );
+            },
+          ),
         ),
-      ),
-    );
+      );
+    }
   }
-}
