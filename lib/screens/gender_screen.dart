@@ -9,8 +9,8 @@ class GenderScreen extends StatefulWidget {
 }
 
 class _GenderScreenState extends State<GenderScreen> {
-  static const _ink = Color(0xFF051328);
-  static const _yellow = Color(0xFFFEF9C2);
+  static const _ink = Color(0xFF102A08);
+  static const _yellow = Color(0xFFFF6A00);
 
   late final PageController _pageCtrl;
 
@@ -47,7 +47,7 @@ class _GenderScreenState extends State<GenderScreen> {
     final progress = 1 / 3;
 
     return Scaffold(
-      backgroundColor: Colors.white,
+      backgroundColor: const Color(0xFFFFF4DE),
       body: SafeArea(
         bottom: false,
         child: SizedBox.expand(

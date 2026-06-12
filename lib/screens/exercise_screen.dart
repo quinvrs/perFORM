@@ -32,7 +32,7 @@ class ExerciseScreen extends StatefulWidget {
 }
 
 class _ExerciseScreenState extends State<ExerciseScreen> {
-  static const _bgDark = Color.fromARGB(255, 18, 32, 47);
+  static const _bgDark = Color.fromARGB(255, 8, 31, 3);
 
   final TtsService _tts = TtsService.I;
 
@@ -108,6 +108,11 @@ class _ExerciseScreenState extends State<ExerciseScreen> {
   bool _allReady = false;
   int _countdown = 0;
   Timer? _countdownTimer;
+
+  // Changes whenever a countdown starts or is cancelled.
+  // This prevents an older countdown from continuing in the background.
+  int _countdownRunId = 0;
+
   static const int _setupCountdownSeconds = 5;
 
   bool get _isJumpingJacks =>
@@ -155,6 +160,7 @@ class _ExerciseScreenState extends State<ExerciseScreen> {
     _setTimer?.cancel();
     _restTimer?.cancel();
     _countdownTimer?.cancel();
+    _countdownRunId++;
 
     try {
       _controller?.stopImageStream();
@@ -425,40 +431,70 @@ class _ExerciseScreenState extends State<ExerciseScreen> {
 
   void _startCountdown({required int seconds}) {
     _countdownTimer?.cancel();
-    _countdown = seconds;
+    _countdownTimer = null;
+
+    final runId = ++_countdownRunId;
     _lastSpokenSetupCountdown = -1;
 
-    unawaited(TtsService.I.speak('$_countdown'));
-    _lastSpokenSetupCountdown = _countdown;
+    unawaited(_runSetupCountdown(seconds: seconds, runId: runId));
+  }
 
-    _countdownTimer = Timer.periodic(const Duration(seconds: 1), (t) {
-      if (!mounted) return;
-
-      setState(() => _countdown--);
-
-      if (_countdown >= 1 &&
-          _countdown <= seconds &&
-          _countdown != _lastSpokenSetupCountdown) {
-        _lastSpokenSetupCountdown = _countdown;
-        unawaited(TtsService.I.speak('$_countdown'));
+  Future<void> _runSetupCountdown({
+    required int seconds,
+    required int runId,
+  }) async {
+    for (int number = seconds; number >= 1; number--) {
+      if (!mounted ||
+          runId != _countdownRunId ||
+          _phase != _Phase.setup) {
+        return;
       }
 
-      if (_countdown <= 0) {
-        t.cancel();
-        _countdownTimer = null;
-        _beginNextSetAfterSetup();
-      }
-    });
+      setState(() => _countdown = number);
 
-    if (mounted) setState(() {});
+      // Stop any unfinished utterance before speaking the next number.
+      // This prevents the TTS engine from dropping "4" after saying "5".
+      await TtsService.I.stop();
+      await Future.delayed(const Duration(milliseconds: 80));
+
+      if (!mounted ||
+          runId != _countdownRunId ||
+          _phase != _Phase.setup) {
+        return;
+      }
+
+      _lastSpokenSetupCountdown = number;
+      await TtsService.I.speak('$number');
+
+      // Give every number its own complete display/speech interval.
+      await Future.delayed(const Duration(milliseconds: 1100));
+    }
+
+    if (!mounted ||
+        runId != _countdownRunId ||
+        _phase != _Phase.setup) {
+      return;
+    }
+
+    setState(() => _countdown = 0);
+    _beginNextSetAfterSetup();
   }
 
   void _stopCountdown() {
     _countdownTimer?.cancel();
     _countdownTimer = null;
+
+    // Invalidate the currently running async countdown.
+    _countdownRunId++;
     _setupCountdownLocked = false;
 
-    if (mounted) setState(() => _countdown = 0);
+    unawaited(TtsService.I.stop());
+
+    if (mounted) {
+      setState(() => _countdown = 0);
+    } else {
+      _countdown = 0;
+    }
   }
 
   void _beginNextSetAfterSetup() {
@@ -1025,7 +1061,7 @@ class _ExerciseScreenState extends State<ExerciseScreen> {
             Positioned.fill(
               child: _error != null
                   ? Container(
-                      color: const Color(0xFF0F1A28),
+                      color: const Color(0xFF081F03),
                       alignment: Alignment.center,
                       padding: EdgeInsets.all(18 * s),
                       child: Text(
@@ -1038,7 +1074,7 @@ class _ExerciseScreenState extends State<ExerciseScreen> {
                     )
                   : (_initFuture == null || _controller == null)
                       ? Container(
-                          color: const Color(0xFF0F1A28),
+                          color: const Color(0xFF081F03),
                           alignment: Alignment.center,
                           child: const CircularProgressIndicator(),
                         )
@@ -1222,8 +1258,8 @@ class _BottomWorkoutCard extends StatefulWidget {
   final String? hmmFeedback;
   final bool isSaving;
 
-  static const _cardBg = Color(0xFFEFEFF3);
-  static const _ink = Color(0xFF051328);
+  static const _cardBg = Color(0xFFFFE8C8);
+  static const _ink = Color(0xFF102A08);
 
   @override
   State<_BottomWorkoutCard> createState() => _BottomWorkoutCardState();
@@ -1305,7 +1341,7 @@ class _BottomWorkoutCardState extends State<_BottomWorkoutCard>
     final border = (widget.phase == _Phase.continueNext ||
             widget.phase == _Phase.finished ||
             widget.phase == _Phase.setup)
-        ? Border.all(color: const Color(0xFF22C55E), width: 3)
+        ? Border.all(color: const Color(0xFF9DCC32), width: 3)
         : null;
 
     return Container(
@@ -1365,7 +1401,7 @@ class _BottomWorkoutCardState extends State<_BottomWorkoutCard>
                           vertical: 10 * s,
                         ),
                         decoration: BoxDecoration(
-                          color: const Color(0xFFFEF9C2).withValues(alpha: 0.60),
+                          color: const Color(0xFFFF6A00).withValues(alpha: 0.60),
                           borderRadius: BorderRadius.circular(14 * s),
                           boxShadow: [
                             BoxShadow(
@@ -1393,13 +1429,13 @@ class _BottomWorkoutCardState extends State<_BottomWorkoutCard>
                               child: Text(
                                 _plusText,
                                 style: TextStyle(
-                                  color: const Color(0xFF22C55E),
+                                  color: const Color(0xFF9DCC32),
                                   fontSize: 18 * s,
                                   fontWeight: FontWeight.w900,
                                   shadows: const [
                                     Shadow(
                                       blurRadius: 10,
-                                      color: Colors.black,
+                                      color:  Color(0xFF102A08),
                                     ),
                                   ],
                                 ),
@@ -1437,7 +1473,7 @@ class _BottomWorkoutCardState extends State<_BottomWorkoutCard>
                   vertical: 8 * s,
                 ),
                 decoration: BoxDecoration(
-                  color: Colors.white.withValues(alpha: 0.55),
+                  color: const Color(0xFFDFFF7A).withValues(alpha: 0.55),
                   borderRadius: BorderRadius.circular(12 * s),
                 ),
                 child: Column(
@@ -1571,7 +1607,7 @@ class _DarkButton extends StatelessWidget {
   final VoidCallback onTap;
   final bool isLoading;
 
-  static const _ink = Color(0xFF051328);
+  static const _ink = Color(0xFF102A08);
 
   @override
   Widget build(BuildContext context) {
@@ -1624,8 +1660,8 @@ class _PrimaryYellowButton extends StatelessWidget {
   final String label;
   final VoidCallback onTap;
 
-  static const _ink = Color(0xFF051328);
-  static const _yellow = Color(0xFFFEF9C2);
+  static const _ink = Color(0xFF102A08);
+  static const _yellow = Color(0xFFFF6A00);
 
   @override
   Widget build(BuildContext context) {
@@ -1755,8 +1791,8 @@ class _ChecklistCard extends StatelessWidget {
                               height: 28 * s,
                               decoration: BoxDecoration(
                                 color: it.ok
-                                    ? const Color(0xFF00C951)
-                                    : const Color(0xFFE53935),
+                                    ? const Color(0xFF84B423)
+                                    : const Color(0xFFE8260D),
                                 shape: BoxShape.circle,
                               ),
                               child: Icon(
@@ -1775,7 +1811,7 @@ class _ChecklistCard extends StatelessWidget {
                                   fontSize: 15 * s,
                                   fontWeight: FontWeight.w900,
                                   height: 1.25,
-                                  color: Colors.white.withValues(alpha: 0.92),
+                                  color: const Color(0xFFFFF4DE).withValues(alpha: 0.92),
                                 ),
                               ),
                             ),
@@ -1908,10 +1944,10 @@ class ExerciseSummaryScreen extends StatefulWidget {
 }
 
 class _ExerciseSummaryScreenState extends State<ExerciseSummaryScreen> {
-  static const _ink = Color(0xFF051328);
-  static const _yellow = Color(0xFFFEF9C2);
-  static const _card = Color(0xFFEFEFF3);
-  static const _green = Color(0xFF22C55E);
+  static const _ink = Color(0xFF102A08);
+  static const _yellow = Color(0xFFFF6A00);
+  static const _card = Color(0xFFFFE8C8);
+  static const _green = Color(0xFF9DCC32);
 
   DateTime _dateOnly(DateTime d) => DateTime(d.year, d.month, d.day);
 
@@ -1963,7 +1999,7 @@ class _ExerciseSummaryScreenState extends State<ExerciseSummaryScreen> {
     final weekNo = _weekOfMonthMonday(now);
 
     return Scaffold(
-      backgroundColor: const Color(0xFF0F1A28),
+      backgroundColor: const Color(0xFF081F03),
       body: Stack(
         children: [
           Positioned.fill(
@@ -1972,7 +2008,7 @@ class _ExerciseSummaryScreenState extends State<ExerciseSummaryScreen> {
                 gradient: LinearGradient(
                   begin: Alignment.topCenter,
                   end: Alignment.bottomCenter,
-                  colors: [Color(0xFF0F1A28), Color(0xFF1F2B3C)],
+                  colors: [Color(0xFF081F03), Color(0xFF536B1C)],
                 ),
               ),
             ),
@@ -2059,7 +2095,7 @@ class _ExerciseSummaryScreenState extends State<ExerciseSummaryScreen> {
                             width: double.infinity,
                             padding: EdgeInsets.all(20 * s),
                             decoration: BoxDecoration(
-                              color: Colors.white.withValues(alpha: 0.92),
+                              color: const Color(0xFFFFF4DE).withValues(alpha: 0.92),
                               borderRadius: BorderRadius.circular(16 * s),
                               boxShadow: [
                                 BoxShadow(
@@ -2078,7 +2114,7 @@ class _ExerciseSummaryScreenState extends State<ExerciseSummaryScreen> {
                           Container(
                             padding: EdgeInsets.all(14 * s),
                             decoration: BoxDecoration(
-                              color: Colors.white.withValues(alpha: 0.92),
+                              color: const Color(0xFFFFF4DE).withValues(alpha: 0.92),
                               borderRadius: BorderRadius.circular(16 * s),
                               boxShadow: [
                                 BoxShadow(
@@ -2280,7 +2316,7 @@ class _DayDot extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final bg = done ? green : Colors.white.withValues(alpha: 0.65);
+    final bg = done ? green : const Color(0xFFFFF4DE).withValues(alpha: 0.65);
     final border =
         done ? null : Border.all(color: ink.withValues(alpha: 0.15));
 
@@ -2316,13 +2352,13 @@ class _FormScoreRingCard extends StatelessWidget {
   final double s;
   final double score;
 
-  static const _ink = Color(0xFF051328);
+  static const _ink = Color(0xFF102A08);
 
   Color _tint(int v) {
-    if (v <= 0) return const Color(0xFF6B7280);
-    if (v < 40) return const Color(0xFFDC2626);
-    if (v < 80) return const Color(0xFFF97316);
-    return const Color(0xFF16A34A);
+    if (v <= 0) return const Color(0xFF697044);
+    if (v < 40) return const Color(0xFFE8260D);
+    if (v < 80) return const Color(0xFFFF8A18);
+    return const Color(0xFF6F991F);
   }
 
   String _label(int v) {
@@ -2372,7 +2408,7 @@ class _FormScoreRingCard extends StatelessWidget {
                 width: 64 * s,
                 height: 64 * s,
                 decoration: BoxDecoration(
-                  color: Colors.white,
+                  color: const Color(0xFFFFF4DE),
                   shape: BoxShape.circle,
                   boxShadow: [
                     BoxShadow(
@@ -2458,7 +2494,7 @@ class _StatBox extends StatelessWidget {
     return Container(
       padding: EdgeInsets.symmetric(horizontal: 10 * s, vertical: 10 * s),
       decoration: BoxDecoration(
-        color: const Color(0xFFEFEFF3),
+        color: const Color(0xFFFFE8C8),
         borderRadius: BorderRadius.circular(10 * s),
       ),
       child: Column(
@@ -2475,7 +2511,7 @@ class _StatBox extends StatelessWidget {
           Text(
             value,
             style: TextStyle(
-              color: valueColor ?? Colors.black,
+              color: valueColor ?? const Color(0xFF102A08),
               fontSize: 18 * s,
               fontWeight: FontWeight.w900,
             ),

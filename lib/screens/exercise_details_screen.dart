@@ -4,8 +4,8 @@ import '../models/workout.dart';
 class ExerciseDetailsScreen extends StatelessWidget {
   const ExerciseDetailsScreen({super.key});
 
-  static const _bgDark = Color.fromARGB(255, 18, 32, 47);
-  static const _ink = Color(0xFF051328);
+  static const _bgDark = Color.fromARGB(255, 8, 31, 3);
+  static const _ink = Color(0xFF102A08);
 
   @override
   Widget build(BuildContext context) {
@@ -21,7 +21,7 @@ class ExerciseDetailsScreen extends StatelessWidget {
         top: true,
         bottom: false,
         child: Container(
-          color: Colors.white,
+          color: const Color(0xFFFFF4DE),
           padding: EdgeInsets.fromLTRB(24 * s, 24 * s, 24 * s, 24 * s),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,

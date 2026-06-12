@@ -10,9 +10,9 @@ class ExerciseSelectionScreen extends StatefulWidget {
 }
 
 class _ExerciseSelectionScreenState extends State<ExerciseSelectionScreen> {
-  static const _ink = Color(0xFF051328);
-  static const _muted = Color(0xFF797B7F);
-  static const _green = Color(0xFF00C951);
+  static const _ink = Color(0xFF102A08);
+  static const _muted = Color(0xFF697044);
+  static const _green = Color(0xFF84B423);
 
   final _items = const <_WorkoutItem>[
     _WorkoutItem(
@@ -66,7 +66,7 @@ class _ExerciseSelectionScreenState extends State<ExerciseSelectionScreen> {
     final s = size.width / 375.0;
 
     return Scaffold(
-      backgroundColor: Colors.white,
+      backgroundColor: const Color(0xFFFFF4DE),
       body: SafeArea(
         child: SizedBox.expand(
           child: SingleChildScrollView(
@@ -150,11 +150,11 @@ class _WorkoutCard extends StatelessWidget {
   final Color muted;
   final Color green;
 
-  static const _yellow = Color(0xFFFEF9C2);
+  static const _yellow = Color(0xFFFF6A00);
 
   @override
   Widget build(BuildContext context) {
-    final bg = selected ? _yellow.withValues(alpha: 0.55) : Colors.white;
+    final bg = selected ? _yellow.withValues(alpha: 0.55) : const Color(0xFFFFF4DE);
 
     final avatarBox = selected ? 92 * s : 78 * s;
     final starSize = selected ? 90 * s : 76 * s;
@@ -192,7 +192,7 @@ class _WorkoutCard extends StatelessWidget {
                         Text(
                           item.workout.title,
                           style: TextStyle(
-                            color: Colors.black,
+                            color: const Color(0xFF102A08),
                             fontSize: 24 * s,
                             fontFamily: 'DM Sans',
                             fontWeight: FontWeight.w700,

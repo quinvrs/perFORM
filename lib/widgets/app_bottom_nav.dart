@@ -23,9 +23,11 @@ class AppBottomNav extends StatefulWidget {
 }
 
 class _AppBottomNavState extends State<AppBottomNav> {
-  static const _navBlue = Color(0xFF1F3447);
-  static const _yellow = Color(0xFFFEF9C2);
-  static const _ink = Color(0xFF051328);
+  // perFORM vibrant poster palette
+  static const _navGreen = Color(0xFF173A12);
+  static const _activeOrange = Color(0xFFFF6A00);
+  static const _warmCream = Color(0xFFFFF4DF);
+  static const _deepInk = Color(0xFF102507);
 
   @override
   Widget build(BuildContext context) {
@@ -91,12 +93,19 @@ class _AppBottomNavState extends State<AppBottomNav> {
                   onTap: onTap,
                   child: Column(
                     children: [
-                      Icon(icon, size: 28 * widget.scale, color: Colors.white.withAlpha(170)),
-                      SizedBox(height: (labelsTop - iconsTop) - 12 * widget.scale),
+                      Icon(
+                        icon,
+                        size: 28 * widget.scale,
+                        color: _warmCream.withAlpha(185),
+                      ),
+                      SizedBox(
+                        height:
+                            (labelsTop - iconsTop) - 12 * widget.scale,
+                      ),
                       Text(
                         label,
                         style: TextStyle(
-                          color: Colors.white.withAlpha(170),
+                          color: _warmCream.withAlpha(185),
                           fontSize: 12 * widget.scale,
                           fontWeight: FontWeight.w500,
                           fontFamily: 'DM Sans',
@@ -128,18 +137,33 @@ class _AppBottomNavState extends State<AppBottomNav> {
                           topY: topY,
                           notchDepth: notchDepth,
                         ),
-                        child: Container(color: _navBlue),
+                        child: Container(color: _navGreen),
                       ),
                     ),
                   ),
 
                   // unselected items
                   if (widget.selectedTab != 0)
-                    navItem(cx: homeCX, icon: Icons.home_rounded, label: 'Home', onTap: widget.onHome),
+                    navItem(
+                      cx: homeCX,
+                      icon: Icons.home_rounded,
+                      label: 'Home',
+                      onTap: widget.onHome,
+                    ),
                   if (widget.selectedTab != 1)
-                    navItem(cx: streakCX, icon: Icons.grid_view_rounded, label: 'Streak', onTap: widget.onStreak),
+                    navItem(
+                      cx: streakCX,
+                      icon: Icons.grid_view_rounded,
+                      label: 'Streak',
+                      onTap: widget.onStreak,
+                    ),
                   if (widget.selectedTab != 2)
-                    navItem(cx: historyCX, icon: Icons.history_rounded, label: 'History', onTap: widget.onHistory),
+                    navItem(
+                      cx: historyCX,
+                      icon: Icons.history_rounded,
+                      label: 'History',
+                      onTap: widget.onHistory,
+                    ),
 
                   // selected floating bubble (animated via cx)
                   Positioned(
@@ -158,25 +182,30 @@ class _AppBottomNavState extends State<AppBottomNav> {
                             width: bubbleDia,
                             height: bubbleDia,
                             decoration: BoxDecoration(
-                              color: _navBlue,
+                              color: _activeOrange,
                               shape: BoxShape.circle,
                               boxShadow: [
                                 BoxShadow(
-                                  color: const Color(0xFF000000).withAlpha(70),
-                                  blurRadius: 10,
-                                  offset: const Offset(0, 3),
+                                  color: _activeOrange.withAlpha(90),
+                                  blurRadius: 14,
+                                  spreadRadius: 1,
+                                  offset: const Offset(0, 4),
                                 ),
                               ],
                             ),
-                            child: Icon(selectedIcon(), color: _yellow, size: 30 * widget.scale),
+                            child: Icon(
+                              selectedIcon(),
+                              color: _warmCream,
+                              size: 30 * widget.scale,
+                            ),
                           ),
                           SizedBox(height: 10 * widget.scale),
                           Text(
                             selectedLabel(),
                             style: TextStyle(
-                              color: Colors.white,
+                              color: _warmCream,
                               fontSize: 12 * widget.scale,
-                              fontWeight: FontWeight.w500,
+                              fontWeight: FontWeight.w700,
                               fontFamily: 'DM Sans',
                             ),
                           ),
@@ -196,17 +225,25 @@ class _AppBottomNavState extends State<AppBottomNav> {
                         width: plusDia,
                         height: plusDia,
                         decoration: BoxDecoration(
-                          color: _yellow,
+                          color: _warmCream,
                           shape: BoxShape.circle,
+                          border: Border.all(
+                            color: _activeOrange,
+                            width: 4 * widget.scale,
+                          ),
                           boxShadow: [
                             BoxShadow(
-                              color: const Color(0xFF000000).withAlpha(45),
-                              blurRadius: 10,
-                              offset: const Offset(0, 3),
+                              color: _deepInk.withAlpha(55),
+                              blurRadius: 12,
+                              offset: const Offset(0, 4),
                             ),
                           ],
                         ),
-                        child: Icon(Icons.add_rounded, size: 34 * widget.scale, color: _ink),
+                        child: Icon(
+                          Icons.add_rounded,
+                          size: 34 * widget.scale,
+                          color: _activeOrange,
+                        ),
                       ),
                     ),
                   ),

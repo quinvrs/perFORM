@@ -32,7 +32,7 @@ class _HomeScreenState extends State<HomeScreen> {
     final navPad = (130 * s) + bottomInset;
 
     return Scaffold(
-      backgroundColor: Colors.white,
+      backgroundColor: const Color(0xFFFFF4DE),
       body: SafeArea(
         top: true,
         bottom: false,
@@ -88,33 +88,33 @@ class _HomeTab extends StatelessWidget {
   final double scale;
   final double navPad;
 
-  static const _ink = Color(0xFF051328);
-  static const _muted = Color(0xFF797B7F);
+  static const _ink = Color(0xFF102A08);
+  static const _muted = Color(0xFF697044);
 
   // streak heat accent (your earlier idea)
   Color _getStreakAccent(int streak) {
     if (streak <= 0) return _muted;
-    if (streak == 1) return const Color(0xFFFBC02D);
-    if (streak == 2) return const Color(0xFFFFA000);
-    if (streak == 3) return const Color(0xFFF57C00);
-    if (streak == 4) return const Color(0xFFE64A19);
-    return const Color(0xFFD32F2F);
+    if (streak == 1) return const Color(0xFFFF6A00);
+    if (streak == 2) return const Color(0xFFFF8A18);
+    if (streak == 3) return const Color(0xFFFF5B0A);
+    if (streak == 4) return const Color(0xFFF04412);
+    return const Color(0xFFE8260D);
   }
 
   Color _getStreakBg(int streak) {
-    if (streak <= 0) return Colors.white;
-    if (streak == 1) return const Color(0xFFFFFDE7);
-    if (streak == 2) return const Color(0xFFFFF8E1);
-    if (streak == 3) return const Color(0xFFFFF3E0);
-    if (streak == 4) return const Color(0xFFFBE9E7);
-    return const Color(0xFFFFEBEE);
+    if (streak <= 0) return const Color(0xFFFFF4DE);
+    if (streak == 1) return const Color(0xFFEFFFBE);
+    if (streak == 2) return const Color(0xFFFFE6B8);
+    if (streak == 3) return const Color(0xFFFFD0A0);
+    if (streak == 4) return const Color(0xFFFFCCBC);
+    return const Color(0xFFFFB8A0);
   }
 
   static Color _formTint(int score) {
-    if (score <= 0) return const Color(0xFF6B7280); // gray
-    if (score < 40) return const Color(0xFFDC2626); // red
-    if (score < 80) return const Color(0xFFF97316); // orange
-    return const Color(0xFF16A34A); // green
+    if (score <= 0) return const Color(0xFF697044); // gray
+    if (score < 40) return const Color(0xFFE8260D); // red
+    if (score < 80) return const Color(0xFFFF8A18); // orange
+    return const Color(0xFF6F991F); // green
   }
 
   static int _nextMilestone(int streak) {
@@ -156,7 +156,7 @@ class _HomeTab extends StatelessWidget {
           'You haven’t checked out the app\nrecently. Do some workouts.';
       statusIconWidget = _StatusIcon(
         scale: scale,
-        color: const Color(0xFFFFF9C4),
+        color: const Color(0xFFDFFF7A),
         child: Text(
           '!',
           style: TextStyle(
@@ -170,33 +170,33 @@ class _HomeTab extends StatelessWidget {
       statusMsg = 'Off to a great start!\nKeep the momentum going.';
       statusIconWidget = _StatusIcon(
         scale: scale,
-        color: const Color(0xFFDBFCE7),
+        color: const Color(0xFFDAFF9D),
         child: Icon(
           Icons.thumb_up_rounded,
           size: 12 * scale,
-          color: const Color(0xFF15803D),
+          color: const Color(0xFF536B1C),
         ),
       );
     } else if (streak == 2) {
       statusMsg = 'Two days in a row!\nYou are building a habit.';
       statusIconWidget = _StatusIcon(
         scale: scale,
-        color: const Color(0xFFE0F2FE),
+        color: const Color(0xFFFFC56A),
         child: Icon(
           Icons.trending_up_rounded,
           size: 14 * scale,
-          color: const Color(0xFF0369A1),
+          color: const Color(0xFFE8260D),
         ),
       );
     } else {
       statusMsg = 'You are on fire!\nKeep that streak alive.';
       statusIconWidget = _StatusIcon(
         scale: scale,
-        color: const Color(0xFFFFE0B2),
+        color: const Color(0xFFFFC56A),
         child: Icon(
           Icons.local_fire_department_rounded,
           size: 14 * scale,
-          color: const Color(0xFFE65100),
+          color: const Color(0xFFE8260D),
         ),
       );
     }
@@ -384,7 +384,7 @@ class _HomeTab extends StatelessWidget {
                                   valueColor: AlwaysStoppedAnimation<Color>(
                                     isActive
                                         ? accentColor
-                                        : const Color(0xFFBFC4CC),
+                                        : const Color(0xFFC8D77F),
                                   ),
                                 ),
                               ),
@@ -414,7 +414,7 @@ class _HomeTab extends StatelessWidget {
                         decoration: BoxDecoration(
                           color: isActive
                               ? accentColor.withValues(alpha: 0.14)
-                              : const Color(0xFFF2F4F7),
+                              : const Color(0xFFFFF4DE),
                           shape: BoxShape.circle,
                           boxShadow: [
                             BoxShadow(
@@ -428,7 +428,7 @@ class _HomeTab extends StatelessWidget {
                           Icons.local_fire_department_rounded,
                           color: isActive
                               ? accentColor
-                              : const Color(0xFFBFC4CC),
+                              : const Color(0xFFC8D77F),
                           size: 34 * scale,
                         ),
                       ),
@@ -477,7 +477,7 @@ class _HomeTab extends StatelessWidget {
                 title: 'Weekly\nSessions',
                 value: '$weekly',
                 suffix: 'sessions',
-                tint: const Color(0xFF537892),
+                tint: const Color(0xFFE8260D),
               ),
               SizedBox(width: 12 * scale),
               _ProgressMetricCard(
@@ -486,7 +486,7 @@ class _HomeTab extends StatelessWidget {
                 title: 'Avg. Reps/\nSession',
                 value: '$avgReps',
                 suffix: 'reps',
-                tint: const Color(0xFFECC051),
+                tint: const Color(0xFFFF6A00),
               ),
             ],
           ),
@@ -533,8 +533,8 @@ class _StreakTab extends StatefulWidget {
 }
 
 class _StreakTabState extends State<_StreakTab> {
-  static const _ink = Color(0xFF051328);
-  static const _gold = Color(0xFFECC051);
+  static const _ink = Color(0xFF102A08);
+  static const _gold = Color(0xFFFF6A00);
 
   late DateTime _focusedDate;
 
@@ -545,9 +545,9 @@ class _StreakTabState extends State<_StreakTab> {
   }
 
   Color _getDailyColor(int count) {
-    if (count <= 0) return const Color(0xFFEDEFF3);
-    const Color startColor = Color.fromARGB(255, 79, 185, 83);
-    const Color endColor = Color.fromARGB(255, 20, 93, 25);
+    if (count <= 0) return const Color(0xFFFFE8C8);
+    const Color startColor = Color.fromARGB(255, 201, 239, 99);
+    const Color endColor = Color.fromARGB(255, 83, 107, 28);
     const int maxSaturatedCount = 10;
     double t = ((count - 1) / (maxSaturatedCount - 1)).clamp(0.0, 1.0);
     return Color.lerp(startColor, endColor, t)!;
@@ -639,7 +639,7 @@ class _StreakTabState extends State<_StreakTab> {
                 title: 'Weekly\nSessions',
                 value: '$weekly',
                 suffix: 'sessions',
-                tint: const Color(0xFF537892),
+                tint: const Color(0xFFE8260D),
               ),
             ],
           ),
@@ -648,7 +648,7 @@ class _StreakTabState extends State<_StreakTab> {
           Container(
             padding: EdgeInsets.all(16 * widget.scale),
             decoration: BoxDecoration(
-              color: Colors.white,
+              color: const Color(0xFFFFF8EA),
               borderRadius: BorderRadius.circular(10 * widget.scale),
               boxShadow: [
                 BoxShadow(
@@ -684,7 +684,7 @@ class _StreakTabState extends State<_StreakTab> {
                     Text(
                       '${_monthName(month)} $year',
                       style: TextStyle(
-                        color: Colors.black,
+                        color: const Color(0xFF102A08),
                         fontSize: 16 * widget.scale,
                         fontWeight: FontWeight.w800,
                       ),
@@ -719,7 +719,7 @@ class _StreakTabState extends State<_StreakTab> {
                             child: Text(
                               t,
                               style: TextStyle(
-                                color: Color(0xFF797B7F),
+                                color: Color(0xFF697044),
                                 fontSize: 12,
                                 fontWeight: FontWeight.w600,
                               ),
@@ -762,13 +762,13 @@ class _StreakTabState extends State<_StreakTab> {
                     Color fg;
 
                     if (isFuture) {
-                      bg = Colors.white;
-                      fg = const Color(0xFFE0E0E0);
+                      bg = const Color(0xFFFFF4DE);
+                      fg = const Color(0xFFDDE7B3);
                     } else {
                       bg = _getDailyColor(workoutCount);
                       fg = workoutCount > 0
                           ? Colors.white
-                          : const Color(0xFF797B7F);
+                          : const Color(0xFF697044);
                     }
 
                     final isToday =
@@ -836,7 +836,7 @@ class _MetricCard extends StatelessWidget {
   final String? suffix;
   final Color tint;
 
-  static const _ink = Color(0xFF051328);
+  static const _ink = Color(0xFF102A08);
 
   @override
   Widget build(BuildContext context) {
@@ -916,13 +916,13 @@ class _HistoryTab extends StatelessWidget {
   const _HistoryTab({required this.scale, required this.navPad});
   final double scale, navPad;
 
-  static const _ink = Color(0xFF051328);
+  static const _ink = Color(0xFF102A08);
 
   static Color _formTint(int score) {
-    if (score <= 0) return const Color(0xFF6B7280); // gray
-    if (score < 40) return const Color(0xFFDC2626); // red
-    if (score < 80) return const Color(0xFFF97316); // orange
-    return const Color(0xFF16A34A); // green
+    if (score <= 0) return const Color(0xFF697044); // gray
+    if (score < 40) return const Color(0xFFE8260D); // red
+    if (score < 80) return const Color(0xFFFF8A18); // orange
+    return const Color(0xFF6F991F); // green
   }
 
   @override
@@ -1005,7 +1005,7 @@ class _HistoryTab extends StatelessWidget {
               Expanded(
                 child: _HistoryStatCard(
                   scale: scale,
-                  accent: const Color(0xFF537892),
+                  accent: const Color(0xFFE8260D),
                   icon: Icons.timer_outlined, // Changed Icon to Timer
                   title: 'Total\nDuration', // Changed Title
                   value: durationText, // Changed Value
@@ -1065,7 +1065,7 @@ class _ProgressMetricCard extends StatelessWidget {
   final Color tint;
   final double? height;
 
-  static const _ink = Color(0xFF051328);
+  static const _ink = Color(0xFF102A08);
 
   @override
   Widget build(BuildContext context) {
@@ -1240,7 +1240,7 @@ class _WorkoutCard extends StatelessWidget {
       width: double.infinity,
       padding: EdgeInsets.all(14 * scale),
       decoration: BoxDecoration(
-        color: Colors.white,
+        color: const Color(0xFFFFF8EA),
         borderRadius: BorderRadius.circular(10 * scale),
         boxShadow: [
           BoxShadow(
@@ -1260,7 +1260,7 @@ class _WorkoutCard extends StatelessWidget {
                 style: TextStyle(
                   fontSize: 18 * scale,
                   fontWeight: FontWeight.w900,
-                  color: Colors.black,
+                  color: const Color(0xFF102A08),
                 ),
               ),
               const Spacer(),
@@ -1288,7 +1288,7 @@ class _WorkoutCard extends StatelessWidget {
           Text(
             '${date.month}/${date.day}/${date.year}',
             style: TextStyle(
-              color: const Color(0xFF797B7F),
+              color: const Color(0xFF697044),
               fontSize: 10 * scale,
             ),
           ),
@@ -1330,14 +1330,14 @@ class _MiniStat extends StatelessWidget {
           style: TextStyle(
             fontSize: 20 * scale,
             fontWeight: FontWeight.w600,
-            color: const Color(0xFF051328),
+            color: const Color(0xFF102A08),
           ),
         ),
         Text(
           label,
           style: TextStyle(
             fontSize: 10 * scale,
-            color: const Color(0xFF797B7F),
+            color: const Color(0xFF697044),
           ),
         ),
       ],
@@ -1369,7 +1369,7 @@ class _ProfileAvatar extends StatelessWidget {
       child: img == null
           ? Icon(
               Icons.person_rounded,
-              color: const Color(0xFF051328),
+              color: const Color(0xFF102A08),
               size: 22 * scale,
             )
           : null,

@@ -28,7 +28,7 @@ class SetupModeScreen extends StatefulWidget {
 }
 
 class _SetupModeScreenState extends State<SetupModeScreen> {
-  static const _bgDark = Color.fromARGB(255, 18, 32, 47);
+  static const _bgDark = Color.fromARGB(255, 8, 31, 3);
 
   bool _isNavigating = false;
   bool _setupCountdownLocked = false;
@@ -523,7 +523,7 @@ class _SetupModeScreenState extends State<SetupModeScreen> {
             Positioned.fill(
               child: _error != null
                   ? Container(
-                      color: const Color(0xFF0F1A28),
+                      color: const Color(0xFF081F03),
                       alignment: Alignment.center,
                       padding: EdgeInsets.all(18 * s),
                       child: Text(
@@ -534,7 +534,7 @@ class _SetupModeScreenState extends State<SetupModeScreen> {
                     )
                   : (_initFuture == null || _controller == null)
                       ? Container(
-                          color: const Color(0xFF0F1A28),
+                          color: const Color(0xFF081F03),
                           alignment: Alignment.center,
                           child: const CircularProgressIndicator(),
                         )
@@ -744,8 +744,8 @@ class _ChecklistCard extends StatelessWidget {
                               height: 28 * s,
                               decoration: BoxDecoration(
                                 color: it.ok
-                                    ? const Color(0xFF00C951)
-                                    : const Color(0xFFE53935),
+                                    ? const Color(0xFF84B423)
+                                    : const Color(0xFFE8260D),
                                 shape: BoxShape.circle,
                               ),
                               child: Icon(
