@@ -1,4 +1,5 @@
 import 'dart:math' as math;
+import 'dart:ui' as ui;
 
 import 'package:flutter/material.dart';
 import '../app_state.dart';
@@ -14,7 +15,7 @@ class _WelcomeFlowScreenState extends State<WelcomeFlowScreen>
     with SingleTickerProviderStateMixin {
   int _i = 0;
 
-  static const double _finalIconY = -0.30;
+  static const double _finalGroupY = -0.10;
 
   static const _frames =
       <({Alignment align, double scale, double bgOpacity, double uiOpacity})>[
@@ -43,7 +44,7 @@ class _WelcomeFlowScreenState extends State<WelcomeFlowScreen>
       uiOpacity: 0.0,
     ),
     (
-      align: Alignment(0.0, _finalIconY),
+      align: Alignment(0.0, _finalGroupY),
       scale: 1.0,
       bgOpacity: 1.0,
       uiOpacity: 1.0,
@@ -112,40 +113,29 @@ class _WelcomeFlowScreenState extends State<WelcomeFlowScreen>
 
     final mq = MediaQuery.of(context);
     final size = mq.size;
-    final s = (size.shortestSide / 375.0).clamp(0.90, 1.10);
-
-    final logoW = (175 * s).clamp(140.0, 210.0);
-    final logoH = (201 * s).clamp(160.0, 240.0);
 
     return Scaffold(
-      backgroundColor: const Color(0xFFFFF4DE),
+      backgroundColor: const Color(0xFFFFF3DC),
       body: SafeArea(
         child: LayoutBuilder(
           builder: (context, c) {
             final h = c.maxHeight;
             final w = c.maxWidth;
 
-            final textLogoMaxW = (w * 0.58).clamp(200.0, 520.0);
-            final textLogoMaxH = (h * 0.12).clamp(50.0, 140.0);
-
-            final gapIconToText = (35 * s).clamp(30.0, 40.0);
-
-            final iconCenterY = (h / 2) * (f.align.y + 1.0);
-            final iconHalfH = (logoH * f.scale) / 2;
-
-            final textTop = (iconCenterY + iconHalfH + gapIconToText)
-                .clamp(0.0, h - 220);
+            // Balanced logo size.
+            final logoW = (w * 0.92).clamp(280.0, 420.0);
+            final logoH = (h * 0.24).clamp(120.0, 190.0);
 
             return SizedBox.expand(
               child: Stack(
                 children: [
                   const Positioned.fill(
                     child: ColoredBox(
-                      color: Color(0xFFFFF4DE),
+                      color: Color(0xFFFFF3DC),
                     ),
                   ),
 
-                  // Animated orange + green background.
+                  // Animated orange + green background matched to logo colors.
                   Positioned.fill(
                     child: AnimatedOpacity(
                       duration: const Duration(milliseconds: 250),
@@ -168,72 +158,73 @@ class _WelcomeFlowScreenState extends State<WelcomeFlowScreen>
                                       end: Alignment.bottomRight,
                                       colors: [
                                         Color(0xFFFFF3DC),
-                                        Color(0xFFFFD79A),
-                                        Color(0xFFE8F2B1),
+                                        Color(0xFFFFB15A),
+                                        Color(0xFFEAF0AF),
+                                        Color(0xFF637A22),
                                       ],
-                                      stops: [0.0, 0.52, 1.0],
+                                      stops: [0.0, 0.43, 0.72, 1.0],
                                     ),
                                   ),
                                 ),
                               ),
 
-                              // Moving orange area.
+                              // Main logo-orange glow.
                               Positioned(
-                                left: -w * 0.34 + (w * 0.18 * wave),
-                                top: -h * 0.10 + (h * 0.08 * wave2),
+                                left: -w * 0.38 + (w * 0.17 * wave),
+                                top: -h * 0.12 + (h * 0.08 * wave2),
                                 child: _MovingGlow(
-                                  size: w * 1.08,
+                                  size: w * 1.12,
                                   colors: const [
-                                    Color(0xFFFF5A00),
-                                    Color(0xFFFF9C32),
+                                    Color(0xFFFF6A00),
+                                    Color(0xFFFF9B2F),
                                   ],
-                                  opacity: 0.90,
+                                  opacity: 0.88,
                                 ),
                               ),
 
-                              // Second orange area.
+                              // Warm orange lower glow.
                               Positioned(
-                                right: -w * 0.48 + (w * 0.14 * wave2),
-                                bottom: -h * 0.26 + (h * 0.08 * wave),
+                                right: -w * 0.50 + (w * 0.13 * wave2),
+                                bottom: -h * 0.29 + (h * 0.08 * wave),
                                 child: _MovingGlow(
-                                  size: w * 1.18,
+                                  size: w * 1.20,
                                   colors: const [
                                     Color(0xFFFF7A00),
-                                    Color(0xFFFFB84D),
+                                    Color(0xFFFFBA56),
                                   ],
-                                  opacity: 0.82,
+                                  opacity: 0.78,
                                 ),
                               ),
 
-                              // Visible lime green accent.
+                              // Logo-green upper accent.
                               Positioned(
-                                right: -w * 0.18 + (w * 0.10 * wave),
-                                top: h * 0.06 + (h * 0.06 * wave2),
+                                right: -w * 0.22 + (w * 0.09 * wave),
+                                top: h * 0.08 + (h * 0.05 * wave2),
                                 child: _MovingGlow(
-                                  size: w * 0.72,
+                                  size: w * 0.78,
                                   colors: const [
-                                    Color(0xFFDFFF7A),
-                                    Color(0xFFA9C93B),
+                                    Color(0xFFDCEB63),
+                                    Color(0xFF6E8527),
                                   ],
-                                  opacity: 0.72,
+                                  opacity: 0.70,
                                 ),
                               ),
 
-                              // Visible olive-green accent.
+                              // Deep green lower accent.
                               Positioned(
-                                left: -w * 0.30 + (w * 0.08 * wave2),
-                                bottom: -h * 0.12 + (h * 0.05 * wave),
+                                left: -w * 0.34 + (w * 0.08 * wave2),
+                                bottom: -h * 0.17 + (h * 0.05 * wave),
                                 child: _MovingGlow(
-                                  size: w * 0.90,
+                                  size: w * 0.95,
                                   colors: const [
                                     Color(0xFF6D8524),
-                                    Color(0xFF536B1C),
+                                    Color(0xFF173A12),
                                   ],
-                                  opacity: 0.58,
+                                  opacity: 0.62,
                                 ),
                               ),
 
-                              // Green moving ribbon through the middle.
+                              // Lowered moving wave.
                               Positioned.fill(
                                 child: IgnorePointer(
                                   child: CustomPaint(
@@ -250,7 +241,7 @@ class _WelcomeFlowScreenState extends State<WelcomeFlowScreen>
                     ),
                   ),
 
-                  // Animated logo.
+                  // Bigger animated logo only.
                   AnimatedAlign(
                     duration: _bounce,
                     curve: Curves.bounceOut,
@@ -262,60 +253,9 @@ class _WelcomeFlowScreenState extends State<WelcomeFlowScreen>
                       child: SizedBox(
                         width: logoW,
                         height: logoH,
-                        child: Image.asset(
-                          'assets/corerect-transparent-1.png',
-                          fit: BoxFit.contain,
+                        child: const _GlowingAssetLogo(
+                          asset: 'assets/perform-text-logo.png',
                         ),
-                      ),
-                    ),
-                  ),
-
-                  // WELCOME TO + text-logo image.
-                  Positioned(
-                    top: textTop,
-                    left: 0,
-                    right: 0,
-                    child: AnimatedOpacity(
-                      duration: const Duration(milliseconds: 300),
-                      opacity: f.uiOpacity,
-                      child: Column(
-                        mainAxisSize: MainAxisSize.min,
-                        children: [
-                          Text(
-                            'WELCOME TO',
-                            textAlign: TextAlign.center,
-                            style: TextStyle(
-                              height: 1.1,
-                              color: const Color(0xFF173A12),
-                              fontSize: 20 * s,
-                              fontWeight: FontWeight.w700,
-                              fontFamily: 'DM Sans',
-                              letterSpacing: 0.7,
-                            ),
-                          ),
-                          SizedBox(
-                            height: (6 * s).clamp(4.0, 10.0),
-                          ),
-                          ConstrainedBox(
-                            constraints: BoxConstraints(
-                              maxWidth: textLogoMaxW,
-                              maxHeight: textLogoMaxH,
-                            ),
-                            child: FittedBox(
-                              fit: BoxFit.contain,
-                              child: ClipRect(
-                                child: Align(
-                                  alignment: Alignment.center,
-                                  widthFactor: 0.61,
-                                  heightFactor: 0.57,
-                                  child: Image.asset(
-                                    'assets/corerect-text-logo.png',
-                                  ),
-                                ),
-                              ),
-                            ),
-                          ),
-                        ],
                       ),
                     ),
                   ),
@@ -325,6 +265,66 @@ class _WelcomeFlowScreenState extends State<WelcomeFlowScreen>
           },
         ),
       ),
+    );
+  }
+}
+
+class _GlowingAssetLogo extends StatelessWidget {
+  const _GlowingAssetLogo({
+    required this.asset,
+  });
+
+  final String asset;
+
+  @override
+  Widget build(BuildContext context) {
+    return Stack(
+      fit: StackFit.expand,
+      clipBehavior: Clip.none,
+      alignment: Alignment.center,
+      children: [
+        Transform.scale(
+          scale: 1.07,
+          child: ImageFiltered(
+            imageFilter: ui.ImageFilter.blur(
+              sigmaX: 16,
+              sigmaY: 16,
+            ),
+            child: Opacity(
+              opacity: 0.45,
+              child: Image.asset(
+                asset,
+                fit: BoxFit.contain,
+                alignment: Alignment.center,
+              ),
+            ),
+          ),
+        ),
+
+        Transform.translate(
+          offset: const Offset(0, 4),
+          child: ImageFiltered(
+            imageFilter: ui.ImageFilter.blur(
+              sigmaX: 8,
+              sigmaY: 8,
+            ),
+            child: Opacity(
+              opacity: 0.30,
+              child: Image.asset(
+                asset,
+                fit: BoxFit.contain,
+                alignment: Alignment.center,
+              ),
+            ),
+          ),
+        ),
+
+        Image.asset(
+          asset,
+          fit: BoxFit.contain,
+          alignment: Alignment.center,
+        ),
+      ],
     );
   }
 }
@@ -377,40 +377,44 @@ class _GreenRibbonPainter extends CustomPainter {
     final shift = math.sin(progress * math.pi * 2) * size.width * 0.08;
     final lift = math.cos(progress * math.pi * 2) * size.height * 0.025;
 
+    // Increase this to move the wave lower.
+    // Lower value = wave goes higher.
+    final down = size.height * 0.13;
+
     final path = Path()
-      ..moveTo(-size.width * 0.25 + shift, size.height * 0.60 + lift)
+      ..moveTo(-size.width * 0.25 + shift, size.height * 0.60 + lift + down)
       ..cubicTo(
         size.width * 0.08 + shift,
-        size.height * 0.44 + lift,
+        size.height * 0.44 + lift + down,
         size.width * 0.36 + shift,
-        size.height * 0.72 + lift,
+        size.height * 0.72 + lift + down,
         size.width * 0.66 + shift,
-        size.height * 0.54 + lift,
+        size.height * 0.54 + lift + down,
       )
       ..cubicTo(
         size.width * 0.84 + shift,
-        size.height * 0.44 + lift,
+        size.height * 0.44 + lift + down,
         size.width * 1.02 + shift,
-        size.height * 0.48 + lift,
+        size.height * 0.48 + lift + down,
         size.width * 1.24 + shift,
-        size.height * 0.40 + lift,
+        size.height * 0.40 + lift + down,
       )
-      ..lineTo(size.width * 1.24 + shift, size.height * 0.51 + lift)
+      ..lineTo(size.width * 1.24 + shift, size.height * 0.51 + lift + down)
       ..cubicTo(
         size.width * 0.96 + shift,
-        size.height * 0.58 + lift,
+        size.height * 0.58 + lift + down,
         size.width * 0.80 + shift,
-        size.height * 0.58 + lift,
+        size.height * 0.58 + lift + down,
         size.width * 0.62 + shift,
-        size.height * 0.68 + lift,
+        size.height * 0.68 + lift + down,
       )
       ..cubicTo(
         size.width * 0.34 + shift,
-        size.height * 0.82 + lift,
+        size.height * 0.82 + lift + down,
         size.width * 0.02 + shift,
-        size.height * 0.56 + lift,
+        size.height * 0.56 + lift + down,
         -size.width * 0.25 + shift,
-        size.height * 0.72 + lift,
+        size.height * 0.72 + lift + down,
       )
       ..close();
 
@@ -419,8 +423,8 @@ class _GreenRibbonPainter extends CustomPainter {
         begin: Alignment.centerLeft,
         end: Alignment.centerRight,
         colors: [
-          Color(0xAA536B1C),
-          Color(0xBBDFFF7A),
+          Color(0xAA173A12),
+          Color(0xBBDCEB63),
           Color(0x996D8524),
         ],
       ).createShader(

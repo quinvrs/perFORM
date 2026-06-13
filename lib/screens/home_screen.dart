@@ -238,7 +238,7 @@ class _HomeTab extends StatelessWidget {
               crossAxisAlignment: CrossAxisAlignment.center,
               children: [
                 Image.asset(
-                  'assets/corerect-transparent.png',
+                  'assets/perform-transparent.png',
                   height: 44 * scale,
                   fit: BoxFit.contain,
                 ),

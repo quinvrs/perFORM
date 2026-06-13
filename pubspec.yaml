@@ -41,13 +41,12 @@ flutter:
   uses-material-design: true
 
   assets:
-    - assets/corerect-transparent-1.png
-    - assets/corerect-transparent.png
+    - assets/perform-transparent.png
     - assets/male-avatar.png
     - assets/female-avatar.png
     - assets/squat-avatar.png
     - assets/jumping-jack-avatar.png
     - assets/squat.mp4
     - assets/jumpingjacks.mp4
-    - assets/corerect-text-logo.png
+    - assets/perform-text-logo.png
 
