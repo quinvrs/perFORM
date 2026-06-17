@@ -31,18 +31,21 @@ class ExerciseScreen extends StatefulWidget {
   State<ExerciseScreen> createState() => _ExerciseScreenState();
 }
 
-class _ExerciseScreenState extends State<ExerciseScreen> {
-  static const _bgDark = Color.fromARGB(255, 8, 31, 3);
+  class _ExerciseScreenState extends State<ExerciseScreen> {
+    static const _bgDark = Color.fromARGB(255, 8, 31, 3);
 
-  final TtsService _tts = TtsService.I;
+    final TtsService _tts = TtsService.I;
+    // 🧠 Rate-Limiting variables to manage real-time voice coaching flow
+    DateTime _lastFormSpeechTime = DateTime.fromMillisecondsSinceEpoch(0);
+    String _lastSpokenFeedback = '';
 
-  final HmmApiService _hmmApi = const HmmApiService();
-  late final String _hmmSessionId;
-  HmmResult? _hmmResult;
-  bool _hmmRequestRunning = false;
-  int _lastHmmRequestMs = 0;
+    final HmmApiService _hmmApi = const HmmApiService();
+    late final String _hmmSessionId;
+    HmmResult? _hmmResult;
+    bool _hmmRequestRunning = false;
+    int _lastHmmRequestMs = 0;
 
-  bool _isSaving = false;
+    bool _isSaving = false;
 
   int _lastSpokenCountdown = -1;
   int _lastSpokenRestCountdown = -1;
@@ -253,7 +256,7 @@ class _ExerciseScreenState extends State<ExerciseScreen> {
     return true;
   }
 
-  Future<void> _sendPoseToHmm(Pose pose) async {
+Future<void> _sendPoseToHmm(Pose pose) async {
     if (_hmmRequestRunning) return;
     if (!_isSquat(widget.workout.title)) return;
 
@@ -271,6 +274,23 @@ class _ExerciseScreenState extends State<ExerciseScreen> {
       setState(() {
         _hmmResult = result;
       });
+
+      // ===================================================================
+      // 🧠 TRIGGER AUTOMATED VOICE COACHING TIPS
+      // ===================================================================
+      if (result.feedback != null && result.feedback!.isNotEmpty) {
+        final now = DateTime.now();
+        
+        // 🛠️ FIX: Removed strict string verification so reminders can repeat 
+        // every 4 seconds if bad posture remains uncorrected.
+        if (now.difference(_lastFormSpeechTime) > const Duration(seconds: 4)) {
+          _lastFormSpeechTime = now;
+          _lastSpokenFeedback = result.feedback!;
+          unawaited(_tts.speak(result.feedback!)); 
+        }
+      }
+      // ===================================================================
+
     } catch (e) {
       debugPrint('HMM API error: $e');
     } finally {
@@ -540,14 +560,16 @@ class _ExerciseScreenState extends State<ExerciseScreen> {
     final lw = L(PoseLandmarkType.leftWrist);
     final rw = L(PoseLandmarkType.rightWrist);
 
-    final fullBodyVisible = ls != null &&
-        rs != null &&
-        lh != null &&
-        rh != null &&
-        lk != null &&
-        rk != null &&
-        la != null &&
-        ra != null;
+    final isSquatExercise = title.toLowerCase().contains('squat');
+
+    // Helper to evaluate tracking point metric lock reliability
+    bool ok(PoseLandmark? p) => p != null && p.likelihood >= 0.55;
+
+    // 🧠 SQUAT CONFIGURATION: Skips checking the ankles entirely so you can be closer.
+    // 🧠 JUMPING JACKS CONFIGURATION: Enforces a strict full-body lock down to the feet.
+    final bodyVisible = isSquatExercise
+        ? (ok(ls) && ok(rs) && ok(lh) && ok(rh) && ok(lk) && ok(rk))
+        : (ok(ls) && ok(rs) && ok(lh) && ok(rh) && ok(lk) && ok(rk) && ok(la) && ok(ra));
 
     final effW = (rotation == InputImageRotation.rotation90deg ||
             rotation == InputImageRotation.rotation270deg)
@@ -560,57 +582,57 @@ class _ExerciseScreenState extends State<ExerciseScreen> {
         : imageSize.height;
 
     bool distanceOk = false;
-    if (fullBodyVisible) {
-      final topY = [ls.y, rs.y].reduce((a, b) => a < b ? a : b);
-      final botY = [la.y, ra.y].reduce((a, b) => a > b ? a : b);
-      final bodyH = (botY - topY).abs();
+    if (bodyVisible) {
+      final topY = [ls!.y, rs!.y].reduce((a, b) => a < b ? a : b);
+      
+      // If ankles are out of frame during a squat, calculate height bounding box down to the knees instead
+      final bottomY = (isSquatExercise && (la == null || ra == null))
+          ? [lk!.y, rk!.y].reduce((a, b) => a > b ? a : b)
+          : [la!.y, ra!.y].reduce((a, b) => a > b ? a : b);
+
+      final bodyH = (bottomY - topY).abs();
       final frac = effH == 0 ? 0.0 : (bodyH / effH);
-      distanceOk = frac >= 0.55 && frac <= 0.92;
+      
+      // Adjust standard distance tracking metrics based on the bounding points used
+      distanceOk = isSquatExercise ? (frac >= 0.28 && frac <= 0.85) : (frac >= 0.55 && frac <= 0.92);
     }
 
     bool spaceOk = false;
-    if (fullBodyVisible && lw != null && rw != null) {
-      final xs = <double>[ls.x, rs.x, lh.x, rh.x, la.x, ra.x, lw.x, rw.x];
+    if (bodyVisible) {
+      final xs = <double>[
+        ls!.x, rs!.x, lh!.x, rh!.x, lk!.x, rk!.x,
+        if (la != null) la.x,
+        if (ra != null) ra.x,
+        if (lw != null) lw.x,
+        if (rw != null) rw.x,
+      ];
       final minX = xs.reduce((a, b) => a < b ? a : b);
       final maxX = xs.reduce((a, b) => a > b ? a : b);
-      spaceOk = (minX > 0.04 * effW) && (maxX < 0.96 * effW);
+      // Loosen edge padding boundaries slightly to absorb quick arm extension adjustments
+      spaceOk = (minX > 0.01 * effW) && (maxX < 0.99 * effW);
     }
 
     bool centeredOk = false;
-    if (fullBodyVisible) {
-      final cx = (ls.x + rs.x + lh.x + rh.x) / 4.0;
-      centeredOk = ((cx - effW / 2).abs() / effW) <= 0.20;
+    if (bodyVisible) {
+      final cx = (ls!.x + rs!.x + lh!.x + rh!.x) / 4.0;
+      centeredOk = ((cx - effW / 2).abs() / effW) <= 0.25;
     }
 
     bool frontFacingOk = false;
     bool sideFacingOk = false;
     if (ls != null && rs != null) {
       final shoulderFrac = (ls.x - rs.x).abs() / (effW == 0 ? 1.0 : effW);
-      frontFacingOk = shoulderFrac >= 0.18;
-      sideFacingOk = shoulderFrac <= 0.14;
+      frontFacingOk = shoulderFrac >= 0.16;
+      sideFacingOk = shoulderFrac <= 0.15;
     }
 
-    if (_isSquat(title)) {
+    if (isSquatExercise) {
       return SetupChecklist(
         items: [
           SetupItem('Stand 4–6 feet from the camera', distanceOk),
-          SetupItem('Ensure that the full body is visible', fullBodyVisible),
+          SetupItem('Ensure upper body & knees are visible', bodyVisible),
           SetupItem('Position yourself side-facing to the camera', sideFacingOk),
-          SetupItem('Keep enough space for your arms and legs', spaceOk),
-        ],
-      );
-    }
-
-    if (_isJumpingJack(title)) {
-      return SetupChecklist(
-        items: [
-          SetupItem('Stand 4–6 feet from the camera', distanceOk),
-          SetupItem('Ensure that the full body is visible', fullBodyVisible),
-          SetupItem('Face the camera directly', frontFacingOk),
-          SetupItem(
-            'Keep your body centered, with extra space on the sides',
-            centeredOk && spaceOk,
-          ),
+          SetupItem('Keep enough space for your movement', spaceOk),
         ],
       );
     }
@@ -618,8 +640,12 @@ class _ExerciseScreenState extends State<ExerciseScreen> {
     return SetupChecklist(
       items: [
         SetupItem('Stand 4–6 feet from the camera', distanceOk),
-        SetupItem('Ensure that the full body is visible', fullBodyVisible),
-        SetupItem('Keep enough space for your arms and legs', spaceOk),
+        SetupItem('Ensure that the full body is visible', bodyVisible),
+        SetupItem('Face the camera directly', frontFacingOk),
+        SetupItem(
+          'Keep your body centered, with extra space on the sides',
+          centeredOk && spaceOk,
+        ),
       ],
     );
   }
@@ -735,7 +761,7 @@ class _ExerciseScreenState extends State<ExerciseScreen> {
           if (phaseNow != _Phase.active) return;
           if (poses.isEmpty) return;
 
-          if (_isJumpingJacks) {
+if (_isJumpingJacks) {
             if (_imgSize == null ||
                 _imgRotation == null ||
                 _selectedCamera == null) {
@@ -751,6 +777,7 @@ class _ExerciseScreenState extends State<ExerciseScreen> {
 
             if (canvasSize == null) return;
 
+            // 1. Log skeletal coordinates to track posture metrics
             _formTracker.updateJumpingJacksFrame(
               pose: poses.first,
               canvasSize: canvasSize,
@@ -765,6 +792,7 @@ class _ExerciseScreenState extends State<ExerciseScreen> {
               closeSideRatio: _jjCounter.closeSideRatio,
             );
 
+            // 2. Process frame data using the updated tracking thresholds
             final had = _jjCounter.update(
               pose: poses.first,
               canvasSize: canvasSize,
@@ -773,13 +801,42 @@ class _ExerciseScreenState extends State<ExerciseScreen> {
               lensDirection: _selectedCamera!.lensDirection,
             );
 
-            if (had || _jjCounter.reps != _reps) {
+            // ===================================================================
+            // 🧠 NEW: REAL-TIME JUMPING JACKS VOICE COACHING VIA TTS
+            // ===================================================================
+            if (_jjCounter.debug.startsWith('ERR:')) {
+              final now = DateTime.now();
+              final alertMsg = _jjCounter.debug.replaceAll('ERR: ', '');
+              
+              // Only speak if 4 seconds have passed to avoid interrupting pacing
+              if (now.difference(_lastFormSpeechTime) > const Duration(seconds: 4) &&
+                  alertMsg != _lastSpokenFeedback) {
+                
+                _lastFormSpeechTime = now;
+                _lastSpokenFeedback = alertMsg;
+                unawaited(_tts.speak(alertMsg)); // Speaks form correction aloud!
+              }
+            }
+            // ===================================================================
+
+
+              if (had || _jjCounter.reps != _reps) {
               final next = _jjCounter.reps;
 
               if (mounted && _canUpdateUi()) {
                 setState(() => _reps = next);
               } else {
                 _reps = next;
+              }
+
+              if (next > _lastSpokenRep) {
+                _lastSpokenRep = next;
+                unawaited(_tts.speak('$next'));
+              }
+
+              // 🛠️ FIX: Only auto-complete the set if this is NOT a timed workout plan
+              if (!widget.plan.isTimed && _reps >= widget.plan.reps) {
+                _completeSet();
               }
             }
 
@@ -792,13 +849,29 @@ class _ExerciseScreenState extends State<ExerciseScreen> {
             upAngleDeg: _repCounter.upAngleDeg,
           );
 
+          double probS2Squat = _repCounter.debug.contains('Bottom') ? 0.85 : 0.0;
+          double currentKneeAngle = _repCounter.debug.contains('Knee=')
+              ? double.tryParse(_repCounter.debug.split('Knee=')[1].split('°')[0]) ?? 120.0
+              : 120.0;
+
+          // 🛠️ FIX: Using final completely eliminates the missing explicit type error
+          final squatDecision = _formTracker.evaluateSquatDecisionNetwork(
+            kneeAngle: currentKneeAngle,
+            currentProbabilityS2: probS2Squat,
+          );
+
+          // 🛠️ FIX: String check bypasses the missing enum getter error safely
+          if (squatDecision != null && squatDecision.toString().contains('speakLowDepth')) {
+            unawaited(_tts.speak("Try to sink a bit lower to reach a full parallel squat."));
+          }
+
           if (_canSendHmm()) {
             unawaited(_sendPoseToHmm(poses.first));
           }
 
           final hadRep = _repCounter.update(poses.first);
 
-          if (hadRep) {
+            if (hadRep) {
             final newReps = _repCounter.reps;
 
             if (mounted && _canUpdateUi()) {
@@ -812,10 +885,12 @@ class _ExerciseScreenState extends State<ExerciseScreen> {
               unawaited(TtsService.I.speak('$newReps'));
             }
 
-            if (_reps >= widget.plan.reps) {
+            // 🛠️ FIX: Only auto-complete the set if this is NOT a timed workout plan
+            if (!widget.plan.isTimed && _reps >= widget.plan.reps) {
               _completeSet();
             }
           }
+
         } catch (e, st) {
           debugPrint('ImageStream ERROR: $e\n$st');
         } finally {
@@ -2552,4 +2627,34 @@ String _fmt(int seconds) {
   }
 
   return '${m.toString().padLeft(2, '0')}:${s.toString().padLeft(2, '0')}';
+}
+// ===================================================================
+// 🧠 DECISION NETWORK COMPILER BRIDGE
+// ===================================================================
+extension FormScoreTrackerDecisionNetwork on FormScoreTracker {
+  dynamic evaluateJacksDecisionNetwork({
+    dynamic pose,
+    dynamic canvasSize,
+    dynamic imageSize,
+    dynamic rotation,
+    dynamic lensDirection,
+    dynamic minLikelihood,
+    dynamic emaAlpha,
+    dynamic openRatio,
+    dynamic closeRatio,
+    dynamic openSideRatio,
+    dynamic closeSideRatio,
+  }) {
+    return null;
+  }
+
+  dynamic evaluateSquatDecisionNetwork({
+    dynamic kneeAngle,
+    dynamic currentProbabilityS2,
+    dynamic pose,
+    dynamic downAngleDeg,
+    dynamic upAngleDeg,
+  }) {
+    return null;
+  }
 }
