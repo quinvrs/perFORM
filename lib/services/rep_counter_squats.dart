@@ -35,13 +35,13 @@ class RepCounter {
   double? _baseHipY;
 
   RepCounter.squat({
-    this.downAngleDeg = 110,
-    this.upAngleDeg = 160,
-    this.confirmFrames = 2,
+    this.downAngleDeg = 100,
+    this.upAngleDeg = 165,
+    this.confirmFrames = 4,
     this.minRepInterval = const Duration(milliseconds: 450),
     this.minHipDropTorso = 0.14,
     this.hipBaseEmaAlpha = 0.15,
-    this.strictFeetOnRep = false,
+    this.strictFeetOnRep = true,
     this.strictFootMinLikelihood = 0.50,
     this.strictFeetLevelTolTorso = 0.12,
   }) : type = ExerciseType.squat;
@@ -129,7 +129,7 @@ class RepCounter {
             final reason = _strictFeetGate(pose, torsoH);
             if (reason != null) {
               debug += ' | blocked: $reason';
-              return false; 
+              return false;
             }
           }
 

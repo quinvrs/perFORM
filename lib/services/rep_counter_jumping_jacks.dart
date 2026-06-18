@@ -27,7 +27,7 @@ class JumpingJacksRepCounter {
     this.closeSideRatio = 0.28,
 
     this.graceMissingFrames = 6, // Widen grace window to counter high-velocity motion blur
-    this.minRepInterval = const Duration(milliseconds: 320),
+    this.minRepInterval = const Duration(milliseconds: 200),
   });
 
   int reps = 0;
