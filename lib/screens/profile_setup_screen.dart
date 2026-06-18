@@ -21,9 +21,9 @@ class _ProfileSetUpScreenState extends State<ProfileSetUpScreen> {
   bool _goalError = false;
   bool _activityError = false;
 
-  static const _ink = Color(0xFF051328);
-  static const _mutedBorder = Color(0x26051328);
-  static const _yellow = Color(0xFFFEF9C2);
+  static const _ink = Color(0xFF102A08);
+  static const _mutedBorder = Color(0x26102A08);
+  static const _yellow = Color(0xFFFF6A00);
 
   @override
   void dispose() {
@@ -83,7 +83,7 @@ class _ProfileSetUpScreenState extends State<ProfileSetUpScreen> {
           TextSpan(
             text: ' *',
             style: TextStyle(
-              color: Colors.red,
+              color: const Color(0xFFE8260D),
               fontSize: 18 * s,
               fontWeight: FontWeight.w800,
             ),
@@ -118,7 +118,7 @@ class _ProfileSetUpScreenState extends State<ProfileSetUpScreen> {
     final progress = 2 / 3;
 
     return Scaffold(
-      backgroundColor: Colors.white,
+      backgroundColor: const Color(0xFFFFF4DE),
       body: SafeArea(
         bottom: false,
         child: Stack(
@@ -204,7 +204,7 @@ class _ProfileSetUpScreenState extends State<ProfileSetUpScreen> {
                               fontFamily: 'DM Sans',
                             ),
                             filled: true,
-                            fillColor: Colors.white,
+                            fillColor: const Color(0xFFFFF4DE),
                             contentPadding: EdgeInsets.symmetric(horizontal: 14 * s, vertical: 14 * s),
                             border: OutlineInputBorder(
                               borderRadius: BorderRadius.circular(16 * s),
@@ -271,7 +271,7 @@ class _ProfileSetUpScreenState extends State<ProfileSetUpScreen> {
                         if (_goalError)
                           Padding(
                             padding: EdgeInsets.only(top: 6 * s),
-                            child: Text('Please select a goal.', style: TextStyle(color: Colors.red, fontSize: 12 * s)),
+                            child: Text('Please select a goal.', style: TextStyle(color: const Color(0xFFE8260D), fontSize: 12 * s)),
                           ),
                         SizedBox(height: 10 * s),
 
@@ -314,7 +314,7 @@ class _ProfileSetUpScreenState extends State<ProfileSetUpScreen> {
                         if (_activityError)
                           Padding(
                             padding: EdgeInsets.only(top: 6 * s),
-                            child: Text('Please select an activity level.', style: TextStyle(color: Colors.red, fontSize: 12 * s)),
+                            child: Text('Please select an activity level.', style: TextStyle(color: const Color(0xFFE8260D), fontSize: 12 * s)),
                           ),
                         SizedBox(height: 10 * s),
 
@@ -445,8 +445,8 @@ class _SliderBlock extends StatelessWidget {
   // clickable right value only
   final VoidCallback onValueTap;
 
-  static const _ink = Color(0xFF051328);
-  static const _mutedBorder = Color(0x26051328);
+  static const _ink = Color(0xFF102A08);
+  static const _mutedBorder = Color(0x26102A08);
 
   @override
   Widget build(BuildContext context) {
@@ -531,12 +531,12 @@ class _GoalTile extends StatelessWidget {
   final bool selected;
   final VoidCallback onTap;
 
-  static const _ink = Color(0xFF051328);
-  static const _yellow = Color(0xFFFEF9C2);
+  static const _ink = Color(0xFF102A08);
+  static const _yellow = Color(0xFFFF6A00);
 
   @override
   Widget build(BuildContext context) {
-    final bg = selected ? _yellow.withAlpha(140) : Colors.white;
+    final bg = selected ? _yellow.withAlpha(140) : const Color(0xFFFFF4DE);
 
     return InkWell(
       borderRadius: BorderRadius.circular(16 * s),
@@ -581,12 +581,12 @@ class _ActivityTile extends StatelessWidget {
   final bool selected;
   final VoidCallback onTap;
 
-  static const _ink = Color(0xFF051328);
-  static const _yellow = Color(0xFFFEF9C2);
+  static const _ink = Color(0xFF102A08);
+  static const _yellow = Color(0xFFFF6A00);
 
   @override
   Widget build(BuildContext context) {
-    final bg = selected ? _yellow.withAlpha(140) : Colors.white;
+    final bg = selected ? _yellow.withAlpha(140) : const Color(0xFFFFF4DE);
 
     return InkWell(
       borderRadius: BorderRadius.circular(16 * s),

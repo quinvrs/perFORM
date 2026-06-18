@@ -13,9 +13,9 @@ class ProfileSectionScreen extends StatefulWidget {
 
 class _ProfileSectionScreenState extends State<ProfileSectionScreen> {
   // style
-  static const _ink = Color(0xFF051328);
-  static const _mutedBorder = Color(0x26051328);
-  static const _yellow = Color(0xFFFEF9C2);
+  static const _ink = Color(0xFF102A08);
+  static const _mutedBorder = Color(0x26102A08);
+  static const _yellow = Color(0xFFFF6A00);
 
   // controllers/state
   final TextEditingController _nameCtrl = TextEditingController();
@@ -147,7 +147,7 @@ class _ProfileSectionScreenState extends State<ProfileSectionScreen> {
             },
             child: const Text(
               'Erase Data',
-              style: TextStyle(color: Colors.red, fontWeight: FontWeight.bold),
+              style: TextStyle(color:  Color(0xFFE8260D), fontWeight: FontWeight.bold),
             ),
           ),
         ],
@@ -164,7 +164,7 @@ class _ProfileSectionScreenState extends State<ProfileSectionScreen> {
       builder: (ctx) => AlertDialog(
         title: const Text(
           'Delete Profile?',
-          style: TextStyle(color: Colors.red),
+          style: TextStyle(color:  Color(0xFFE8260D)),
         ),
         content: const Text(
           'This will permanently delete EVERYTHING:\n\n'
@@ -198,7 +198,7 @@ class _ProfileSectionScreenState extends State<ProfileSectionScreen> {
             },
             child: const Text(
               'Delete Forever',
-              style: TextStyle(color: Colors.red, fontWeight: FontWeight.bold),
+              style: TextStyle(color:  Color(0xFFE8260D), fontWeight: FontWeight.bold),
             ),
           ),
         ],
@@ -243,7 +243,7 @@ class _ProfileSectionScreenState extends State<ProfileSectionScreen> {
             height: 84 * s,
             decoration: const BoxDecoration(
               shape: BoxShape.circle,
-              color: Color(0xFFEDEFF3),
+              color: Color(0xFFFFE8C8),
             ),
             alignment: Alignment.center,
             child: Text(
@@ -260,7 +260,7 @@ class _ProfileSectionScreenState extends State<ProfileSectionScreen> {
           );
 
     return Scaffold(
-      backgroundColor: Colors.white,
+      backgroundColor: const Color(0xFFFFF4DE),
       body: SafeArea(
         bottom: false,
         child: Stack(
@@ -412,7 +412,7 @@ class _ProfileSectionScreenState extends State<ProfileSectionScreen> {
                     decoration: InputDecoration(
                       hintText: 'Enter your name',
                       filled: true,
-                      fillColor: Colors.white,
+                      fillColor: const Color(0xFFFFF4DE),
                       contentPadding: EdgeInsets.symmetric(
                         horizontal: 14 * s,
                         vertical: 14 * s,
@@ -616,14 +616,14 @@ class _ProfileSectionScreenState extends State<ProfileSectionScreen> {
                           children: [
                             Icon(
                               Icons.delete_forever_rounded,
-                              color: Colors.red[700],
+                              color: const Color(0xFFCC260C),
                               size: 20 * s,
                             ),
                             SizedBox(width: 8 * s),
                             Text(
                               'Clear Workout History',
                               style: TextStyle(
-                                color: Colors.red[700],
+                                color: const Color(0xFFCC260C),
                                 fontSize: 14 * s,
                                 fontWeight: FontWeight.w700,
                                 fontFamily: 'DM Sans',
@@ -653,14 +653,14 @@ class _ProfileSectionScreenState extends State<ProfileSectionScreen> {
                           children: [
                             Icon(
                               Icons.person_off_rounded,
-                              color: Colors.red[900],
+                              color: const Color(0xFF9E1E06),
                               size: 20 * s,
                             ),
                             SizedBox(width: 8 * s),
                             Text(
                               'Delete Profile & Reset App',
                               style: TextStyle(
-                                color: Colors.red[900],
+                                color: const Color(0xFF9E1E06),
                                 fontSize: 14 * s,
                                 fontWeight: FontWeight.w700,
                                 fontFamily: 'DM Sans',
@@ -730,12 +730,12 @@ class _ChoiceChip extends StatelessWidget {
   final bool selected;
   final VoidCallback onTap;
 
-  static const _ink = Color(0xFF051328);
-  static const _yellow = Color(0xFFFEF9C2);
+  static const _ink = Color(0xFF102A08);
+  static const _yellow = Color(0xFFFF6A00);
 
   @override
   Widget build(BuildContext context) {
-    final bg = selected ? _yellow.withAlpha(150) : Colors.white;
+    final bg = selected ? _yellow.withAlpha(150) : const Color(0xFFFFF4DE);
 
     return InkWell(
       borderRadius: BorderRadius.circular(16 * s),
@@ -788,8 +788,8 @@ class _SliderBlock extends StatelessWidget {
   final ValueChanged<double> onChanged;
   final VoidCallback onValueTap;
 
-  static const _ink = Color(0xFF051328);
-  static const _mutedBorder = Color(0x26051328);
+  static const _ink = Color(0xFF102A08);
+  static const _mutedBorder = Color(0x26102A08);
 
   @override
   Widget build(BuildContext context) {
@@ -891,12 +891,12 @@ class _GoalTile extends StatelessWidget {
   final bool selected;
   final VoidCallback onTap;
 
-  static const _ink = Color(0xFF051328);
-  static const _yellow = Color(0xFFFEF9C2);
+  static const _ink = Color(0xFF102A08);
+  static const _yellow = Color(0xFFFF6A00);
 
   @override
   Widget build(BuildContext context) {
-    final bg = selected ? _yellow.withAlpha(140) : Colors.white;
+    final bg = selected ? _yellow.withAlpha(140) : const Color(0xFFFFF4DE);
 
     return InkWell(
       borderRadius: BorderRadius.circular(16 * s),
@@ -947,12 +947,12 @@ class _ActivityTile extends StatelessWidget {
   final bool selected;
   final VoidCallback onTap;
 
-  static const _ink = Color(0xFF051328);
-  static const _yellow = Color(0xFFFEF9C2);
+  static const _ink = Color(0xFF102A08);
+  static const _yellow = Color(0xFFFF6A00);
 
   @override
   Widget build(BuildContext context) {
-    final bg = selected ? _yellow.withAlpha(140) : Colors.white;
+    final bg = selected ? _yellow.withAlpha(140) : const Color(0xFFFFF4DE);
 
     return InkWell(
       borderRadius: BorderRadius.circular(16 * s),

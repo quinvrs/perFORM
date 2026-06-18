@@ -22,7 +22,7 @@ Future<void> showExerciseDetailsSheet(
     context: context,
     isScrollControlled: true,
     backgroundColor: Colors.transparent,
-    barrierColor: Colors.black.withValues(alpha: 0.45),
+    barrierColor: const Color(0xFF102507).withValues(alpha: 0.58),
     builder: (sheetCtx) {
       return _ExerciseDetailsSheet(
         workout: workout,
@@ -52,7 +52,7 @@ class _ExerciseDetailsSheet extends StatefulWidget {
 }
 
 class _ExerciseDetailsSheetState extends State<_ExerciseDetailsSheet> {
-  static const _segBg = Color(0xFFEFEFF3);
+  static const _segBg = Color(0xFFF0F7D7);
 
   int _tab = 0; // 0=Animation, 1=Muscle, 2=How to do
 
@@ -115,7 +115,7 @@ class _ExerciseDetailsSheetState extends State<_ExerciseDetailsSheet> {
           heightFactor: 0.92,
           child: Container(
             decoration: BoxDecoration(
-              color: Colors.white,
+              color: const Color(0xFFFFF7E8),
               borderRadius: BorderRadius.vertical(top: Radius.circular(22 * s)),
             ),
             child: Column(
@@ -125,7 +125,7 @@ class _ExerciseDetailsSheetState extends State<_ExerciseDetailsSheet> {
                   width: 56 * s,
                   height: 5 * s,
                   decoration: BoxDecoration(
-                    color: Colors.black.withValues(alpha: 0.12),
+                    color: const Color(0xFF596B22).withValues(alpha: 0.22),
                     borderRadius: BorderRadius.circular(999),
                   ),
                 ),
@@ -139,7 +139,7 @@ class _ExerciseDetailsSheetState extends State<_ExerciseDetailsSheet> {
                         child: Text(
                           title.toUpperCase(),
                           style: TextStyle(
-                            color: Colors.black,
+                            color: const Color(0xFF173A12),
                             fontSize: 24 * s,
                             fontWeight: FontWeight.w900,
                             fontFamily: 'DM Sans',
@@ -190,7 +190,7 @@ class _ExerciseDetailsSheetState extends State<_ExerciseDetailsSheet> {
                               ),
                             ),
                           // subtle overlay
-                          Container(color: Colors.black.withValues(alpha: 0.10)),
+                          Container(color: const Color(0xFF173A12).withValues(alpha: 0.14)),
 
                           // loading spinner if still initializing
                           if (_vid != null && !_vidReady && !_vidError)
@@ -202,14 +202,14 @@ class _ExerciseDetailsSheetState extends State<_ExerciseDetailsSheet> {
                               width: 64 * s,
                               height: 64 * s,
                               decoration: BoxDecoration(
-                                color: Colors.black.withValues(alpha: 0.45),
+                                color: const Color(0xFF102507).withValues(alpha: 0.62),
                                 shape: BoxShape.circle,
                               ),
                               child: Icon(
                                 (_started && _vid != null && _vidReady && !_vidError && _vid!.value.isPlaying)
                                     ? Icons.pause_rounded
                                     : Icons.play_arrow_rounded,
-                                color: Colors.white,
+                                color: const Color(0xFFFFF4DF),
                                 size: 40 * s,
                               ),
                             ),
@@ -369,8 +369,8 @@ class _BottomStartButton extends StatelessWidget {
   final double s;
   final VoidCallback onTap;
 
-  static const _ink = Color(0xFF051328);
-  static const _yellow = Color(0xFFFEF9C2);
+  static const _ink = Color(0xFF173A12);
+  static const _yellow = Color(0xFFFF6A00);
 
   @override
   Widget build(BuildContext context) {
@@ -391,7 +391,7 @@ class _BottomStartButton extends StatelessWidget {
             child: Text(
               'START EXERCISE',
               style: TextStyle(
-                color: _ink,
+                color: const Color(0xFFFFF4DF),
                 fontSize: 16 * s,
                 fontWeight: FontWeight.w900,
                 letterSpacing: 0.5,
@@ -418,8 +418,8 @@ class _SegBtn extends StatelessWidget {
   final bool selected;
   final VoidCallback onTap;
 
-  static const _ink = Color(0xFF051328);
-  static const _yellow = Color(0xFFFEF9C2);
+  static const _ink = Color(0xFF173A12);
+  static const _yellow = Color(0xFFDFFF71);
 
   @override
   Widget build(BuildContext context) {
@@ -438,7 +438,7 @@ class _SegBtn extends StatelessWidget {
           child: Text(
             label,
             style: TextStyle(
-              color: selected ? _ink : Colors.black.withValues(alpha: 0.55),
+              color: selected ? _ink : const Color(0xFF173A12).withValues(alpha: 0.62),
               fontSize: 12 * s,
               fontWeight: FontWeight.w800,
               fontFamily: 'DM Sans',
@@ -461,7 +461,7 @@ class _TabAnimation extends StatelessWidget {
   final WorkoutPlan plan;
   final bool hasLink;
 
-  static const _blue = Color(0xFF537892);
+  static const _blue = Color(0xFF5D741E);
 
   @override
   Widget build(BuildContext context) {
@@ -481,7 +481,7 @@ class _TabAnimation extends StatelessWidget {
         Text(
           'Preview',
           style: TextStyle(
-            color: Colors.black,
+            color: const Color(0xFF173A12),
             fontSize: 14 * s,
             fontWeight: FontWeight.w900,
             fontFamily: 'DM Sans',
@@ -493,7 +493,7 @@ class _TabAnimation extends StatelessWidget {
               ? 'Tap the video to play/pause. Use the YouTube button for the full online demo.'
               : 'Tap the video to play/pause.',
           style: TextStyle(
-            color: Colors.black.withValues(alpha: 0.65),
+            color: const Color(0xFF173A12).withValues(alpha: 0.70),
             fontSize: 13 * s,
             height: 1.35,
             fontFamily: 'DM Sans',
@@ -515,8 +515,8 @@ class _TabMuscle extends StatelessWidget {
   final String title;
   final WorkoutPlan plan;
 
-  static const _blue = Color(0xFF537892);
-  static const _yellow = Color(0xFFFEF9C2);
+  static const _blue = Color(0xFF5D741E);
+  static const _yellow = Color(0xFFFFC067);
 
   @override
   Widget build(BuildContext context) {
@@ -566,7 +566,7 @@ class _TabMuscle extends StatelessWidget {
                     Text(
                       a,
                       style: TextStyle(
-                        color: Colors.black,
+                        color: const Color(0xFF173A12),
                         fontSize: 12 * s,
                         fontWeight: FontWeight.w800,
                         fontFamily: 'DM Sans',
@@ -594,7 +594,7 @@ class _TabMuscle extends StatelessWidget {
             child: Text(
               '• $b',
               style: TextStyle(
-                color: Colors.black.withValues(alpha: 0.75),
+                color: const Color(0xFF173A12).withValues(alpha: 0.78),
                 fontSize: 13 * s,
                 height: 1.35,
                 fontFamily: 'DM Sans',
@@ -617,7 +617,7 @@ class _TabHowTo extends StatelessWidget {
   final String title;
   final WorkoutPlan plan;
 
-  static const _blue = Color(0xFF537892);
+  static const _blue = Color(0xFF5D741E);
 
   @override
   Widget build(BuildContext context) {
@@ -648,7 +648,7 @@ class _TabHowTo extends StatelessWidget {
         Text(
           how,
           style: TextStyle(
-            color: Colors.black.withValues(alpha: 0.85),
+            color: const Color(0xFF173A12).withValues(alpha: 0.88),
             fontSize: 14 * s,
             height: 1.5,
             fontFamily: 'DM Sans',
@@ -685,7 +685,7 @@ class _TabHowTo extends StatelessWidget {
                   child: Text(
                     mistakes[i],
                     style: TextStyle(
-                      color: Colors.black.withValues(alpha: 0.75),
+                      color: const Color(0xFF173A12).withValues(alpha: 0.78),
                       fontSize: 13 * s,
                       height: 1.45,
                       fontFamily: 'DM Sans',
@@ -712,7 +712,7 @@ class _TabHowTo extends StatelessWidget {
             child: Text(
               '• $t',
               style: TextStyle(
-                color: Colors.black.withValues(alpha: 0.75),
+                color: const Color(0xFF173A12).withValues(alpha: 0.78),
                 fontSize: 13 * s,
                 height: 1.35,
                 fontFamily: 'DM Sans',
@@ -754,7 +754,7 @@ class _SectionRow extends StatelessWidget {
         Text(
           right,
           style: TextStyle(
-            color: Colors.black.withValues(alpha: 0.65),
+            color: const Color(0xFF173A12).withValues(alpha: 0.70),
             fontSize: 16 * s,
             fontWeight: FontWeight.w900,
             fontFamily: 'DM Sans',

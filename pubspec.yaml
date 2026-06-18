@@ -23,30 +23,32 @@ dependencies:
   cupertino_icons: ^1.0.8
   permission_handler: ^12.0.1
   google_mlkit_pose_detection: ^0.14.0
+  http: ^1.6.0
 
 dev_dependencies:
   flutter_test:
     sdk: flutter
   flutter_launcher_icons: ^0.13.1
   flutter_lints: ^6.0.0
+  build_runner: ^2.15.0
 
-flutter_icons:
+flutter_launcher_icons:
   android: true
   ios: true
-  image_path: "assets/app-icon.png"
-  remove_alpha_ios: true
+  image_path: "assets/app-icon-far-centered-bigger.png"
+  adaptive_icon_background: "#FFFFFF"
+  adaptive_icon_foreground: "assets/app-icon-adaptive-foreground-far-centered-bigger.png"
   
 flutter:
   uses-material-design: true
 
   assets:
-    - assets/corerect-transparent-1.png
-    - assets/corerect-transparent.png
+    - assets/perform-transparent.png
     - assets/male-avatar.png
     - assets/female-avatar.png
     - assets/squat-avatar.png
     - assets/jumping-jack-avatar.png
     - assets/squat.mp4
     - assets/jumpingjacks.mp4
-    - assets/corerect-text-logo.png
+    - assets/perform-text-logo.png
 

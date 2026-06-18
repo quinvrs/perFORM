@@ -6,8 +6,8 @@ class CameraSetupChecker {
   String lastReason = '';
 
   CameraSetupChecker({
-    this.marginRatio = 0.04,
-    this.centerTolRatio = 0.20,
+    this.marginRatio = 0.02, // Loosened slightly to prevent accidental edge cutoffs
+    this.centerTolRatio = 0.25, // Adjusted tolerance for better indoor room placement
     this.minHeightRatio = 0.35,
     this.maxHeightRatio = 0.98,
     this.requiredGoodFrames = 1,
@@ -21,12 +21,15 @@ class CameraSetupChecker {
 
   int _streak = 0;
 
+  /// Updates the setup checker. Pass [isJumpingJacks] as true for jumping jacks 
+  /// to enforce strict full-body leg visibility, or false for squats.
   bool update({
     required List<Pose> poses,
     required Size canvasSize, // preview canvas size (portrait)
     required Size imageSize,
     required InputImageRotation rotation,
     required CameraLensDirection lensDirection,
+    bool isJumpingJacks = false, 
   }) {
     final ok = _isOk(
       poses: poses,
@@ -34,6 +37,7 @@ class CameraSetupChecker {
       imageSize: imageSize,
       rotation: rotation,
       lensDirection: lensDirection,
+      isJumpingJacks: isJumpingJacks,
     );
 
     _streak = ok ? _streak + 1 : 0;
@@ -46,6 +50,7 @@ class CameraSetupChecker {
     required Size imageSize,
     required InputImageRotation rotation,
     required CameraLensDirection lensDirection,
+    required bool isJumpingJacks,
   }) {
     if (poses.isEmpty) {
       lastReason = 'no pose';
@@ -55,34 +60,40 @@ class CameraSetupChecker {
     final pose = poses.first;
     final lm = pose.landmarks;
 
-    const required = <PoseLandmarkType>[
+    // 🧠 Dynamic Landmark Requirement:
+    // Squat: Only requires shoulders, hips, and knees. Feet can be off-screen.
+    // Jumping Jacks: Must see all joints down to the ankles.
+    final required = <PoseLandmarkType>[
       PoseLandmarkType.leftShoulder,
       PoseLandmarkType.rightShoulder,
       PoseLandmarkType.leftHip,
       PoseLandmarkType.rightHip,
       PoseLandmarkType.leftKnee,
       PoseLandmarkType.rightKnee,
-      PoseLandmarkType.leftAnkle,
-      PoseLandmarkType.rightAnkle,
+      if (isJumpingJacks) ...[
+        PoseLandmarkType.leftAnkle,
+        PoseLandmarkType.rightAnkle,
+      ],
     ];
 
     final points = <Offset>[];
-      final missing = <PoseLandmarkType>[];
+    final missing = <PoseLandmarkType>[];
 
-      for (final t in required) {
-        final p = lm[t];
-        if (p == null) missing.add(t);
-      }
+    for (final t in required) {
+      final p = lm[t];
+      // Check likelihood threshold (0.55 standard)
+      if (p == null || p.likelihood < 0.55) missing.add(t);
+    }
 
-      if (missing.isNotEmpty) {
-        lastReason = 'missing: $missing';
-        return false;
-      }
+    if (missing.isNotEmpty) {
+      lastReason = 'missing: ${missing.map((e) => e.name).join(", ")}';
+      return false;
+    }
 
-      for (final t in required) {
-        final p = lm[t]!;
-        points.add(_map(p.x, p.y, canvasSize, imageSize, rotation, lensDirection));
-      }
+    for (final t in required) {
+      final p = lm[t]!;
+      points.add(_map(p.x, p.y, canvasSize, imageSize, rotation, lensDirection));
+    }
 
     double minX = points.first.dx, maxX = points.first.dx;
     double minY = points.first.dy, maxY = points.first.dy;
@@ -100,17 +111,19 @@ class CameraSetupChecker {
     final mx = canvasSize.width * marginRatio;
     final my = canvasSize.height * marginRatio;
 
-    // not cut off
+    // Not cut off bounds validation
     if (minX < mx || maxX > canvasSize.width - mx) {
       lastReason = 'cut off (X)';
       return false;
     }
-    if (minY < my || maxY > canvasSize.height - my) {
+    
+    // For squats, don't flag the bottom edge as "cut off" if the ankles are missing
+    if (minY < my || (isJumpingJacks && maxY > canvasSize.height - my)) {
       lastReason = 'cut off (Y)';
       return false;
     }
 
-    // centered
+    // Centered rules
     if ((cx - canvasSize.width / 2).abs() > canvasSize.width * centerTolRatio) {
       lastReason = 'not centered (X)';
       return false;
@@ -120,9 +133,14 @@ class CameraSetupChecker {
       return false;
     }
 
-    // distance
+    // 🧠 Dynamic Distance Calibration:
+    // Since squat tracking drops the ankles, the tracking box height ratio (boxH) 
+    // will naturally be shorter. We compensate by lowering the min threshold for squats 
+    // so you can stand closer (2 meters) instead of 4-5 meters back.
     final hRatio = boxH / canvasSize.height;
-    if (hRatio < minHeightRatio) {
+    final targetMinRatio = isJumpingJacks ? minHeightRatio : (minHeightRatio * 0.72);
+
+    if (hRatio < targetMinRatio) {
       lastReason = 'too far';
       return false;
     }
