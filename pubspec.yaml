@@ -32,11 +32,12 @@ dev_dependencies:
   flutter_lints: ^6.0.0
   build_runner: ^2.15.0
 
-flutter_icons:
+flutter_launcher_icons:
   android: true
   ios: true
-  image_path: "assets/app-icon.png"
-  remove_alpha_ios: true
+  image_path: "assets/app-icon-far-centered-bigger.png"
+  adaptive_icon_background: "#FFFFFF"
+  adaptive_icon_foreground: "assets/app-icon-adaptive-foreground-far-centered-bigger.png"
   
 flutter:
   uses-material-design: true

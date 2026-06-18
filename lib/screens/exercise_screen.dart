@@ -278,15 +278,15 @@ Future<void> _sendPoseToHmm(Pose pose) async {
       // ===================================================================
       // 🧠 TRIGGER AUTOMATED VOICE COACHING TIPS
       // ===================================================================
-      if (result.feedback != null && result.feedback!.isNotEmpty) {
+      if (result.feedback.isNotEmpty) {
         final now = DateTime.now();
         
         // 🛠️ FIX: Removed strict string verification so reminders can repeat 
         // every 4 seconds if bad posture remains uncorrected.
         if (now.difference(_lastFormSpeechTime) > const Duration(seconds: 4)) {
           _lastFormSpeechTime = now;
-          _lastSpokenFeedback = result.feedback!;
-          unawaited(_tts.speak(result.feedback!)); 
+          _lastSpokenFeedback = result.feedback;
+          unawaited(_tts.speak(result.feedback)); 
         }
       }
       // ===================================================================
